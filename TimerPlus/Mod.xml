@@ -1,0 +1,42 @@
+﻿<Mod>
+	<Name>Timer Plus</Name>
+	<Author>wizz6rd</Author>
+	<Version>0.1.0</Version>
+
+	<Description>
+	One block that is up to thirty-two of Besiege's timer blocks. Each row of its
+	table is a timer with the same settings the game's own has -- activation key
+	or variable, hold to run, allow stop, loop, wait, emulation duration and the
+	key or variable it presses -- and the rows can be sorted by any column. A
+	button at the bottom converts the table into that many real timer blocks,
+	laid out on one horizontal plane and handed over as a selection.
+
+	Block model by Poly by Google, from Poly Pizza, under CC-BY 3.0. The settings
+	panel needs UI Factory (Workshop item 2913469777); without it the block falls
+	back to Besiege's own block mapper.
+	</Description>
+
+	<Icon name="TimerPlus_icon" />
+	<Debug>false</Debug>
+	<MultiplayerCompatible>true</MultiplayerCompatible>
+
+	<Assemblies>
+		<Assembly path="TimerPlus.dll" />
+	</Assemblies>
+
+	<Blocks>
+		<Block path="TimerPlus.xml" />
+	</Blocks>
+
+	<Resources>
+		<Mesh name="TimerPlus_mesh" path="TimerPlus.obj" />
+		<Texture name="TimerPlus_texture" path="TimerPlus.png" />
+		<Texture name="TimerPlus_icon" path="Thumbnail.png" />
+	</Resources>
+
+<!-- This value is automatically generated. Do not change it or you may break machine&level save files. -->
+
+
+<!-- This value is automatically generated. Do not change it or you may break machine&level save files. -->
+<ID>5e4cf293-3cb4-494d-8009-fce53ade8e4a</ID>
+</Mod>
