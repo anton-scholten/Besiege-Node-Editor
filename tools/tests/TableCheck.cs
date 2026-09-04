@@ -27,7 +27,6 @@ static class TableCheck
         Sorting();
         Stability();
         Descending();
-        Unbound();
         Spelling();
         Variables();
         Ticks();
@@ -59,15 +58,17 @@ static class TableCheck
 
     /// <summary>
     /// The property that makes a second sort useful: rows that tie on the column
-    /// keep the order they were already in, so sorting by Loop after sorting by
-    /// Wait gives Wait within Loop rather than a reshuffle.
+    /// keep the order they were already in, so sorting by Duration after sorting
+    /// by Wait gives Wait within Duration rather than a reshuffle.
     /// </summary>
     static void Stability()
     {
         List<RowData> rows = Rows(1f, 2f, 3f, 4f);
-        rows[0].Loop = true;
-        rows[2].Loop = true;
-        Sort(rows, Table.ColLoop, true);
+        rows[0].Duration = 1f;
+        rows[1].Duration = 2f;
+        rows[2].Duration = 1f;
+        rows[3].Duration = 2f;
+        Sort(rows, Table.ColDuration, true);
         Same("a tie keeps the order it was in", "1,3,2,4", Waits(rows));
     }
 
@@ -76,29 +77,6 @@ static class TableCheck
         List<RowData> rows = Rows(1f, 3f, 2f);
         Sort(rows, Table.ColWait, false);
         Same("waits sort descending", "3,2,1", Waits(rows));
-    }
-
-    /// <summary>
-    /// An unbound key is not a small value on its column, it is a row the column
-    /// says nothing about -- so it goes last whichever way the column is sorted,
-    /// rather than heading the list every time it is reversed.
-    /// </summary>
-    static void Unbound()
-    {
-        List<RowData> rows = Rows(1f, 2f, 3f);
-        rows[0].EmulateKey = KeyCode.None;
-        rows[1].EmulateKey = KeyCode.Z;
-        rows[2].EmulateKey = KeyCode.A;
-
-        Sort(rows, Table.ColEmulate, true);
-        Same("unbound last, ascending", "3,2,1", Waits(rows));
-
-        rows = Rows(1f, 2f, 3f);
-        rows[0].EmulateKey = KeyCode.None;
-        rows[1].EmulateKey = KeyCode.Z;
-        rows[2].EmulateKey = KeyCode.A;
-        Sort(rows, Table.ColEmulate, false);
-        Same("unbound last, descending", "2,3,1", Waits(rows));
     }
 
     /// <summary>What a cell shows for a keycode. These are read at a glance in a

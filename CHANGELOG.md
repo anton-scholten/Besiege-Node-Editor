@@ -12,19 +12,26 @@ timers.
   tick a real timer beside it would. Rows run during a simulation; converting them
   is a convenience, not the point of the block.
 - **The table**, drawn through UI Factory and docked under Besiege's own block
-  mapper, which keeps the block's activation key and its Automatic switch:
-  activation, wait, duration, hold to run, allow stop, loop and the emulated key,
-  a row at a time, with `+` at the bottom to add another.
-- **A `#` column** numbering the rows by wait, so the timer that fires first is 1
-  however the table is ordered.
-- **Sorting** on any column, stable, with unbound rows kept at the bottom of a key
-  column whichever way it is sorted.
-- **Variables everywhere a key can go**, on the block's own activation and on both
-  keys of every row, switched with Besiege's own key/variable bubbles borrowed off
-  the mapper.
-- **Tooltips** on every icon and heading, fading in over the control they explain
-  the way the game's own do, which is where the `H`, `S` and `L` columns say their
-  full names.
+  mapper, which keeps the block's activation key and its Automatic switch: wait,
+  duration, hold to run, allow stop, loop and the emulated key, a row at a time,
+  with `+` at the bottom to add another. Every row is started by the block's own
+  key — the mapper above the table is the one place activation is set.
+- **A number down the left** ranking the rows by wait, so the timer that fires
+  first is 1 however the table is ordered. It has no heading; a column of small
+  numbers beside a column of times has already said what it is. It is also the
+  row's delete button: point anywhere on the row and it turns into a red X. That is a column of
+  crosses' worth of width back, which is what lets the table sit under the mapper
+  at the mapper's own width.
+- **Sorting** on wait and on duration, stable, so a second sort refines the first.
+  Nothing else sorts: three ticks in a column are read off faster than a sort is
+  clicked.
+- **Variables everywhere a key can go**, on the block's own activation and on the
+  key every row presses, switched with Besiege's own key/variable bubbles borrowed
+  off the mapper.
+- **Tooltips** on the column headings, fading in under the heading they explain
+  and shaped like the sibling Clippy mod's — capitals, sixteen point, air either
+  side — which is where the three switch columns, headed with a picture apiece, say
+  what they are in words.
 - **Convert to timer blocks**: one of Besiege's own timers per row, laid out on a
   horizontal plane and handed over as a selection through the game's own additive
   load, so one undo takes them all back.

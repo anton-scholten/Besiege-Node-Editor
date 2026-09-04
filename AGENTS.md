@@ -15,12 +15,14 @@ what gets uploaded to the Workshop. Everything beside it is not part of the mod.
 TimerPlus/Mod.xml                    manifest: assembly, resources, block list
 TimerPlus/TimerPlus.xml              the block: mesh, colliders, module, icon
 TimerPlus/TimerPlus.dll              built by tools/build.sh (checked in, the game loads it)
-TimerPlus/Resources/                 the mesh, its texture, the mod thumbnail
+TimerPlus/Resources/                 the mesh, its texture, the thumbnail, the UI icons
 TimerPlus/TimerPlusScripts/*.cs      mod source; not read by the game
 tools/build.sh                       compiles with Besiege's own compiler, and checks
 tools/verify-build.sh                the check to run after editing any .cs
 tools/install.sh                     builds and installs into the game
 tools/make-block-mesh.py             fetches and converts the block model
+tools/make-ui-icons.py               trims and scales the table's switch icons
+tools/icons/                         the artwork it reads (not loaded by the game)
 tools/tests/                         the checks the build runs (XML, blacklist, timer + table)
 docs/                                notes; not loaded by anything
 ```
@@ -40,6 +42,7 @@ them out of the copy it makes.
 ./tools/install.sh --no-build    # symlink only
 ./tools/install.sh --uninstall
 ./tools/make-block-mesh.py --preview   # rebuild the block mesh and texture, render previews
+python3 tools/make-ui-icons.py         # rebuild the H/S/L heading textures from tools/icons
 ```
 
 No .NET toolchain: the build drives Besiege's own `mcs.dll` through `libmono.so`.
@@ -84,6 +87,8 @@ What depends on what:
   `EmulateKeys`. It reconciles `row.Wants` against `row.Held` rather than letting
   the clock press anything.
 - **`Row`** is one row's controls plus its phase; **`Clock`** is the phase machine.
+  A row has no activation of its own: the block's key starts every row, and the
+  mapper above the table is where it is set.
 - **`Table`** lifts rows out of their controls as `RowData` so they can be sorted
   and deleted — a row *is* its controls, and reordering rows means moving values
   between them.
@@ -98,6 +103,22 @@ What depends on what:
   below.
 - **`MapperArt`** borrows the game's own key/variable bubble icons off a live
   `Selectors.KeySelector`. `Selectors` is not blacklisted; `InternalModding` is.
+- **`RowNumber`** is the number down the left of a row, which turns into a red X
+  while the pointer is anywhere on that row -- a transparent plate on the row frame
+  reports it, since uGUI only tells a Graphic about a pointer -- and deletes the
+  row when clicked. It replaced a column of
+  crosses down the right; the width that freed is what lets the panel sit at the
+  mapper's own width.
+- **`Glyphs`** loads the three switch-column headings — hold, stop, loop — through
+  `ModResource.GetTexture`, by the names `Mod.xml` declares, and draws the sort
+  mark itself: one triangle in a generated texture, turned over for a descending
+  sort, because a `^` and a `v` are two letters of different weights rather than
+  one mark two ways up. The rounded plate behind a row's delete X is drawn there
+  too -- both are a dozen lines of coverage sampling and neither is worth a file
+  in `Resources`. They are drawn into a
+  `RawImage`, which takes the `Texture` the resource system hands over as it is; an
+  `Image` would want a `Sprite` made from it and owned by somebody. Missing
+  textures fall back to the letters `H`, `S`, `L`.
 - **`Tip`** is one tooltip panel on the canvas, moved to whatever is hovered,
   rather than UI Factory's per-control `Besiege.UI.Bridge.Tooltip` — the table
   scrolls and hides whole rows, which a panel parented into a row cannot survive.
@@ -105,7 +126,9 @@ What depends on what:
   panel up and drifts it into place, so a pointer crossing a row of icons does not
   flash a hard-edged box on and off at each one. The panel is made the last child
   of the canvas on every showing, because the window is respawned on every rebuild
-  and uGUI draws siblings in order.
+  and uGUI draws siblings in order. Its shape — capitals, sixteen point, sixteen
+  units of padding, the point resting on the control's edge, below where there is
+  room — is the sibling Clippy mod's, so the two mods' tips read as one interface.
 
 ## Hard rules
 
@@ -123,8 +146,8 @@ replacing it. The sibling Orchestra mod's instrument blocks are laid out the sam
 way; `InstrumentBehaviour.ShowInMapper` says so in a comment at the bottom.
 
 **Do not rename a mapper key.** `"Activate"`, `"AutomaticKey"`, `"RowsKey"`, and
-the per-row `"Act<n>"`, `"Emu<n>"`, `"Wait<n>"`, `"Dur<n>"`, `"Hold<n>"`,
-`"Stop<n>"`, `"Loop<n>"` are what a saved machine stores its settings under.
+the per-row `"Emu<n>"`, `"Wait<n>"`, `"Dur<n>"`, `"Hold<n>"`, `"Stop<n>"`,
+`"Loop<n>"` are what a saved machine stores its settings under.
 Renaming one silently resets that setting on every existing machine. The display
 names beside them are only labels and are free to change.
 
@@ -143,11 +166,11 @@ plainly before anyone tries to make the table grow.
 
 `MKey` is the **only** mapper type that carries a variable. `MSlider`, `MToggle`,
 `MMenu` and `MValue` have nothing variable-related on them at all — no message, no
-emulation, no selector. So a row that can be started by a variable and can press a
-variable has to *be* two `MKey`s, and a mapper control can only be registered in
-`SafeAwake`. There is no API for adding one to a block that already exists.
+emulation, no selector. So a row that can press a variable has to *be* an `MKey`,
+and a mapper control can only be registered in `SafeAwake`. There is no API for
+adding one to a block that already exists.
 
-Hence: every row's seven controls are built for every block, whether the row is in
+Hence: every row's six controls are built for every block, whether the row is in
 use or not, and the row count is a control of its own that says how many of them
 mean anything. An unused row sits at its defaults, and Besiege leaves a
 default-valued control out of the save when `ExcludeDefaultSaveData` is on, so

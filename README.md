@@ -1,15 +1,16 @@
 # Besiege Timer Plus
 
+<img src="TimerPlus/Resources/Thumbnail.png" alt="thumbnail" width="200" align="right">
+
 One block that is up to thirty-two timer blocks, in
 [Besiege](https://store.steampowered.com/app/346010/Besiege/).
 
-![The Timer Plus block in the build area](Promo_1.jpg)
-
 A sequence of anything — a bomb run, a launch, a set of doors — is normally a row
 of timer blocks on the machine and a row of separate mappers to set them in. This
-is one block with a **table** in it. Each row is a whole timer with the same
-settings the game's own has, the columns sort, and a button at the bottom turns
-the table into that many real timer blocks when you want them.
+is one block with a **table** in it. Each row is a whole timer — wait, duration,
+hold to run, allow stop, loop, and the key it presses — started by the block's own
+key, and a button at the bottom turns the table into that many real timer blocks
+when you want them.
 
 Every row is a reproduction of Besiege's own timer, read out of the game: same
 phases, same 50 Hz tick, same rounding. A row fires on the tick a real timer
@@ -20,6 +21,8 @@ beside it would.
 optional here. With it the block gets the table docked under the block mapper;
 without it the rows appear in Besiege's ordinary mapper and everything still
 works.
+
+<br clear="right">
 
 ## Install
 
@@ -41,47 +44,52 @@ Click the block. Besiege's own mapper holds the block's activation key and its
 Automatic switch, the way any block's does, and the table is docked underneath.
 
 ```
-  ┌ Besiege's mapper ───────────────────────────────────────────────┐
-  │                          ACTIVATE (...)                         │
-  │                                B                                │
-  │                            AUTOMATIC                            │
-  └─────────────────────────────────────────────────────────────────┘
-  ┌ the table ──────────────────────────────────────────────────────┐
-  │ # │ ACTIVATE │ WAIT │ DURATION │ H │ S │ L │  EMULATE  │        │
-  │ 1 │(...) blk │ 0.5  │   0.2    │ · │ · │ · │  (...)  a │   x    │
-  │ 2 │(...) blk │ 1.2  │    1     │ · │ · │ ● │ (x)  fire │   x    │
-  │ 3 │ (...)  T │  3   │   0.5    │ ● │ · │ · │  (...)  b │   x    │
-  │ ─────────────────────────────────────────────────────────────── │
-  │                                +                                │
-  │ ─────────────────────────────────────────────────────────────── │
-  │                     CONVERT TO TIMER BLOCKS                     │
-  └─────────────────────────────────────────────────────────────────┘
+  ┌ Besiege's mapper ─────────────────────────────┐
+  │                 ACTIVATE (...)                │
+  │                       B                       │
+  │                   AUTOMATIC                   │
+  └───────────────────────────────────────────────┘
+  ┌ the table ────────────────────────────────────┐
+  │   │ WAIT │ DURATION │ ↧ │ ⏸ │ ↻ │   EMULATE   │
+  │ 1 │ 0.5  │   0.2    │ · │ · │ · │   (...)  a  │
+  │ X │ 1.2  │    1     │ · │ · │ ● │  (x)  fire  │
+  │ 3 │  3   │   0.5    │ ● │ · │ · │   (...)  b  │
+  │ ───────────────────────────────────────────── │
+  │                       +                       │
+  │ ───────────────────────────────────────────── │
+  │            CONVERT TO TIMER BLOCKS            │
+  └───────────────────────────────────────────────┘
 ```
 
 `(...)` and `(x)` are the two speech bubbles Besiege's own key selector uses; see
-[Keys and variables](#keys-and-variables) below.
+[Keys and variables](#keys-and-variables) below. The three switch columns are
+headed with a picture apiece — `↧` `⏸` `↻` above stand in for them. Row 2 is drawn
+with the pointer on its number, which is what deleting a row looks like.
 
-**ACTIVATE**, in the mapper above, is the block's own key — the one every row
-follows unless it has been given one of its own. **Automatic** starts those rows
-with the simulation instead.
+**ACTIVATE**, in the mapper above, is the block's own key, and it starts every row
+in the table. **Automatic** starts them with the simulation instead.
 
 | Column | What it does |
 | --- | --- |
-| **#** | Which timer this is, numbered by wait — 1 fires first, whatever order the rows are in |
-| **ACTIVATE** | What starts this row. `blk` follows the block's key above; bind something here and the row is on its own |
+| (the number) | Which timer this is, numbered by wait — 1 fires first, whatever order the rows are in. Point anywhere on the row and it turns into a red **X**: click to delete that row |
 | **WAIT** | Seconds from the start to the press |
 | **DURATION** | How long the press is held |
-| **H** | Hold to run: the activation becomes a switch rather than a trigger |
-| **S** | Allow stop: a second press stops a run in progress |
-| **L** | Loop: start again as soon as a cycle ends |
+| ↧ | Hold to run: the activation becomes a switch rather than a trigger |
+| ⏸ | Allow stop: a second press stops a run in progress |
+| ↻ | Loop: start again as soon as a cycle ends |
 | **EMULATE** | The key or variable this row presses |
 
-Every icon and heading says what it is on hover — fading in over what it explains,
-the way the game's own tooltips do — which is where `H`, `S` and `L` give their
-full names, a column holding a tick box having no room for a word.
+Column headings say what they are on hover, fading in under the heading the way
+the game's own tooltips do — which is where the three switch columns give their
+names in words. Nothing else carries a tip: a table whose every cell explains
+itself is a table you cannot read across.
 
 **+** adds a row. It copies the one above and pushes the wait on by the same gap
-as the last two, so a sequence being typed in carries on. **x** deletes a row.
+as the last two, so a sequence being typed in carries on. A block keeps at least
+one row, so the last one will not delete.
+
+The table is drawn at the mapper's own width, so the two are one window with a
+seam across it.
 
 Sliders are clipped but out-of-range values can be typed.
 
@@ -101,19 +109,20 @@ the cell to a variable; a bubble with a **cross** while a variable holds it, and
 clicking takes it back.
 
 In key mode, click the plate and press the key you want, or `Escape` to unbind it.
-In variable mode, type a name and the row listens to that name rather than to the
-keyboard — which is how one block on a machine drives another. Several names
-separated by `;` all work.
+In variable mode, type a name and the row presses that name rather than a key —
+which is how one block on a machine drives another. Several names separated by `;`
+all work.
 
 ## Sorting
 
-Click a column heading to sort by it, and again to reverse. The sort is stable, so
-sorting by `L` and then by `WAIT` gives wait order within looping. Rows with
-nothing bound in a key column stay at the bottom either way, because that column
-has nothing to say about them.
+Click **WAIT** or **DURATION** to sort by it, and again to reverse; a triangle on
+the heading says which way. The sort is
+stable, so sorting by duration and then by wait gives wait order within duration,
+and two rows that tie keep the order you put them in.
 
-The `#` heading sorts by wait — the number *is* the wait order, so putting the
-numbers back in order is the only thing sorting by them could mean.
+Those two are the only columns that sort. Three ticks in a column of thirty-two
+rows are read off faster than a sort is clicked, and a table in keycode-name order
+answers a question nobody asks.
 
 ## Converting
 
@@ -125,10 +134,9 @@ The Timer Plus block stays where it is, so you can convert again or keep editing
 The panel closes as the timers arrive, because they become the selection and that
 closes the block mapper it is docked to.
 
-Each timer is set exactly as its row was, with one substitution: a row that was
-following the block's key gets the block's key, since a timer standing on its own
-has nothing to follow. If the block was on **Automatic**, those timers get
-Besiege's own `automatic` instead.
+Each timer is set exactly as its row was, and every one gets the block's own
+activation key, since a timer standing on its own has nothing to follow. If the
+block was on **Automatic**, they get Besiege's own `automatic` instead.
 
 This is Besiege's own additive load — the same path the load screen's "add to
 machine" button runs — so joints, undo and the selection tool behave exactly as

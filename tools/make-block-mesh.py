@@ -54,7 +54,7 @@ POSE = (180.0, 0.0)
 # The block's toolbar icon rotation, which XmlCheck holds TimerPlus.xml to: the
 # preview is drawn from these numbers, so a pose judged from a picture is the
 # pose the game is given.
-ICON = (-108.0, -28.0, 16.0)
+ICON = (-95.0, -58.0, 0.0)
 
 # The model's palette, should it ever want repainting: material name (Poly Pizza
 # names each one after its own hex colour) to the colour the block wears. Empty,

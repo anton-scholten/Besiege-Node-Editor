@@ -38,7 +38,7 @@
 
 	<Icon>
 		<Position x="0.0" y="0.0" z="-1.5" /> <!--right, up, front-->
-		<Rotation x="-108.0" y="-28.0" z="16.0" /> <!--the angle the block is seen at in the build area: three-quarters from its left, the display readable and the block standing upright in the tile. Drawn by tools/make-block-mesh.py-->
+		<Rotation x="-95.0" y="-58.0" z="0.0" /> <!--the angle the block is seen at in the build area: standing upright, turned to show its left side, tipped a few degrees to show the buttons on its top. Measured against the block in the build area: same proportions of display to body, same side face, same lean. x is what leans the block in the tile, so it stays near -90. Drawn by tools/make-block-mesh.py-->
 		<Scale x="0.55" y="0.55" z="0.55" /> <!--the block is tall for its width, so three-quarters overflowed the toolbar tile-->
 	</Icon>
 

@@ -31,11 +31,9 @@ namespace TimerPlusMod
         private const float Gap = 2f;
 
         private GameObject mode;
-        private Tip modeTip;
         private Text modeLabel;
         private RawImage modeIcon;
         private GameObject plate;
-        private Tip plateTip;
         private Text plateLabel;
         private InputField box;
 
@@ -70,14 +68,8 @@ namespace TimerPlusMod
         /// </summary>
         private static KeyCell waiting;
 
-        /// <summary>What this cell shows when nothing is bound: "-" for the key it
-        /// presses, "blk" for a row following the block's own activation.</summary>
-        private string blank = Bindings.Unset;
-
-        /// <summary>What the plate says it is for, on hover. Set by the panel,
-        /// which is what knows whether this cell starts a row or is pressed by
-        /// one.</summary>
-        public string What = "";
+        /// <summary>What this cell shows when nothing is bound.</summary>
+        private readonly string blank = Bindings.Unset;
 
         /// <summary>Raised when the binding changes. The panel writes it through to
         /// the key and queues the commit.</summary>
@@ -96,20 +88,17 @@ namespace TimerPlusMod
         /// when it is showing a variable.</summary>
         public KeyCode Code = KeyCode.None;
 
-        /// <summary>Which row and column this cell belongs to, for the panel's own
+        /// <summary>Which row this cell belongs to, for the panel's own
         /// bookkeeping. Not used here.</summary>
         public int Row;
-        public bool IsActivation;
 
-        public static KeyCell Make(Transform host, float x, float y, float w, float h,
-                                   string blank)
+        public static KeyCell Make(Transform host, float x, float y, float w, float h)
         {
             GameObject go = new GameObject("KeyCell");
             go.transform.SetParent(host, false);
             UIF.Fit(go.AddComponent<RectTransform>(), x, y, w, h);
 
             KeyCell self = go.AddComponent<KeyCell>();
-            self.blank = blank;
             self.Build(w, h);
             return self;
         }
@@ -124,7 +113,6 @@ namespace TimerPlusMod
                 UIF.Fit(mode.GetComponent<RectTransform>(), 0f, 0f, ModeWidth, h);
                 UIF.NoSwell(mode);
                 modeLabel = Caption(mode, "K");
-                modeTip = mode.AddComponent<Tip>();
                 Button click = mode.GetComponent<Button>();
                 if (click != null)
                 {
@@ -138,7 +126,6 @@ namespace TimerPlusMod
                 UIF.Fit(plate.GetComponent<RectTransform>(), ModeWidth + Gap, 0f, rest, h);
                 UIF.NoSwell(plate);
                 plateLabel = Caption(plate, blank);
-                plateTip = plate.AddComponent<Tip>();
                 Button click = plate.GetComponent<Button>();
                 if (click != null)
                 {
@@ -154,7 +141,7 @@ namespace TimerPlusMod
                 if (box != null)
                 {
                     UIF.Style(box.textComponent, UIF.Ink, TextAnchor.MiddleLeft);
-                    UIF.Style(box.placeholder as Text, UIF.QuietInk, TextAnchor.MiddleLeft);
+                    UIF.Style(box.placeholder as Text, UIF.Ink, TextAnchor.MiddleLeft);
                     Text ghost = box.placeholder as Text;
                     if (ghost != null)
                     {
@@ -262,7 +249,7 @@ namespace TimerPlusMod
             {
                 // Only the fallback for a mapper whose icons could not be read.
                 modeLabel.text = modeIcon != null ? "" : (variable ? "V" : "K");
-                modeLabel.color = variable ? UIF.Live : UIF.QuietInk;
+                modeLabel.color = variable ? UIF.Live : UIF.Ink;
             }
             if (plate != null)
             {
@@ -283,40 +270,8 @@ namespace TimerPlusMod
                 bool bound = Code != KeyCode.None;
                 plateLabel.text = listening ? "press key"
                     : (bound ? Bindings.Spell(Code) : blank);
-                plateLabel.color = listening ? UIF.Hot
-                    : (bound ? UIF.Ink : UIF.QuietInk);
+                plateLabel.color = listening ? UIF.Hot : UIF.Ink;
             }
-            Explain();
-        }
-
-        /// <summary>
-        /// What the two halves of the cell say on hover.
-        ///
-        /// Rewritten on every repaint rather than set once, because both of them
-        /// mean something different in each mode -- and the bubble's whole job is
-        /// to say which way it will go if it is clicked.
-        /// </summary>
-        private void Explain()
-        {
-            if (modeTip != null)
-            {
-                modeTip.Text = variable
-                    ? "Use a key instead of a variable"
-                    : "Use a variable instead of a key";
-            }
-            if (plateTip == null)
-            {
-                return;
-            }
-            if (variable)
-            {
-                plateTip.Text = What + "\nType the name of a variable;\n"
-                              + "several separated by ; all work";
-                return;
-            }
-            plateTip.Text = listening
-                ? "Press the key to bind, or Escape to unbind"
-                : What + "\nClick, then press the key to bind";
         }
 
         // ---- editing ---------------------------------------------------------

@@ -142,12 +142,11 @@ namespace TimerPlusMod
 
             masterReader = new KeyReader(masterKey);
 
-            ownKeys = new MKey[MaxRows + 1];
-            ownKeys[0] = masterKey;
-            for (int i = 0; i < MaxRows; i++)
-            {
-                ownKeys[i + 1] = rows[i].Activate;
-            }
+            // What a row is not allowed to press: the key that starts this block.
+            // Besiege refuses the same thing for its own timer, and for the same
+            // reason -- a block that presses its own starter is a loop with no
+            // frame in it.
+            ownKeys = new MKey[] { masterKey };
 
             ShowStock(!Panel.Usable);
         }
@@ -157,11 +156,6 @@ namespace TimerPlusMod
             string n = index.ToString();
             Row row = new Row();
 
-            // KeyCode.None is how a key nobody has bound is spelled, and
-            // KeyInputController neither registers nor answers one -- so a row
-            // arrives following the block's own key, and takes its own the moment
-            // somebody binds one.
-            row.Activate = AddKey("Activate " + (index + 1), "Act" + n, KeyCode.None);
             row.Emulate = AddEmulatorKey("Emulate " + (index + 1), "Emu" + n, KeyCode.C);
 
             // Through BlockBehaviour rather than the modding API's own
@@ -180,7 +174,6 @@ namespace TimerPlusMod
             row.Stop = AddToggle("Allow stop " + (index + 1), "Stop" + n, false);
             row.Loop = AddToggle("Loop " + (index + 1), "Loop" + n, false);
 
-            row.Key = new KeyReader(row.Activate);
             return row;
         }
 
@@ -228,7 +221,6 @@ namespace TimerPlusMod
                 {
                     continue;
                 }
-                row.Activate.DisplayInMapper = on;
                 row.Emulate.DisplayInMapper = on;
                 row.Wait.DisplayInMapper = on;
                 row.Duration.DisplayInMapper = on;
@@ -263,7 +255,7 @@ namespace TimerPlusMod
             {
                 for (int i = 0; i < Count && i < rows.Count; i++)
                 {
-                    if (rows[i].Ready && !rows[i].Owns)
+                    if (rows[i].Ready)
                     {
                         Clock.Start(rows[i]);
                     }
@@ -281,13 +273,6 @@ namespace TimerPlusMod
                 return;
             }
             masterReader.ReadEmulation();
-            for (int i = 0; i < rows.Count; i++)
-            {
-                if (rows[i].Key != null)
-                {
-                    rows[i].Key.ReadEmulation();
-                }
-            }
         }
 
         public override void SimulateUpdateAlways()
@@ -298,31 +283,24 @@ namespace TimerPlusMod
             }
 
             masterReader.Poll();
+            if (automatic != null && automatic.IsActive)
+            {
+                // Started with the simulation; the key does nothing.
+                return;
+            }
+
             int count = Count;
-            for (int i = 0; i < rows.Count; i++)
+            for (int i = 0; i < count && i < rows.Count; i++)
             {
                 Row row = rows[i];
-                if (row.Key == null)
+                if (!row.Ready)
                 {
                     continue;
                 }
-                // Polled for every row, in use or not: a reader whose emulated
-                // edges are never consumed keeps a stale latch, and a row switched
-                // back on would act on a press from minutes ago.
-                row.Key.Poll();
-                if (i >= count || !row.Ready)
-                {
-                    continue;
-                }
-
-                bool own = row.Owns;
-                if (!own && automatic != null && automatic.IsActive)
-                {
-                    // Started with the simulation; the key does nothing.
-                    continue;
-                }
-                KeyReader reader = own ? row.Key : masterReader;
-                Clock.Pressed(row, reader.Pressed, reader.Held,
+                // One reader for the whole table: every row is started by the
+                // block's own key, so they all see the same press on the same
+                // frame.
+                Clock.Pressed(row, masterReader.Pressed, masterReader.Held,
                               row.HoldToRun, row.CanStop, row.Loops);
             }
         }
@@ -357,11 +335,11 @@ namespace TimerPlusMod
         /// Holds or lets go of a row's emulated key, through Besiege's own
         /// emulation rather than by writing to the key.
         ///
-        /// <c>ownKeys</c> is every activation key this block has, which is what
-        /// stops a row pressing a key that would start this same block --
+        /// <c>ownKeys</c> is the block's own activation key, which is what stops
+        /// a row pressing a key that would start this same block --
         /// <c>KeyInputController.EmulateEntry</c> compares the target against that
         /// array by reference and refuses a match. Besiege's own timer passes its
-        /// one activation key for exactly this reason.
+        /// own activation key for exactly this reason.
         /// </summary>
         private void Hold(Row row, bool down)
         {

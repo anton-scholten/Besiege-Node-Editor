@@ -46,6 +46,7 @@ static class XmlCheck
         int bad = 0;
         string modId = ModId(args);
         Dictionary<string, string> resources = Resources(args);
+        bad += Present(resources, args);
         Schema schema = Schema.Read(args);
         float[] iconPose = IconPose(args);
         int files = 0;
@@ -272,6 +273,44 @@ static class XmlCheck
             return 1;
         }
         return 0;
+    }
+
+    /// <summary>
+    /// Every declared resource is on disk.
+    ///
+    /// <see cref="Wears"/> only reaches the ones the block XML names. A texture
+    /// the code loads by name -- the table's switch headings -- is declared here
+    /// and mentioned nowhere else, and a missing file for one of those shows up
+    /// in the game as a heading that is simply not drawn.
+    /// </summary>
+    static int Present(Dictionary<string, string> resources, string[] args)
+    {
+        string root = null;
+        for (int i = 0; i < args.Length && root == null; i++)
+        {
+            if (args[i].EndsWith("Mod.xml"))
+            {
+                root = Path.Combine(
+                    Path.GetDirectoryName(Path.GetFullPath(args[i])), "Resources");
+            }
+        }
+        if (root == null)
+        {
+            return 0;
+        }
+        int bad = 0;
+        foreach (KeyValuePair<string, string> one in resources)
+        {
+            string file = Path.Combine(
+                root, one.Value.Replace('\\', Path.DirectorySeparatorChar));
+            if (!File.Exists(file))
+            {
+                Console.Error.WriteLine("  Mod.xml declares " + one.Key
+                                        + " at " + one.Value + ", which is not there");
+                bad++;
+            }
+        }
+        return bad;
     }
 
     /// <summary>Every mesh and texture Mod.xml declares, as kind:name -&gt; path.</summary>

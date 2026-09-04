@@ -26,12 +26,15 @@ namespace TimerPlusMod
     /// </summary>
     public class Tip : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
-        /// <summary>Air between the control and the point of the tooltip.</summary>
-        private const float Gap = 4f;
+        /// <summary>Air between the control and the point of the tooltip. None:
+        /// the point rests against the edge of what it explains, which is what
+        /// says which control that is -- the same as the sibling Clippy mod.</summary>
+        private const float Gap = 0f;
 
-        /// <summary>How near the top of the canvas a control has to be before the
-        /// tooltip goes below it instead.</summary>
-        private const float TopRoom = 90f;
+        /// <summary>How near the bottom of the canvas a control has to be before
+        /// the tooltip goes above it instead. Below is the side it is drawn on
+        /// where there is room, which is Besiege's own habit.</summary>
+        private const float BottomRoom = 90f;
 
         private string text;
 
@@ -111,11 +114,19 @@ namespace TimerPlusMod
             private static RectTransform panel;
             private static Text label;
             private static RectTransform triangle;
+            private static LayoutElement cap;
             private static Glide glide;
 
             /// <summary>How far the panel drifts as it fades up, towards the
             /// control it explains.</summary>
             private const float Drift = 7f;
+
+            // The tooltip's own shape, taken from the sibling Clippy mod so the two
+            // read as the same interface: sixteen point, capitals, air either side,
+            // and a line that wraps rather than a panel that runs off the screen.
+            private const int FontSize = 16;
+            private const float Padding = 16f;
+            private const float MaxWidth = 380f;
 
             /// <summary>The canvas every tooltip is drawn on. Set once, by the
             /// panel that builds it.</summary>
@@ -131,6 +142,7 @@ namespace TimerPlusMod
                 panel = null;
                 label = null;
                 triangle = null;
+                cap = null;
                 glide = null;
             }
 
@@ -159,7 +171,18 @@ namespace TimerPlusMod
                     return;
                 }
 
-                label.text = words;
+                // Besiege writes its interface in capitals, and matching that is
+                // most of what makes a panel read as the game's own -- the sibling
+                // Clippy mod puts every tip through the same call.
+                label.text = words.ToUpperInvariant();
+                if (cap != null)
+                {
+                    // preferredWidth is the width of the longest line laid out
+                    // without wrapping, so this holds a long tip to the measure and
+                    // leaves a short one alone.
+                    cap.preferredWidth =
+                        Mathf.Min(label.preferredWidth, MaxWidth - Padding * 2f);
+                }
                 // uGUI draws siblings in order, and the window is spawned fresh
                 // every time the table is rebuilt -- which puts it after a tooltip
                 // built before it, and so over the top of one. Last again on every
@@ -180,26 +203,49 @@ namespace TimerPlusMod
                 }
 
                 Vector2 room = canvas.rect.size;
-                float wide = panel.rect.width;
-                float tall = panel.rect.height;
+                float top = middle.y + half;
+                float bottom = middle.y - half;
 
-                // Above the control, unless it is too near the top of the screen for
-                // the panel to fit, in which case below it and the point turned over.
-                bool above = middle.y + half + Gap + tall < room.y * 0.5f
-                          || middle.y > -room.y * 0.5f + TopRoom;
-                float y = above ? middle.y + half + Gap + tall * 0.5f
-                                : middle.y - half - Gap - tall * 0.5f;
+                // Measured off the whole panel rather than its own rect. The
+                // prefab's bubble is a child stretched past the root -- twenty
+                // units each side and nine above and below -- and the point is a
+                // child of that, hung outside it again. Placing the root's edge
+                // against the control therefore puts the bubble over the control
+                // by whatever those two overhang, which is what had a heading's
+                // tooltip covering the heading.
+                Bounds box = Extent();
+                bool above = bottom - Gap - box.size.y < -room.y * 0.5f
+                          && middle.y < room.y * 0.5f - BottomRoom;
+                // The point moves from one edge of the panel to the other, so the
+                // measurement above is only right for the side it ends up on.
                 Point(above);
+                LayoutRebuilder.ForceRebuildLayoutImmediate(panel);
+                box = Extent();
+
+                // The edge of the panel that faces the control, put on the edge of
+                // the control that faces the panel.
+                float y = above
+                    ? top - Gap - (box.center.y - box.extents.y)
+                    : bottom + Gap - (box.center.y + box.extents.y);
 
                 // Kept on screen. The point stays over the control either way, so a
                 // clamped panel still says which control it belongs to.
-                float x = Mathf.Clamp(middle.x, -room.x * 0.5f + wide * 0.5f,
-                                                 room.x * 0.5f - wide * 0.5f);
-                y = Mathf.Clamp(y, -room.y * 0.5f + tall * 0.5f,
-                                    room.y * 0.5f - tall * 0.5f);
+                float x = Mathf.Clamp(middle.x,
+                    -room.x * 0.5f + box.extents.x, room.x * 0.5f - box.extents.x);
+                y = Mathf.Clamp(y, -room.y * 0.5f + box.extents.y,
+                                    room.y * 0.5f - box.extents.y);
                 glide.Settle(new Vector2(x, y),
                              new Vector2(0f, above ? -Drift : Drift));
                 Aim(middle.x - x);
+            }
+
+            /// <summary>What the panel covers, point and bubble included, in its
+            /// own coordinates -- so the middle of it is not the middle of the rect
+            /// its position is written in.</summary>
+            private static Bounds Extent()
+            {
+                return RectTransformUtility.CalculateRelativeRectTransformBounds(
+                    panel, panel);
             }
 
             /// <summary>
@@ -264,6 +310,29 @@ namespace TimerPlusMod
                     new Vector2(Mathf.Clamp(offset, -reach, reach), 0f);
             }
 
+            /// <summary>
+            /// Air either side of the words.
+            ///
+            /// Through the layout group's padding, because the prefab carries a
+            /// <c>VerticalLayoutGroup</c> and a <c>ContentSizeFitter</c> and sizes
+            /// itself to its contents -- a width written onto it is discarded at
+            /// the next layout pass, silently. Padding is the only instruction a
+            /// self-sizing panel takes.
+            /// </summary>
+            private static void Breathe(GameObject made)
+            {
+                VerticalLayoutGroup group = made.GetComponent<VerticalLayoutGroup>();
+                if (group == null)
+                {
+                    return;
+                }
+                RectOffset pad = group.padding;
+                int side = Mathf.RoundToInt(Padding);
+                group.padding = new RectOffset(
+                    Mathf.Max(pad.left, side), Mathf.Max(pad.right, side),
+                    Mathf.Max(pad.top, side / 3), Mathf.Max(pad.bottom, side / 3));
+            }
+
             private static bool Build()
             {
                 if (panel != null)
@@ -288,7 +357,23 @@ namespace TimerPlusMod
                     // The prefab's own wording, and the component that would put it
                     // back at the next language change, are both in the way.
                     label.text = "";
+                    label.fontSize = FontSize;
+                    // Two ways to a second line: a break written into the tip, for
+                    // an aside that reads better under what it qualifies, and
+                    // wrapping, for anything too long for one line at all.
+                    label.horizontalOverflow = HorizontalWrapMode.Wrap;
+                    label.verticalOverflow = VerticalWrapMode.Overflow;
+                    // The label sizes itself through a ContentSizeFitter of its
+                    // own, so a width written onto its rect is discarded; a
+                    // LayoutElement is the one thing a fitter defers to, and it is
+                    // what holds a long tip to a readable measure.
+                    cap = label.gameObject.GetComponent<LayoutElement>();
+                    if (cap == null)
+                    {
+                        cap = label.gameObject.AddComponent<LayoutElement>();
+                    }
                 }
+                Breathe(made);
 
                 // Fades it up rather than switching it on, and switches the object
                 // off again once it has faded away.

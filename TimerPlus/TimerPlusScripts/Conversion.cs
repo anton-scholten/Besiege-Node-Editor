@@ -71,9 +71,10 @@ namespace TimerPlusMod
             }
 
             bool automatic = block.Automatic != null && block.Automatic.IsActive;
-            RowData master = new RowData();
-            master.ActivateKey = Bindings.Code(block.MasterKey);
-            master.ActivateVariable = Bindings.IsVariable(block.MasterKey)
+            // Every row is started by the block, so every timer made from one is
+            // started by what started the block.
+            KeyCode key = Bindings.Code(block.MasterKey);
+            string variable = Bindings.IsVariable(block.MasterKey)
                 ? Bindings.Variable(block.MasterKey) : null;
 
             Vector3 origin = Origin(machine, block, rows.Count);
@@ -87,7 +88,7 @@ namespace TimerPlusMod
                     ((i % columns) - (columns - 1) * 0.5f) * Spacing,
                     0f,
                     ((i / columns) - (lines - 1) * 0.5f) * Spacing);
-                made.Add(One(rows[i], master, automatic, at));
+                made.Add(One(rows[i], key, variable, automatic, at));
             }
 
             return Drop.Into(made, machine);
@@ -120,8 +121,8 @@ namespace TimerPlusMod
         }
 
         /// <summary>One row as the game's own description of a timer block.</summary>
-        private static BlockInfo One(RowData row, RowData master, bool automatic,
-                                     Vector3 at)
+        private static BlockInfo One(RowData row, KeyCode key, string variable,
+                                     bool automatic, Vector3 at)
         {
             XDataHolder data = new XDataHolder();
             // Written on every block by the game itself; one less difference
@@ -134,19 +135,16 @@ namespace TimerPlusMod
             data.Write(new XBoolean(KeyStop, row.Stop));
             data.Write(new XBoolean(KeyLoop, row.Loop));
 
-            // A row that follows the block takes the block's own activation, since
-            // a standalone timer has nothing to follow -- and if the block starts
-            // with the simulation, so does the timer.
-            bool follows = row.ActivateVariable == null && row.ActivateKey == KeyCode.None;
-            if (follows && automatic)
+            // The timer takes the block's own activation, since a standalone
+            // timer has nothing to follow -- and if the block starts with the
+            // simulation, so does the timer.
+            if (automatic)
             {
                 data.Write(new XBoolean(KeyAutomatic, true));
             }
             else
             {
-                RowData from = follows ? master : row;
-                Binding(data, KeyActivate, from.ActivateVariable, from.ActivateKey,
-                        KeyCode.B);
+                Binding(data, KeyActivate, variable, key, KeyCode.B);
             }
 
             Binding(data, KeyEmulate, row.EmulateVariable, row.EmulateKey, KeyCode.C);

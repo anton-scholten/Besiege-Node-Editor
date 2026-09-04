@@ -26,19 +26,10 @@ namespace TimerPlusMod
         // over a list Besiege spawns.
         private const int CanvasOrder = 2400;
 
-        /// <summary>
-        /// The narrowest the table is drawn, whatever the mapper above it does.
-        ///
-        /// The panel otherwise takes the mapper's width, so the two read as one
-        /// window with a seam -- but the mapper is narrower than two full column
-        /// headings need, and "ACTIVATE" and "DURATION" shrunk to fit are worse
-        /// than a panel a little wider than what it hangs from. The seam still
-        /// lines up: the panel is docked by its left edge, so the extra is all on
-        /// the right.
-        /// </summary>
-        private const float MinWidth = 540f;
-
-        private const float DefaultWidth = MinWidth;
+        /// <summary>What the table is drawn at until the mapper has been measured.
+        /// After that it is the mapper's own width, so the two read as one window
+        /// with a seam rather than a panel wider than what it hangs from.</summary>
+        private const float DefaultWidth = 434f;
         private const float Margin = 10f;
         private const float RowHeight = 24f;
         private const float RowGap = 3f;
@@ -52,12 +43,31 @@ namespace TimerPlusMod
         private const float MaxHeight = 660f;
         private const float MinHeight = 180f;
 
-        /// <summary>Fixed column widths. The three switches and the delete cross do
-        /// not get wider on a wider mapper; the four that hold values do.</summary>
+        /// <summary>Fixed column widths. The number and the three switches do not
+        /// get wider on a wider mapper; the three that hold values do.</summary>
         private const float SwitchWidth = 26f;
-        private const float CrossWidth = 20f;
         private const float NumberWidth = 22f;
         private const float ColGap = 3f;
+
+        /// <summary>How big a switch column's picture is drawn. A little taller
+        /// than the lettering beside it: a glyph is thin strokes where a letter is
+        /// solid, and the two only read as one weight if the glyph is bigger.</summary>
+        private const float GlyphSize = 18f;
+
+        /// <summary>The sort mark's size, and how far its point sits in from the
+        /// right-hand end of the heading.</summary>
+        private const float MarkSize = 9f;
+        private const float MarkInset = 4f;
+
+        // Which column is which, left to right. The number is not a setting and
+        // has no heading -- it is also the row's delete button, see RowNumber.
+        private const int CNumber = 0;
+        private const int CWait = 1;
+        private const int CDuration = 2;
+        private const int CHold = 3;
+        private const int CStop = 4;
+        private const int CLoop = 5;
+        private const int CEmulate = 6;
 
         private static readonly Vector2 Reference = new Vector2(1920f, 1080f);
         private static readonly Color RuleInk = new Color(0.55f, 0.62f, 0.72f, 0.30f);
@@ -114,8 +124,7 @@ namespace TimerPlusMod
         private class Cells
         {
             public GameObject Frame;
-            public Text Number;
-            public KeyCell Activate;
+            public RowNumber Number;
             public InputField Wait;
             public InputField Duration;
             public Toggle Hold;
@@ -126,7 +135,10 @@ namespace TimerPlusMod
 
         private readonly List<Cells> table = new List<Cells>();
         private Text status;
-        private readonly Text[] heads = new Text[HeadNames.Length];
+        /// <summary>The sort mark on each sortable heading: one triangle, shown on
+        /// the column the table is sorted by and turned over for a descending
+        /// sort.</summary>
+        private readonly RawImage[] marks = new RawImage[HeadNames.Length];
 
         private int sortColumn = -1;
         private bool sortAscending = true;
@@ -267,7 +279,7 @@ namespace TimerPlusMod
             served.ShowStock(false);
             window.SetActive(true);
             // Whatever the last visit was told is not news about this one.
-            Say("", UIF.QuietInk);
+            Say("", UIF.Ink);
             Fill();
             Canvas.ForceUpdateCanvases();
             Dock();
@@ -495,9 +507,9 @@ namespace TimerPlusMod
         {
             table.Clear();
             status = null;
-            for (int i = 0; i < heads.Length; i++)
+            for (int i = 0; i < marks.Length; i++)
             {
-                heads[i] = null;
+                marks[i] = null;
             }
             if (window != null)
             {
@@ -519,25 +531,24 @@ namespace TimerPlusMod
         private float Full { get { return width - Margin * 2f - BarGutter; } }
 
         /// <summary>
-        /// Where each column starts and how wide it is. The three switches and the
-        /// delete cross are fixed; what is left is shared between the two key
-        /// columns and the two numbers, in that proportion -- a key or a variable
-        /// name needs the room and a number does not.
+        /// Where each column starts and how wide it is. The number and the three
+        /// switches are fixed; what is left is shared between the two times and the
+        /// key -- a variable name needs the room and a time needs four characters
+        /// and no more.
         /// </summary>
         private void Columns(out float[] x, out float[] w)
         {
-            float fixedWidth = NumberWidth + SwitchWidth * 3f + CrossWidth + ColGap * 8f;
+            float fixedWidth = NumberWidth + SwitchWidth * 3f + ColGap * 6f;
             float rest = Mathf.Max(160f, Full - fixedWidth);
-            // The activation column has to hold a keycode name as well as "blk",
-            // and the emulation column a variable name, so the two of them get most
-            // of what is going; a time needs four characters and no more.
-            float act = rest * 0.24f;
-            float num = rest * 0.185f;
-            float emu = rest - act - num * 2f;
+            // The two times take more than the key does. A heading grows under the
+            // pointer, and "DURATION" grown by a tenth has to stay inside its own
+            // column; a keycode or a variable name is read at whatever width is
+            // left, and there is enough left.
+            float num = rest * 0.32f;
+            float emu = rest - num * 2f;
 
-            w = new float[] { NumberWidth, act, num, num,
-                              SwitchWidth, SwitchWidth, SwitchWidth,
-                              emu, CrossWidth };
+            w = new float[] { NumberWidth, num, num,
+                              SwitchWidth, SwitchWidth, SwitchWidth, emu };
             x = new float[w.Length];
             float at = Margin;
             for (int i = 0; i < w.Length; i++)
@@ -569,26 +580,28 @@ namespace TimerPlusMod
         }
 
         /// <summary>
-        /// The column headings. The first is the timer's number, which is not a
-        /// setting and not one of <see cref="Table"/>'s columns -- clicking it
-        /// sorts by wait, because the number *is* the wait order and putting the
-        /// numbers in order is the only thing sorting by them could mean.
+        /// What each column is headed with. The number column is headed with
+        /// nothing: a column of small numbers down the left of a table of times
+        /// has already said what it is, and a heading on it would be one more
+        /// thing to read.
+        ///
+        /// The three switch columns are headed with a picture instead -- see
+        /// <see cref="Glyphs"/>. The name is still here because it is what the
+        /// heading falls back to when the pictures could not be loaded.
         /// </summary>
         private static readonly string[] HeadNames =
         {
-            "#", "ACTIVATE", "WAIT", "DURATION", "H", "S", "L", "EMULATE"
+            "", "WAIT", "DURATION", "H", "S", "L", "EMULATE"
         };
 
         /// <summary>
-        /// What each heading says on hover. The three switches are a letter apiece
-        /// because a column holding a tick box has no room for a word, so this is
-        /// where their names live. The number column says nothing: a column of
-        /// numbers headed "#" has already said it.
+        /// What each heading says on hover. This is where the three switch columns
+        /// give their names, a picture in a twenty-six unit column having no room
+        /// for a word beside it.
         /// </summary>
         private static readonly string[] HeadTips =
         {
             "",
-            "What starts this row\nblk follows the block's own key",
             "Seconds from the start to the press",
             "How long the press is held",
             "Hold to run",
@@ -599,12 +612,19 @@ namespace TimerPlusMod
 
 
         /// <summary>
-        /// The column headings, each a button that sorts by its column. A second
-        /// click on the same one reverses it.
+        /// The column headings.
+        ///
+        /// Only the two times sort. A column of tick boxes is already an answer to
+        /// "which of these loop" -- three ticks in a column of thirty-two rows are
+        /// read off faster than a sort is clicked -- and a table in keycode-name
+        /// order answers a question nobody asks. So the other headings are labels,
+        /// with the button's own click feedback taken off them so they do not offer
+        /// something that does not happen.
         /// </summary>
         private float Header(float y, float[] x, float[] w)
         {
-            for (int c = 0; c < HeadNames.Length; c++)
+            // From one: the number column is headed with nothing at all.
+            for (int c = CWait; c < HeadNames.Length; c++)
             {
                 GameObject go = UIF.Spawn(UIF.ButtonPrefab, content);
                 if (go == null)
@@ -618,22 +638,124 @@ namespace TimerPlusMod
                 // shrinking the click target out from under the pointer, which on
                 // a small control eats the click outright.
                 UIF.NoSwell(go);
-                Text label = Pin(go, HeadNames[c], UIF.QuietInk);
-                Grow(go, label);
-                heads[c] = label;
-                Tip.On(go, HeadTips[c].Length == 0
-                           ? "" : HeadTips[c] + "\n(click to sort)");
-                // The number column sorts by wait: heading 0 is not a column of
-                // Table's, and every heading after it is one along.
-                int column = c == 0 ? Table.ColWait : c - 1;
-                Button click = go.GetComponent<Button>();
-                if (click != null)
+
+                bool sorts = c == CWait || c == CDuration;
+                Texture picture = Picture(c);
+                if (picture != null)
                 {
+                    Draw(go, picture);
+                }
+                else
+                {
+                    Text label = Pin(go, HeadNames[c], UIF.Ink);
+                    if (sorts)
+                    {
+                        Grow(go, label);
+                        marks[c] = Mark(go);
+                    }
+                }
+
+                Tip.On(go, HeadTips[c] + (sorts ? "\n(click to sort)" : ""));
+
+                Button click = go.GetComponent<Button>();
+                if (click == null)
+                {
+                    continue;
+                }
+                if (sorts)
+                {
+                    int column = c == CWait ? Table.ColWait : Table.ColDuration;
                     click.onClick.AddListener(delegate { SortBy(column); });
+                }
+                else
+                {
+                    // Left in place rather than destroyed, so the heading keeps the
+                    // plate the others are drawn on; it just no longer lights up
+                    // under the pointer.
+                    click.enabled = false;
                 }
             }
             y += HeadHeight + RowGap;
             return y;
+        }
+
+        /// <summary>
+        /// The sort mark on a sortable heading: a triangle at the right-hand end,
+        /// hidden until the table is sorted by that column.
+        ///
+        /// Its own object rather than a character on the end of the heading, so
+        /// ascending and descending are one picture two ways up rather than two
+        /// letters of different sizes -- and so the heading's own words do not
+        /// shift sideways when the mark appears.
+        /// </summary>
+        private static RawImage Mark(GameObject heading)
+        {
+            Texture picture = Glyphs.Arrow;
+            if (picture == null)
+            {
+                return null;
+            }
+            GameObject go = new GameObject("Sort");
+            go.transform.SetParent(heading.transform, false);
+            RectTransform rect = go.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(1f, 0.5f);
+            rect.anchorMax = new Vector2(1f, 0.5f);
+            // Pivoted in its middle, not on its edge: the turn for a descending
+            // sort is about the pivot, and a mark pivoted on its edge swings out
+            // to one side instead of turning over where it stands.
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = new Vector2(-(MarkInset + MarkSize * 0.5f), 0f);
+            rect.sizeDelta = new Vector2(MarkSize, MarkSize);
+
+            RawImage drawn = go.AddComponent<RawImage>();
+            drawn.texture = picture;
+            drawn.color = UIF.Ink;
+            drawn.raycastTarget = false;
+            go.SetActive(false);
+            return drawn;
+        }
+
+        /// <summary>The picture a heading is drawn with, or null for one drawn with
+        /// its name.</summary>
+        private static Texture Picture(int column)
+        {
+            if (column == CHold) return Glyphs.Hold;
+            if (column == CStop) return Glyphs.Stop;
+            if (column == CLoop) return Glyphs.Loop;
+            return null;
+        }
+
+        /// <summary>
+        /// Puts a picture in a heading, in place of its lettering.
+        ///
+        /// A <c>RawImage</c> rather than an <c>Image</c>: the resource system hands
+        /// over a <c>Texture</c>, and a Sprite would have to be made from it and
+        /// owned by somebody. Square and inset, so three of them read as one size
+        /// whatever shape the artwork is, and tinted like the lettering it stands
+        /// in for -- the artwork is white, so the tint is the colour.
+        /// </summary>
+        private static void Draw(GameObject control, Texture picture)
+        {
+            Text label = control.GetComponentInChildren<Text>(true);
+            if (label != null)
+            {
+                label.text = "";
+            }
+            GameObject go = new GameObject("Glyph");
+            go.transform.SetParent(control.transform, false);
+            RectTransform rect = go.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
+            rect.sizeDelta = new Vector2(GlyphSize, GlyphSize);
+
+            RawImage drawn = go.AddComponent<RawImage>();
+            drawn.texture = picture;
+            // Ink rather than the QuietInk the lettering wears, for the same
+            // reason it is drawn bigger.
+            drawn.color = UIF.Ink;
+            drawn.raycastTarget = false;
         }
 
         private Cells BuildRow(int index, ref float y, float[] x, float[] w)
@@ -652,45 +774,21 @@ namespace TimerPlusMod
             Transform host = frame.transform;
 
             // Written by Fill, which is where the wait order is worked out.
-            cells.Number = Cell(host, "", x[0], w[0], UIF.QuietInk, TextAnchor.MiddleCenter);
+            cells.Number = RowNumber.Make(host, x[CNumber], 0f, w[CNumber], RowHeight);
+            int which = index;
+            cells.Number.Clicked = delegate { Delete(which); };
+            cells.Number.Watch(frame);
 
-            cells.Activate = KeyCell.Make(host, x[1], 0f, w[1], RowHeight, Bindings.Inherited);
-            cells.Activate.Row = index;
-            cells.Activate.IsActivation = true;
-            cells.Activate.What = "What starts this timer";
-            cells.Activate.Changed = RowKeyChanged;
 
-            cells.Wait = Number(host, x[2], w[2], index, true);
-            cells.Duration = Number(host, x[3], w[3], index, false);
-            Tip.On(cells.Wait == null ? null : cells.Wait.gameObject,
-                   "Seconds from the start to the press");
-            Tip.On(cells.Duration == null ? null : cells.Duration.gameObject,
-                   "How long the press is held");
+            cells.Wait = Number(host, x[CWait], w[CWait], index, true);
+            cells.Duration = Number(host, x[CDuration], w[CDuration], index, false);
+            cells.Hold = Box(host, x[CHold], w[CHold], index);
+            cells.Stop = Box(host, x[CStop], w[CStop], index);
+            cells.Loop = Box(host, x[CLoop], w[CLoop], index);
 
-            cells.Hold = Box(host, x[4], w[4], index, Table.ColHold, "Hold to run");
-            cells.Stop = Box(host, x[5], w[5], index, Table.ColStop, "Allow stop");
-            cells.Loop = Box(host, x[6], w[6], index, Table.ColLoop, "Loop");
-
-            cells.Emulate = KeyCell.Make(host, x[7], 0f, w[7], RowHeight, Bindings.Unset);
+            cells.Emulate = KeyCell.Make(host, x[CEmulate], 0f, w[CEmulate], RowHeight);
             cells.Emulate.Row = index;
-            cells.Emulate.IsActivation = false;
-            cells.Emulate.What = "What this timer presses";
             cells.Emulate.Changed = RowKeyChanged;
-
-            GameObject cross = UIF.Spawn(UIF.ButtonPrefab, host);
-            if (cross != null)
-            {
-                UIF.Fit(cross.GetComponent<RectTransform>(), x[8], 0f, w[8], RowHeight);
-                UIF.NoSwell(cross);
-                Grow(cross, Pin(cross, "x", UIF.QuietInk));
-                Tip.On(cross, "Delete this timer");
-                int at = index;
-                Button click = cross.GetComponent<Button>();
-                if (click != null)
-                {
-                    click.onClick.AddListener(delegate { Delete(at); });
-                }
-            }
 
             y += RowHeight + RowGap;
             return cells;
@@ -705,8 +803,7 @@ namespace TimerPlusMod
             {
                 UIF.Fit(go.GetComponent<RectTransform>(), Margin, y, Full, RowHeight);
                 UIF.NoSwell(go);
-                Grow(go, Pin(go, "+", UIF.QuietInk));
-                Tip.On(go, "Add a timer\nIt copies the row above and carries the wait on");
+                Grow(go, Pin(go, "+", UIF.Ink));
                 Button click = go.GetComponent<Button>();
                 if (click != null)
                 {
@@ -724,8 +821,6 @@ namespace TimerPlusMod
                 UIF.Fit(go.GetComponent<RectTransform>(), Margin, y, Full, RowHeight + 4f);
                 UIF.NoSwell(go);
                 Grow(go, Pin(go, "CONVERT TO TIMER BLOCKS", UIF.Ink));
-                Tip.On(go, "Build one of Besiege's own timer blocks per row,\n"
-                         + "beside this one and ready to move.\nOne undo takes them back");
                 Button click = go.GetComponent<Button>();
                 if (click != null)
                 {
@@ -738,7 +833,7 @@ namespace TimerPlusMod
             // "N rows -> N timer blocks", which said nothing the table above it did
             // not already show; what is left is the place a refusal or a
             // confirmation goes.
-            status = Label("", Margin, y, Full, RowHeight, UIF.QuietInk,
+            status = Label("", Margin, y, Full, RowHeight, UIF.Ink,
                            TextAnchor.MiddleLeft);
             return y + RowHeight;
         }
@@ -809,8 +904,7 @@ namespace TimerPlusMod
             swell.grown = 1.12f;
         }
 
-        private Toggle Box(Transform host, float x, float w, int index, int column,
-                           string tip)
+        private Toggle Box(Transform host, float x, float w, int index)
         {
             GameObject go = UIF.Spawn(UIF.TogglePrefab, host);
             if (go == null)
@@ -819,16 +913,16 @@ namespace TimerPlusMod
             }
             UIF.Fit(go.GetComponent<RectTransform>(), x, 0f, w, RowHeight);
             UIF.NoSwell(go);
-            // No caption: the column heading is a single letter for want of room,
-            // and the tooltip is where the switch says what it is.
+            // No caption: the column heading is a picture for want of room, and
+            // the heading's own tooltip is where the switch says what it is.
             Pin(go, "", UIF.Ink);
-            Tip.On(go, tip);
             Toggle toggle = go.GetComponent<Toggle>();
             if (toggle != null)
             {
                 int at = index;
-                int which = column;
-                toggle.onValueChanged.AddListener(delegate(bool on) { Flipped(at, which, on); });
+                float where = x;
+                toggle.onValueChanged.AddListener(
+                    delegate(bool on) { Flipped(at, where, on); });
             }
             return toggle;
         }
@@ -845,7 +939,7 @@ namespace TimerPlusMod
             if (field != null)
             {
                 UIF.Style(field.textComponent, UIF.Ink, TextAnchor.MiddleRight);
-                UIF.Style(field.placeholder as Text, UIF.QuietInk, TextAnchor.MiddleRight);
+                UIF.Style(field.placeholder as Text, UIF.Ink, TextAnchor.MiddleRight);
                 Text ghost = field.placeholder as Text;
                 if (ghost != null)
                 {
@@ -859,26 +953,6 @@ namespace TimerPlusMod
                 field.onEndEdit.AddListener(delegate(string typed) { Typed(at, which, typed); });
             }
             return field;
-        }
-
-        /// <summary>A label inside a row, as opposed to one on the content.</summary>
-        private Text Cell(Transform host, string text, float x, float w,
-                          Color colour, TextAnchor align)
-        {
-            GameObject go = UIF.Spawn(UIF.TextPrefab, host);
-            if (go == null)
-            {
-                return null;
-            }
-            UIF.Fit(go.GetComponent<RectTransform>(), x, 0f, w, RowHeight);
-            Text label = go.GetComponent<Text>();
-            if (label != null)
-            {
-                UIF.Style(label, colour, align);
-                label.text = text;
-                label.raycastTarget = false;
-            }
-            return label;
         }
 
         private Image Plate(Transform host, float x, float y, float w, float h, Color colour)
@@ -927,7 +1001,6 @@ namespace TimerPlusMod
                     {
                         continue;
                     }
-                    cells.Activate.Show(row.Activate);
                     cells.Emulate.Show(row.Emulate);
                     Set(cells.Wait, row.Wait.Value);
                     Set(cells.Duration, row.Duration.Value);
@@ -998,10 +1071,10 @@ namespace TimerPlusMod
             }
             for (int rank = 0; rank < count; rank++)
             {
-                Text label = table[order[rank]].Number;
-                if (label != null)
+                RowNumber cell = table[order[rank]].Number;
+                if (cell != null)
                 {
-                    label.text = (rank + 1).ToString();
+                    cell.Number = (rank + 1).ToString();
                 }
             }
         }
@@ -1013,20 +1086,23 @@ namespace TimerPlusMod
         }
 
         /// <summary>Marks the heading of the column the table was last sorted
-        /// by.</summary>
+        /// by. Only the two that sort have a heading to mark.</summary>
         private void Heads()
         {
-            for (int c = 0; c < heads.Length; c++)
+            Mark(CWait, Table.ColWait);
+            Mark(CDuration, Table.ColDuration);
+        }
+
+        private void Mark(int head, int column)
+        {
+            bool on = column == sortColumn;
+            RawImage arrow = marks[head];
+            if (arrow != null)
             {
-                if (heads[c] == null)
-                {
-                    continue;
-                }
-                // Heading 0 is the number column and sorts nothing, so the sort
-                // marker is one along from the column it belongs to.
-                bool on = c > 0 && c - 1 == sortColumn;
-                heads[c].text = HeadNames[c] + (on ? (sortAscending ? " ^" : " v") : "");
-                heads[c].color = on ? UIF.Ink : UIF.QuietInk;
+                arrow.gameObject.SetActive(on);
+                // Up for ascending, the same triangle turned over for descending.
+                arrow.rectTransform.localRotation =
+                    Quaternion.Euler(0f, 0f, sortAscending ? 0f : 180f);
             }
         }
 
@@ -1043,9 +1119,8 @@ namespace TimerPlusMod
             {
                 return;
             }
-            MKey key = cell.IsActivation ? row.Activate : row.Emulate;
-            Apply(key, cell);
-            Queue(key);
+            Apply(row.Emulate, cell);
+            Queue(row.Emulate);
         }
 
         /// <summary>
@@ -1080,7 +1155,11 @@ namespace TimerPlusMod
             }
         }
 
-        private void Flipped(int index, int column, bool on)
+        /// <param name="where">Which switch column this box is in, as the x it was
+        /// built at. The three are told apart by position because the columns they
+        /// stand for are no longer anything <see cref="Table"/> knows about: they
+        /// do not sort, so they have no column number.</param>
+        private void Flipped(int index, float where, bool on)
         {
             if (filling || served == null || index >= served.Rows.Count)
             {
@@ -1091,8 +1170,10 @@ namespace TimerPlusMod
             {
                 return;
             }
-            MToggle toggle = column == Table.ColHold ? row.Hold
-                : (column == Table.ColStop ? row.Stop : row.Loop);
+            float[] x, w;
+            Columns(out x, out w);
+            MToggle toggle = where <= x[CHold] ? row.Hold
+                : (where <= x[CStop] ? row.Stop : row.Loop);
             toggle.IsActive = on;
             Queue(toggle);
         }
@@ -1424,7 +1505,7 @@ namespace TimerPlusMod
         /// in which case the rows -- laid out to it -- no longer fit.</summary>
         private bool Widen(Rect frame)
         {
-            float wide = Mathf.Max(MinWidth, frame.width * Scale());
+            float wide = frame.width * Scale();
             if (Mathf.Abs(wide - width) <= 0.5f)
             {
                 return false;

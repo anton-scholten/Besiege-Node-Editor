@@ -15,9 +15,6 @@ namespace TimerPlusMod
     /// </summary>
     public class RowData
     {
-        public KeyCode ActivateKey = KeyCode.None;
-        public string ActivateVariable;
-
         public KeyCode EmulateKey = KeyCode.C;
         public string EmulateVariable;
 
@@ -41,13 +38,12 @@ namespace TimerPlusMod
     {
         // Which column a sort is on. Constants rather than an enum: declaring an
         // enum segfaults Besiege's own C# compiler.
-        public const int ColActivate = 0;
-        public const int ColWait = 1;
-        public const int ColDuration = 2;
-        public const int ColHold = 3;
-        public const int ColStop = 4;
-        public const int ColLoop = 5;
-        public const int ColEmulate = 6;
+        // Only the two number columns sort. A column of tick boxes sorted by is a
+        // column that says "these three are on", which the eye reads off the table
+        // faster than a click does; and a table sorted by keycode name answers a
+        // question nobody has.
+        public const int ColWait = 0;
+        public const int ColDuration = 1;
 
         public static RowData Read(Row row)
         {
@@ -56,9 +52,6 @@ namespace TimerPlusMod
             {
                 return data;
             }
-            data.ActivateKey = Bindings.Code(row.Activate);
-            data.ActivateVariable = Bindings.IsVariable(row.Activate)
-                ? Bindings.Variable(row.Activate) : null;
             data.EmulateKey = Bindings.Code(row.Emulate);
             data.EmulateVariable = Bindings.IsVariable(row.Emulate)
                 ? Bindings.Variable(row.Emulate) : null;
@@ -83,14 +76,6 @@ namespace TimerPlusMod
                 return;
             }
 
-            if (data.ActivateVariable != null)
-            {
-                Bindings.BindVariable(row.Activate, data.ActivateVariable);
-            }
-            else
-            {
-                Bindings.Bind(row.Activate, data.ActivateKey);
-            }
             if (data.EmulateVariable != null)
             {
                 Bindings.BindVariable(row.Emulate, data.EmulateVariable);
@@ -108,7 +93,6 @@ namespace TimerPlusMod
 
             if (touched != null)
             {
-                Note(touched, row.Activate);
                 Note(touched, row.Emulate);
                 Note(touched, row.Wait);
                 Note(touched, row.Duration);
@@ -190,74 +174,18 @@ namespace TimerPlusMod
         /// Which of two rows comes first on a column. Negative if
         /// <paramref name="a"/> does.
         ///
-        /// A switch column sorts the rows that are on to the top when ascending,
-        /// which is what somebody clicking "Loop" is asking to see. Ties are
-        /// answered 0 rather than broken by another column, so the sort's own
-        /// stability decides them.
+        /// Ties are answered 0 rather than broken by another column, so the sort's
+        /// own stability decides them.
         ///
         /// Public because it is the whole of what the build can check offline:
         /// everything else here needs a live block. See tools/tests/TableCheck.cs.
         /// </summary>
         public static int Compare(RowData a, RowData b, int column, bool ascending)
         {
-            switch (column)
-            {
-                case ColWait:
-                    return Turn(a.Wait.CompareTo(b.Wait), ascending);
-                case ColDuration:
-                    return Turn(a.Duration.CompareTo(b.Duration), ascending);
-                case ColHold:
-                    return Turn(Flag(a.Hold, b.Hold), ascending);
-                case ColStop:
-                    return Turn(Flag(a.Stop, b.Stop), ascending);
-                case ColLoop:
-                    return Turn(Flag(a.Loop, b.Loop), ascending);
-                case ColEmulate:
-                    return Text(a.EmulateVariable, a.EmulateKey,
-                                b.EmulateVariable, b.EmulateKey, ascending);
-                default:
-                    return Text(a.ActivateVariable, a.ActivateKey,
-                                b.ActivateVariable, b.ActivateKey, ascending);
-            }
-        }
-
-        private static int Turn(int order, bool ascending)
-        {
+            int order = column == ColDuration
+                ? a.Duration.CompareTo(b.Duration)
+                : a.Wait.CompareTo(b.Wait);
             return ascending ? order : -order;
-        }
-
-        private static int Flag(bool a, bool b)
-        {
-            if (a == b)
-            {
-                return 0;
-            }
-            return a ? -1 : 1;
-        }
-
-        /// <summary>
-        /// A key column's order: unbound rows last **however the column is
-        /// sorted**, then variables and keycodes by name.
-        ///
-        /// An unbound row is not a small value on the column, it is a row the
-        /// column says nothing about, so letting it float to whichever end is being
-        /// looked at is the more useful answer. That is why the direction is applied
-        /// here rather than by the caller: negating the whole comparison would take
-        /// the unbound rule with it and put the blanks at the top on every reverse.
-        /// </summary>
-        private static int Text(string variableA, KeyCode keyA,
-                                string variableB, KeyCode keyB, bool ascending)
-        {
-            string a = variableA != null ? variableA
-                : (keyA == KeyCode.None ? "" : keyA.ToString());
-            string b = variableB != null ? variableB
-                : (keyB == KeyCode.None ? "" : keyB.ToString());
-            if (a.Length == 0 || b.Length == 0)
-            {
-                return a.Length == b.Length ? 0 : (a.Length == 0 ? 1 : -1);
-            }
-            return Turn(string.Compare(a, b, System.StringComparison.OrdinalIgnoreCase),
-                        ascending);
         }
 
         /// <summary>
@@ -283,8 +211,6 @@ namespace TimerPlusMod
                 {
                     step = 1f;
                 }
-                fresh.ActivateKey = last.ActivateKey;
-                fresh.ActivateVariable = last.ActivateVariable;
                 fresh.EmulateKey = last.EmulateKey;
                 fresh.EmulateVariable = last.EmulateVariable;
                 fresh.Duration = last.Duration;

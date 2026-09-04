@@ -32,6 +32,13 @@
 		<Mesh name="TimerPlus_mesh" path="TimerPlus.obj" />
 		<Texture name="TimerPlus_texture" path="TimerPlus.png" />
 		<Texture name="TimerPlus_icon" path="Thumbnail.png" />
+
+		<!-- The table's three switch columns are headed with a picture rather
+		     than a letter. Drawn by tools/make-ui-icons.py from the artwork in
+		     tools/icons; loaded by name in Glyphs.cs. -->
+		<Texture name="TimerPlus_hold" path="Hold.png" />
+		<Texture name="TimerPlus_stop" path="Stop.png" />
+		<Texture name="TimerPlus_loop" path="Loop.png" />
 	</Resources>
 
 <!-- This value is automatically generated. Do not change it or you may break machine&level save files. -->

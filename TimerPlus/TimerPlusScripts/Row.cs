@@ -9,11 +9,14 @@ namespace TimerPlusMod
     /// what makes them saved with the machine, undoable, and sent over
     /// multiplayer -- and, in the case of the two keys, automatable at all.
     /// <see cref="MKey"/> is the only mapper type that carries a variable: the
-    /// slider, the toggle and the menu have nothing variable-related on them, so a
-    /// row's activation and the key it presses have to be keys and cannot be
-    /// anything else. That is also why the number of rows is capped: every row's
-    /// keys are registered in <c>SafeAwake</c> and Besiege has no way to add one
-    /// later.
+    /// slider, the toggle and the menu have nothing variable-related on them, so
+    /// the key a row presses has to be a key and cannot be anything else. That is
+    /// also why the number of rows is capped: every row's keys are registered in
+    /// <c>SafeAwake</c> and Besiege has no way to add one later.
+    ///
+    /// A row has no activation of its own. Every row in the table is started by
+    /// the block's own key, which is the one question the block mapper above the
+    /// panel answers.
     ///
     /// The phases and the frame counting are Besiege's own
     /// <c>TimerBlock</c>, read out of the game so that a row behaves exactly as
@@ -23,12 +26,6 @@ namespace TimerPlusMod
     public class Row
     {
         // ---- what it is set to -----------------------------------------------
-
-        /// <summary>What starts this row. A key with no keycode and no variable --
-        /// which is how one arrives -- means "whatever starts the block", so the
-        /// key at the top of the panel drives every row that has not been given
-        /// one of its own.</summary>
-        public MKey Activate;
 
         /// <summary>What the row presses while it is running.</summary>
         public MKey Emulate;
@@ -83,11 +80,6 @@ namespace TimerPlusMod
         /// never comes up for anything else either.</summary>
         public bool Held;
 
-        /// <summary>The row's own activation, read through
-        /// <see cref="KeyReader"/> so an emulated press is caught on the emulation
-        /// tick rather than missed or counted twice by a frame update.</summary>
-        public KeyReader Key;
-
         // ---- reading the settings --------------------------------------------
 
         /// <summary>True while every control this row needs is there. A row whose
@@ -98,40 +90,8 @@ namespace TimerPlusMod
         {
             get
             {
-                return Activate != null && Emulate != null && Wait != null
-                    && Duration != null && Hold != null && Stop != null && Loop != null;
-            }
-        }
-
-        /// <summary>
-        /// Whether this row has an activation of its own, rather than following the
-        /// block's.
-        ///
-        /// A variable counts, and so does any keycode but None -- Besiege writes
-        /// <c>KeyCode.None</c> for a key nobody has bound, and
-        /// <c>KeyInputController</c> never registers or answers one, so it is the
-        /// natural spelling of "not set".
-        /// </summary>
-        public bool Owns
-        {
-            get
-            {
-                if (Activate == null)
-                {
-                    return false;
-                }
-                if (Activate.useMessage)
-                {
-                    return true;
-                }
-                for (int i = 0; i < Activate.KeysCount; i++)
-                {
-                    if (Activate.GetKey(i) != KeyCode.None)
-                    {
-                        return true;
-                    }
-                }
-                return false;
+                return Emulate != null && Wait != null && Duration != null
+                    && Hold != null && Stop != null && Loop != null;
             }
         }
 

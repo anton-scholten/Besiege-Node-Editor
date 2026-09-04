@@ -18,13 +18,6 @@ namespace TimerPlusMod
         public const string Unset = "-";
 
         /// <summary>
-        /// What a cell shows for a row following the block's own key. Three
-        /// letters, because the column is about fifty units wide and a keycode
-        /// name has to fit in it too.
-        /// </summary>
-        public const string Inherited = "blk";
-
-        /// <summary>
         /// The keys a cell will let somebody bind, in the order the capture scans
         /// them.
         ///
