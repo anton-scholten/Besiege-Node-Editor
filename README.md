@@ -14,7 +14,10 @@ when you want them.
 
 Every row is a reproduction of Besiege's own timer, read out of the game: same
 phases, same 50 Hz tick, same rounding. A row fires on the tick a real timer
-beside it would.
+beside it would, and the block's display flashes red each time one does — full red
+on the tick it fires, faded out a tenth of a second later — so a sequence can be
+watched as well as timed, and rows firing one after another read as separate
+flashes.
 
 **[UI Factory](https://steamcommunity.com/sharedfiles/filedetails/?id=2913469777)**
 (another Besiege mod which enables the nice UI, see workshop item `2913469777`) is

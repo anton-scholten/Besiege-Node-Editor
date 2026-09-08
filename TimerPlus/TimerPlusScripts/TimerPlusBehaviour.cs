@@ -70,6 +70,9 @@ namespace TimerPlusMod
         /// the references do not change.</summary>
         private MKey[] ownKeys;
 
+        /// <summary>The block's display, which blinks red as a row fires.</summary>
+        private readonly Glow glow = new Glow();
+
         /// <summary>What the block last told Besiege's mapper to show, so the
         /// display flags are written when the answer changes rather than every
         /// frame. Every change to one marks the mapper dirty and costs it a
@@ -277,6 +280,10 @@ namespace TimerPlusMod
 
         public override void SimulateUpdateAlways()
         {
+            // Before the early returns below: the display has to go back to its own
+            // colour at the end of a blink whatever else this frame is doing.
+            glow.Tick(this);
+
             if (masterReader == null || Time.timeScale == 0f)
             {
                 return;
@@ -349,6 +356,12 @@ namespace TimerPlusMod
             }
             row.Held = down;
             EmulateKeys(ownKeys, row.Emulate, down);
+            if (down)
+            {
+                // A row firing is the one thing this block does that is worth
+                // seeing from outside it.
+                glow.Flash();
+            }
         }
 
         /// <summary>
@@ -366,6 +379,13 @@ namespace TimerPlusMod
                 Hold(rows[i], false);
                 Clock.Stop(rows[i]);
             }
+            glow.Rest();
+        }
+
+        private void OnDestroy()
+        {
+            // The material and the texture are this block's own.
+            glow.Undress();
         }
 
     }

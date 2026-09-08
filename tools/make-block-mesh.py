@@ -26,7 +26,7 @@ What conversion means here:
     yellow blob instead, and the authored blue reads as a timer perfectly well.
 """
 
-import json, math, os, struct, sys, zlib
+import json, math, os, re, struct, sys, zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
@@ -431,6 +431,35 @@ def fetch():
     return path
 
 
+# The four colours Glow.cs paints, in the order the palette lays them out. It
+# builds its own two-by-two version of this palette to blink the display, and a
+# model change that moved a colour would light the wrong part of the block --
+# silently, since nothing else reads those numbers.
+GLOW = os.path.join(REPO, "TimerPlus", "TimerPlusScripts", "Glow.cs")
+GLOW_NAMES = ("Body", "Buttons", "Display", "Spare")
+
+
+def check_glow(colours):
+    """Holds Glow.cs's colours to the palette written here."""
+    try:
+        source = open(GLOW).read()
+    except IOError:
+        return                                  # not this repo's business to make
+    for i, name in enumerate(GLOW_NAMES):
+        found = re.search(r"%s\s*=\s*Hue\((\d+),\s*(\d+),\s*(\d+)\)" % name, source)
+        if found is None:
+            raise SystemExit("Glow.cs has no colour called %s" % name)
+        want = (tuple(int(round(255 * srgb(v))) for v in colours[i])
+                if i < len(colours) else (0, 0, 0))
+        got = tuple(int(g) for g in found.groups())
+        if got != want:
+            raise SystemExit(
+                "Glow.cs paints %s as %s, but the palette here writes %s.\n"
+                "The model's colours moved; put these numbers in Glow.cs."
+                % (name, got, want))
+    print("Glow.cs paints the model's own colours.")
+
+
 def main():
     want_preview = "--preview" in sys.argv
     source = fetch()
@@ -439,6 +468,8 @@ def main():
     tris = wind(tris)
     colours = sorted(set(c for _, _, c in tris))
     rows, uv = palette(colours)
+
+    check_glow(colours)
 
     os.makedirs(OUT, exist_ok=True)
     verts, faces = write_obj(os.path.join(OUT, "TimerPlus.obj"), tris, uv)

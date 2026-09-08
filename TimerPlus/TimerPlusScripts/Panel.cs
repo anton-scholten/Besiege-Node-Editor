@@ -538,6 +538,15 @@ namespace TimerPlusMod
             // more thing sharing a stencil buffer with the window's own.
             go.AddComponent<RectMask2D>();
 
+            // The wheel. It reaches the hovered object and then its parents, and
+            // the ScrollRect is not among them -- this frame is the panel's own and
+            // hangs off the window. A plate to be hovered at all, invisible, and
+            // behind everything in the frame because children are raycast first.
+            Image sheet = go.AddComponent<Image>();
+            sheet.color = new Color(0f, 0f, 0f, 0f);
+            Wheel wheel = go.AddComponent<Wheel>();
+            wheel.target = scroll;
+
             scroll.viewport = view;
             RectTransform rows = scroll.content;
             rows.SetParent(view, false);
@@ -1609,6 +1618,20 @@ namespace TimerPlusMod
         /// </summary>
         private void LateUpdate()
         {
+            // Tab hides Besiege's own interface, and this panel is the lower half
+            // of the block mapper -- half a mapper left hanging over a hidden HUD
+            // is exactly what Tab is pressed to get rid of.
+            //
+            // The canvas, not the window: switching the window off is the path that
+            // hands every control back to the stock mapper, and coming out of Tab
+            // would find the panel gone and the mapper full of rows. Disabling the
+            // canvas draws nothing and changes nothing else -- the tooltip and the
+            // variable list are on it too, so they go with it.
+            if (canvas != null)
+            {
+                canvas.enabled = !Hidden;
+            }
+
             if (window == null || !window.activeSelf)
             {
                 return;
@@ -1624,6 +1647,22 @@ namespace TimerPlusMod
             }
             Dock();
             Curtain(false);
+        }
+
+        /// <summary>Whether the player has hidden the game's interface.</summary>
+        private static bool Hidden
+        {
+            get
+            {
+                try
+                {
+                    return StatMaster.hudHidden;
+                }
+                catch (Exception)
+                {
+                    return false;
+                }
+            }
         }
 
         private bool StillOpen()

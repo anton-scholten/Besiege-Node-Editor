@@ -18,6 +18,9 @@ timers.
   the convert button are pinned along the bottom of the window rather than
   scrolling with them. Every row is started by the block's own
   key — the mapper above the table is the one place activation is set.
+- **The display flashes red** whenever a row fires — full on the tick, faded out a
+  tenth of a second later — so what the block is doing can be seen from the machine
+  rather than only heard in what it presses, and a burst of rows reads as a burst.
 - **A number down the left** ranking the rows by wait, so the timer that fires
   first is 1 however the table is ordered. It has no heading; a column of small
   numbers beside a column of times has already said what it is. It is also the

@@ -86,6 +86,13 @@ What depends on what:
   `SendKeyEmulationUpdateHost` at 50 Hz, and is the only thing that calls
   `EmulateKeys`. It reconciles `row.Wants` against `row.Held` rather than letting
   the clock press anything.
+- **`Glow`** blinks the block's display when a row fires. The mesh is unwrapped
+  onto a palette of flat patches, one per colour of the model, so the display's
+  triangles all look at one patch: the block gets its own material and its own
+  2x2 point-sampled texture, and that one texel is repainted. `Dress` re-checks
+  the renderer rather than remembering it, because Besiege builds the visual after
+  `SafeAwake` and a repaint replaces the material outright. The colours are held
+  to the palette `tools/make-block-mesh.py` writes -- run it and it says so.
 - **`Row`** is one row's controls plus its phase; **`Clock`** is the phase machine.
   A row has no activation of its own: the block's key starts every row, and the
   mapper above the table is where it is set.
@@ -109,9 +116,13 @@ What depends on what:
   over the strip, last rows unreachable, and a bar that never hid itself. Same for
   the bar: built in `Rail`, stopping where the list stops. There is no message
   line: `Flash` puts a refusal or a result on the button it is about, for four
-  seconds, and puts the button's own word back afterwards. A plate
-  there is the window's own colour laid down twice, and reads as a dark band. It is one UI
-  Factory window, on a `DontDestroyOnLoad` object, watching
+  seconds, and puts the button's own word back afterwards. The strip has no plate of
+  its own: a plate there is the window's own colour laid down twice, and reads as a
+  dark band. `LateUpdate` follows `StatMaster.hudHidden`, so Tab takes the panel
+  with the rest of the interface -- the **canvas** is disabled, never the window,
+  because switching the window off is the path that hands every control back to the
+  stock mapper. It is one UI Factory window, on a `DontDestroyOnLoad` object,
+  watching
   `BlockMapper.onMapperOpen`. It holds the *behaviour*, never a control, and reads
   the controls fresh on every fill: two blocks of the same kind do not share their
   mapper controls, and a panel that captured one would show the first block's
