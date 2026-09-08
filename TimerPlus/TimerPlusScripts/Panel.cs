@@ -1088,8 +1088,69 @@ namespace TimerPlusMod
                 // onEndEdit, not onValueChanged: the latter would apply the 2 of a
                 // 25 while it is still being typed.
                 field.onEndEdit.AddListener(delegate(string typed) { Typed(at, which, typed); });
+
+                // A sheet over the box, so the number can be dragged as well as
+                // typed -- the sibling SpecialEffects mod's value fields, and the
+                // whole of why it is a sheet is in ValueField.
+                GameObject drag = new GameObject("Drag");
+                drag.transform.SetParent(field.transform, false);
+                RectTransform sheet = drag.AddComponent<RectTransform>();
+                sheet.anchorMin = Vector2.zero;
+                sheet.anchorMax = Vector2.one;
+                sheet.offsetMin = Vector2.zero;
+                sheet.offsetMax = Vector2.zero;
+                Image catcher = drag.AddComponent<Image>();
+                catcher.color = new Color(0f, 0f, 0f, 0f);
+
+                ValueField value = drag.AddComponent<ValueField>();
+                value.field = field;
+                InputField box = field;
+                value.dragged = delegate(float pixels) { Scrub(at, which, box, pixels); };
             }
             return field;
+        }
+
+        /// <summary>How much of a second a pixel of drag is worth. A slider's whole
+        /// range per two hundred and fifty pixels, which is the rate the sibling
+        /// SpecialEffects mod's value fields use.</summary>
+        private const float DragPerPixel = 0.004f;
+
+        /// <summary>
+        /// A number dragged rather than typed.
+        ///
+        /// Written straight to the control and shown at once, and queued for the
+        /// commit that happens when the mouse comes up -- a drag writes live every
+        /// frame and reserialises the block once, the same as a slider being
+        /// dragged in Besiege's own mapper.
+        /// </summary>
+        private void Scrub(int index, bool wait, InputField box, float pixels)
+        {
+            if (served == null || index >= served.Rows.Count)
+            {
+                return;
+            }
+            Row row = served.Rows[index];
+            if (!row.Ready)
+            {
+                return;
+            }
+            MSlider slider = wait ? row.Wait : row.Duration;
+            float value = slider.Value
+                        + pixels * (slider.Max - slider.Min) * DragPerPixel;
+            // Never below the slider's own floor: a wait or a duration below zero
+            // is not a thing, whatever the slider will take above its top.
+            slider.Value = value < slider.Min ? slider.Min : value;
+            if (box != null)
+            {
+                // Written even while the box has focus, which is the one place that
+                // is right: the value is moving under the pointer and the box is
+                // what shows it.
+                box.text = Spell(slider.Value);
+            }
+            // The numbers down the left are the wait order, and a wait being
+            // dragged is that order changing under the hand.
+            Numbers();
+            Queue(slider);
         }
 
         private Image Plate(Transform host, float x, float y, float w, float h, Color colour)

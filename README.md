@@ -101,6 +101,11 @@ failed — is said on the button it is about, in red, for a few seconds.
 The table is drawn at the mapper's own width, so the two are one window with a
 seam across it.
 
+**WAIT** and **DURATION** are dragged as well as typed: press on the number and
+pull sideways, and the value follows the pointer once the drag leaves the box —
+a drag that stays inside selects text, the way any box does. Click for a caret,
+double-click for the lot.
+
 Sliders are clipped but out-of-range values can be typed.
 
 | Setting | Slider | Typed |

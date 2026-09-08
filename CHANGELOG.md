@@ -27,6 +27,9 @@ timers.
   row's delete button: point anywhere on the row and it turns into a red X. That is a column of
   crosses' worth of width back, which is what lets the table sit under the mapper
   at the mapper's own width.
+- **Wait and duration drag**, as the sibling SpecialEffects mod's value fields do:
+  pull sideways off the box and the number follows the pointer; stay on it and the
+  drag selects text.
 - **Sorting** on wait and on duration, stable, so a second sort refines the first.
   Nothing else sorts: three ticks in a column are read off faster than a sort is
   clicked.

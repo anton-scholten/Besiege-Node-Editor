@@ -86,6 +86,10 @@ What depends on what:
   `SendKeyEmulationUpdateHost` at 50 Hz, and is the only thing that calls
   `EmulateKeys`. It reconciles `row.Wants` against `row.Held` rather than letting
   the clock press anything.
+- **`ValueField`** is the transparent sheet over a number box that makes it
+  draggable, taken from the sibling SpecialEffects mod. It has to be a sheet and it
+  has to handle the pointer-down as well -- both reasons are written out at the top
+  of the file, and both cost a day somewhere else.
 - **`Glow`** blinks the block's display when a row fires. The mesh is unwrapped
   onto a palette of flat patches, one per colour of the model, so the display's
   triangles all look at one patch: the block gets its own material and its own
