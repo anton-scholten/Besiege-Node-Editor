@@ -32,8 +32,24 @@ namespace TimerPlusMod
     {
         public UnityEngine.UI.InputField field;
 
-        /// <summary>Pixels dragged, handed to whoever owns the number.</summary>
+        /// <summary>Pixels dragged sideways, handed to whoever owns the number.
+        /// Only ever called once the drag has left the box by its left or right
+        /// edge.</summary>
         public Action<float> dragged;
+
+        /// <summary>Where the pointer is, while a drag that left by the top or the
+        /// bottom edge. That one is not a value at all -- it is a reach up or down
+        /// the column, and what it means is the panel's business.</summary>
+        public Action<Vector2> picking;
+
+        /// <summary>That reach ended.</summary>
+        public Action picked;
+
+        // What this gesture turned out to be. Constants rather than an enum:
+        // declaring an enum segfaults Besiege's own C# compiler.
+        private const int Nothing = 0;
+        private const int Scrubbing = 1;
+        private const int Picking = 2;
 
         /// <summary>How far the pointer may wander before a click counts as a drag.
         /// Without it a hand that moves one pixel between press and release turned a
@@ -47,10 +63,11 @@ namespace TimerPlusMod
         /// a deliberate flick.</summary>
         private const float Leeway = 4f;
 
-        /// <summary>Decided once per gesture and kept: a drag that has left the box
-        /// is a value drag until the button comes up, wherever the pointer wanders
-        /// back to. Handing it back and forth at the boundary is unusable.</summary>
-        private bool scrubbing;
+        /// <summary>Decided once per gesture and kept: which edge the drag left by
+        /// settles what it is until the button comes up, wherever the pointer
+        /// wanders back to. Handing it back and forth at the boundary is
+        /// unusable.</summary>
+        private int mode;
 
         /// <summary>Whether the gesture that is ending was a value drag. The click
         /// that comes after one must not be read as a double-click and select
@@ -69,18 +86,18 @@ namespace TimerPlusMod
 
         public void OnBeginDrag(PointerEventData move)
         {
-            scrubbing = false;
+            mode = Nothing;
             scrubbed = false;
             Pass(move, ExecuteEvents.beginDragHandler);
         }
 
         public void OnDrag(PointerEventData move)
         {
-            if (!scrubbing && Beyond(move))
+            if (mode == Nothing)
             {
-                scrubbing = true;
+                mode = Left(move);
             }
-            if (!scrubbing)
+            if (mode == Nothing)
             {
                 Pass(move, ExecuteEvents.dragHandler);
                 return;
@@ -95,41 +112,67 @@ namespace TimerPlusMod
                 field.caretPosition = field.text.Length;
             }
 
-            if (dragged != null)
+            if (mode == Scrubbing)
             {
-                dragged(move.delta.x);
+                if (dragged != null)
+                {
+                    dragged(move.delta.x);
+                }
+                return;
+            }
+            if (picking != null)
+            {
+                picking(move.position);
             }
         }
 
         public void OnEndDrag(PointerEventData move)
         {
-            if (!scrubbing)
+            if (mode == Nothing)
             {
                 Pass(move, ExecuteEvents.endDragHandler);
             }
-            scrubbed = scrubbing;
-            scrubbing = false;
+            else if (mode == Picking && picked != null)
+            {
+                picked();
+            }
+            scrubbed = mode != Nothing;
+            mode = Nothing;
         }
 
-        /// <summary>Whether the pointer is off the box, by more than
-        /// <see cref="Leeway"/>, in any direction. A pointer whose position will not
-        /// map onto the rect at all counts as off it.</summary>
-        private bool Beyond(PointerEventData move)
+        /// <summary>
+        /// Which edge the pointer has left by, by more than <see cref="Leeway"/>:
+        /// the sides mean a value, the top and the bottom mean a reach up or down
+        /// the column. Sideways is tested first, so a diagonal that leaves by a
+        /// corner is read as the value drag it more likely is.
+        ///
+        /// A pointer whose position will not map onto the rect at all counts as
+        /// having left sideways -- that is the older of the two gestures and the
+        /// one a stray pointer should fall into.
+        /// </summary>
+        private int Left(PointerEventData move)
         {
             RectTransform rect = transform as RectTransform;
             if (rect == null)
             {
-                return true;
+                return Scrubbing;
             }
             Vector2 local;
             if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
                     rect, move.position, move.pressEventCamera, out local))
             {
-                return true;
+                return Scrubbing;
             }
             Rect box = rect.rect;
-            return local.x < box.xMin - Leeway || local.x > box.xMax + Leeway
-                || local.y < box.yMin - Leeway || local.y > box.yMax + Leeway;
+            if (local.x < box.xMin - Leeway || local.x > box.xMax + Leeway)
+            {
+                return Scrubbing;
+            }
+            if (local.y < box.yMin - Leeway || local.y > box.yMax + Leeway)
+            {
+                return Picking;
+            }
+            return Nothing;
         }
 
         private void Pass<T>(PointerEventData move, ExecuteEvents.EventFunction<T> what)

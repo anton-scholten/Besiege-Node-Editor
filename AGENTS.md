@@ -89,7 +89,10 @@ What depends on what:
 - **`ValueField`** is the transparent sheet over a number box that makes it
   draggable, taken from the sibling SpecialEffects mod. It has to be a sheet and it
   has to handle the pointer-down as well -- both reasons are written out at the top
-  of the file, and both cost a day somewhere else.
+  of the file, and both cost a day somewhere else. Which edge the drag leaves by
+  settles what it is: the sides are a value, the top and bottom are a reach down
+  the column, and `Panel.Pick`/`Reach` turn that into a selection and scroll the
+  list under it.
 - **`Glow`** blinks the block's display when a row fires. The mesh is unwrapped
   onto a palette of flat patches, one per colour of the model, so the display's
   triangles all look at one patch: the block gets its own material and its own

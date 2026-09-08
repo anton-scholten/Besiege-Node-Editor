@@ -101,10 +101,22 @@ failed — is said on the button it is about, in red, for a few seconds.
 The table is drawn at the mapper's own width, so the two are one window with a
 seam across it.
 
-**WAIT** and **DURATION** are dragged as well as typed: press on the number and
-pull sideways, and the value follows the pointer once the drag leaves the box —
-a drag that stays inside selects text, the way any box does. Click for a caret,
-double-click for the lot.
+**WAIT** and **DURATION** are dragged as well as typed. Which way the drag leaves
+the box decides what it does:
+
+| Drag | What happens |
+| --- | --- |
+| stays inside the box | selects text, the way any box does |
+| out of the **side** | the value follows the pointer |
+| out of the **top or bottom** | reaches up or down the column, lighting every row between where it started and where it is |
+
+A reach that lights several rows leaves them selected and hands the keyboard to the
+box it started from: type a number and every lit row takes it. Drag one of them
+sideways instead and they all move by the same amount, keeping the spacing between
+them. Touching any other cell drops the selection.
+
+Reaching past the top or the bottom of the list scrolls it, so a selection can be
+longer than the window. Click for a caret, double-click for the lot.
 
 Sliders are clipped but out-of-range values can be typed.
 

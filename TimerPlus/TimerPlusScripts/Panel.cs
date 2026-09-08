@@ -168,6 +168,12 @@ namespace TimerPlusMod
             public RowNumber Number;
             public InputField Wait;
             public InputField Duration;
+
+            /// <summary>What the two boxes are painted when nothing is selected.
+            /// Read off the prefab as they are built: a colour written back from a
+            /// constant is a guess, and the guess was white.</summary>
+            public Color WaitPlain;
+            public Color DurationPlain;
             public Toggle Hold;
             public Toggle Stop;
             public Toggle Loop;
@@ -619,8 +625,14 @@ namespace TimerPlusMod
 
         private void Teardown()
         {
-            // Whatever a cell was offering belongs to a cell that is going away.
+            // Whatever a cell was offering, and whatever was selected, belongs to
+            // rows that are going away.
             Choices.Close();
+            pickFrom = -1;
+            pickTo = -1;
+            reaching = false;
+            pickBox = null;
+            pickFocus = 0;
             table.Clear();
             plusLabel = null;
             convertLabel = null;
@@ -899,6 +911,8 @@ namespace TimerPlusMod
 
             cells.Wait = Number(host, x[CWait], w[CWait], index, true);
             cells.Duration = Number(host, x[CDuration], w[CDuration], index, false);
+            cells.WaitPlain = Plain(cells.Wait);
+            cells.DurationPlain = Plain(cells.Duration);
             cells.Hold = Box(host, x[CHold], w[CHold], index);
             cells.Stop = Box(host, x[CStop], w[CStop], index);
             cells.Loop = Box(host, x[CLoop], w[CLoop], index);
@@ -1104,10 +1118,282 @@ namespace TimerPlusMod
 
                 ValueField value = drag.AddComponent<ValueField>();
                 value.field = field;
-                InputField box = field;
-                value.dragged = delegate(float pixels) { Scrub(at, which, box, pixels); };
+                value.dragged = delegate(float pixels) { Scrub(at, which, pixels); };
+                value.picking = delegate(Vector2 screen) { Pick(at, which, screen); };
+                value.picked = delegate { Picked(); };
             }
             return field;
+        }
+
+        // ---- reaching down a column ------------------------------------------
+
+        /// <summary>Which column a standing selection is in, and the first and last
+        /// row of it. <c>from</c> is -1 when there is none.</summary>
+        private bool pickWait;
+        private int pickFrom = -1;
+        private int pickTo = -1;
+
+        /// <summary>True while the pointer is still down and reaching; the panel
+        /// scrolls itself under it while that is so.</summary>
+        private bool reaching;
+        private Vector2 reachAt;
+
+        /// <summary>The box the reach started from, which is the one that takes the
+        /// keyboard when it ends: a selection is made to be typed into, and asking
+        /// for a click on a box that is already lit would be asking twice.</summary>
+        private InputField pickBox;
+
+        /// <summary>Frames left to insist on that. A field settles its own caret in
+        /// its LateUpdate, and which of the two runs first is not ours to
+        /// decide.</summary>
+        private int pickFocus;
+
+        /// <summary>How near the top or bottom of the frame the pointer has to be
+        /// for the list to start moving under it, and how fast it then moves.</summary>
+        private const float EdgeBand = 26f;
+        private const float EdgeSpeed = 220f;
+
+        /// <summary>The colour a box is painted when nothing is selected: whatever
+        /// the prefab gave it.</summary>
+        private static Color Plain(InputField box)
+        {
+            Graphic plate = box == null ? null : box.targetGraphic;
+            return plate == null ? Color.white : plate.color;
+        }
+
+        /// <summary>
+        /// What a selected box is tinted: the colour the field itself highlights
+        /// selected text with, which is the grey somebody already knows means
+        /// "this, and what you type next replaces it".
+        ///
+        /// Its own alpha is for text drawn over a box; the box keeps the alpha it
+        /// was drawn with.
+        /// </summary>
+        private static Color Chosen(InputField box, Color plain)
+        {
+            if (box == null)
+            {
+                return plain;
+            }
+            Color grey = box.selectionColor;
+            return new Color(grey.r, grey.g, grey.b, plain.a);
+        }
+
+        /// <summary>
+        /// The pointer has reached out of a box, up or down its own column. Selects
+        /// every row between the one the drag started on and the one it is over.
+        /// </summary>
+        private void Pick(int index, bool wait, Vector2 screen)
+        {
+            if (served == null || table.Count == 0)
+            {
+                return;
+            }
+            reachAt = screen;
+            if (!reaching)
+            {
+                // A new reach, not the one that ended a moment ago: whatever was
+                // selected is not what this gesture is about.
+                reaching = true;
+                pickWait = wait;
+                pickFrom = index;
+                pickTo = index;
+                pickBox = wait ? table[index].Wait : table[index].Duration;
+            }
+            int over = Under(screen);
+            pickTo = over < 0 ? pickTo : over;
+            if (pickTo < 0)
+            {
+                pickTo = index;
+            }
+            Highlight();
+        }
+
+        /// <summary>The reach ended. The selection stands: the next value typed or
+        /// dragged into any of it goes to all of it.</summary>
+        private void Picked()
+        {
+            reaching = false;
+            if (pickFrom >= 0 && pickTo == pickFrom)
+            {
+                // A reach that never left its own row selected one row, which is
+                // what a plain edit already is.
+                Unpick();
+                return;
+            }
+            if (pickBox != null)
+            {
+                pickBox.ActivateInputField();
+                pickFocus = Insisting;
+            }
+        }
+
+        /// <summary>Frames the selected box is given the keyboard for.</summary>
+        private const int Insisting = 3;
+
+        /// <summary>Holds the whole of the box's value selected for a few frames
+        /// after a reach, so the first thing typed replaces it rather than landing
+        /// beside it.</summary>
+        private void Keyboard()
+        {
+            if (pickFocus <= 0 || pickBox == null)
+            {
+                return;
+            }
+            pickFocus--;
+            if (!pickBox.isFocused)
+            {
+                return;
+            }
+            pickBox.selectionAnchorPosition = 0;
+            pickBox.selectionFocusPosition = pickBox.text.Length;
+            // Those two setters move the caret and the anchor and nothing else --
+            // they do not mark the caret graphic dirty, so the highlight that shows
+            // a selection is never rebuilt without this.
+            pickBox.ForceLabelUpdate();
+        }
+
+        /// <summary>Drops the selection and puts the boxes back to their own
+        /// colour.</summary>
+        private void Unpick()
+        {
+            pickFrom = -1;
+            pickTo = -1;
+            reaching = false;
+            pickBox = null;
+            pickFocus = 0;
+            Highlight();
+        }
+
+        /// <summary>Whether a cell is one of the selected ones.</summary>
+        private bool InPick(int index, bool wait)
+        {
+            return pickFrom >= 0 && wait == pickWait
+                && index >= Mathf.Min(pickFrom, pickTo)
+                && index <= Mathf.Max(pickFrom, pickTo);
+        }
+
+        /// <summary>Tints the boxes that are selected and clears the ones that are
+        /// not. Every box every time: a row that has just left the selection has to
+        /// be put back, and there are thirty-two of them at the most.</summary>
+        private void Highlight()
+        {
+            for (int i = 0; i < table.Count; i++)
+            {
+                Cells row = table[i];
+                Tint(row.Wait, InPick(i, true) ? Chosen(row.Wait, row.WaitPlain)
+                                               : row.WaitPlain);
+                Tint(row.Duration,
+                     InPick(i, false) ? Chosen(row.Duration, row.DurationPlain)
+                                      : row.DurationPlain);
+            }
+        }
+
+        private static void Tint(InputField box, Color colour)
+        {
+            Graphic plate = box == null ? null : box.targetGraphic;
+            if (plate != null)
+            {
+                plate.color = colour;
+            }
+        }
+
+        /// <summary>
+        /// Which row the pointer is over, or -1 if it is over none of them.
+        ///
+        /// Through the window's own rect, the same way <see cref="Curtain"/>
+        /// measures: the rows are several parents deep inside a frame that scrolls,
+        /// and their anchored positions say nothing about where they are on screen.
+        /// </summary>
+        private int Under(Vector2 screen)
+        {
+            if (windowRect == null)
+            {
+                return -1;
+            }
+            Vector2 local;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    windowRect, screen, null, out local))
+            {
+                return -1;
+            }
+            int nearest = -1;
+            float best = 0f;
+            Vector3[] corners = new Vector3[4];
+            for (int i = 0; i < table.Count; i++)
+            {
+                RectTransform row = table[i].Frame == null
+                    ? null : table[i].Frame.transform as RectTransform;
+                if (row == null)
+                {
+                    continue;
+                }
+                row.GetWorldCorners(corners);
+                float bottom = windowRect.InverseTransformPoint(corners[0]).y;
+                float top = windowRect.InverseTransformPoint(corners[1]).y;
+                if (local.y <= top && local.y >= bottom)
+                {
+                    return i;
+                }
+                // Past the end of the list in either direction: the nearest row is
+                // what the pointer means, which is what lets a reach run off the
+                // top or the bottom and take everything with it.
+                float away = local.y > top ? local.y - top : bottom - local.y;
+                if (nearest < 0 || away < best)
+                {
+                    nearest = i;
+                    best = away;
+                }
+            }
+            return nearest;
+        }
+
+        /// <summary>
+        /// Scrolls the list while a reach is held near the top or the bottom of the
+        /// frame, so a selection can be longer than the window.
+        ///
+        /// Driven from LateUpdate rather than from the drag: a pointer held still at
+        /// the edge sends no drag events, and holding still at the edge is exactly
+        /// how somebody asks for this.
+        /// </summary>
+        private void Reach()
+        {
+            if (!reaching || scroll == null || scroll.content == null
+                || scroll.viewport == null)
+            {
+                return;
+            }
+            Vector2 local;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    scroll.viewport, reachAt, null, out local))
+            {
+                return;
+            }
+            Rect frame = scroll.viewport.rect;
+            float step = 0f;
+            if (local.y > frame.yMax - EdgeBand)
+            {
+                step = -EdgeSpeed * Time.unscaledDeltaTime;
+            }
+            else if (local.y < frame.yMin + EdgeBand)
+            {
+                step = EdgeSpeed * Time.unscaledDeltaTime;
+            }
+            if (step == 0f)
+            {
+                return;
+            }
+            float span = Mathf.Max(0f, scroll.content.sizeDelta.y - frame.height);
+            Vector2 at = scroll.content.anchoredPosition;
+            scroll.content.anchoredPosition =
+                new Vector2(at.x, Mathf.Clamp(at.y + step, 0f, span));
+            Curtain(false);
+            int over = Under(reachAt);
+            if (over >= 0)
+            {
+                pickTo = over;
+                Highlight();
+            }
         }
 
         /// <summary>How much of a second a pixel of drag is worth. A slider's whole
@@ -1123,7 +1409,7 @@ namespace TimerPlusMod
         /// frame and reserialises the block once, the same as a slider being
         /// dragged in Besiege's own mapper.
         /// </summary>
-        private void Scrub(int index, bool wait, InputField box, float pixels)
+        private void Scrub(int index, bool wait, float pixels)
         {
             if (served == null || index >= served.Rows.Count)
             {
@@ -1135,22 +1421,45 @@ namespace TimerPlusMod
                 return;
             }
             MSlider slider = wait ? row.Wait : row.Duration;
-            float value = slider.Value
-                        + pixels * (slider.Max - slider.Min) * DragPerPixel;
-            // Never below the slider's own floor: a wait or a duration below zero
-            // is not a thing, whatever the slider will take above its top.
-            slider.Value = value < slider.Min ? slider.Min : value;
-            if (box != null)
+            float step = pixels * (slider.Max - slider.Min) * DragPerPixel;
+
+            // A drag over a selection moves every row of it by the same amount
+            // rather than to the same value: the rows were given their spacing on
+            // purpose, and a drag is an adjustment where a typed number is a
+            // decision.
+            bool many = InPick(index, wait);
+            int first = many ? Mathf.Min(pickFrom, pickTo) : index;
+            int last = many ? Mathf.Max(pickFrom, pickTo) : index;
+            if (!many)
             {
-                // Written even while the box has focus, which is the one place that
-                // is right: the value is moving under the pointer and the box is
-                // what shows it.
-                box.text = Spell(slider.Value);
+                // Touching a cell outside the selection is leaving it.
+                Unpick();
+            }
+            for (int i = first; i <= last && i < served.Rows.Count; i++)
+            {
+                Row one = served.Rows[i];
+                if (!one.Ready)
+                {
+                    continue;
+                }
+                MSlider each = wait ? one.Wait : one.Duration;
+                float value = each.Value + step;
+                // Never below the slider's own floor: a wait or a duration below
+                // zero is not a thing, whatever the slider will take above its top.
+                each.Value = value < each.Min ? each.Min : value;
+                Queue(each);
+                InputField shown = wait ? table[i].Wait : table[i].Duration;
+                if (shown != null)
+                {
+                    // Written even while the box has focus, which is the one place
+                    // that is right: the value is moving under the pointer and the
+                    // box is what shows it.
+                    shown.text = Spell(each.Value);
+                }
             }
             // The numbers down the left are the wait order, and a wait being
             // dragged is that order changing under the hand.
             Numbers();
-            Queue(slider);
         }
 
         private Image Plate(Transform host, float x, float y, float w, float h, Color colour)
@@ -1410,11 +1719,27 @@ namespace TimerPlusMod
             // stores the 0.06 they were shown. Ten milliseconds is half a tick, so
             // nothing the timer can resolve is lost.
             value = Mathf.Max(0f, Mathf.Round(value * 100f) / 100f);
-            slider.Value = value;
-            Queue(slider);
-            // Written back, so a rejected value changes in front of whoever typed
-            // it rather than silently.
-            Set(wait ? table[index].Wait : table[index].Duration, value);
+
+            // One value into every row of a standing selection. That is what the
+            // selection is for: reaching down a column and typing once is the whole
+            // of "give these eight the same wait".
+            int first = InPick(index, wait) ? Mathf.Min(pickFrom, pickTo) : index;
+            int last = InPick(index, wait) ? Mathf.Max(pickFrom, pickTo) : index;
+            for (int i = first; i <= last && i < served.Rows.Count; i++)
+            {
+                Row one = served.Rows[i];
+                if (!one.Ready)
+                {
+                    continue;
+                }
+                MSlider each = wait ? one.Wait : one.Duration;
+                each.Value = value;
+                Queue(each);
+                // Written back, so a rejected value changes in front of whoever
+                // typed it rather than silently.
+                Set(wait ? table[i].Wait : table[i].Duration, value);
+            }
+            Unpick();
             if (wait)
             {
                 // A wait decides which timer this is.
@@ -1706,6 +2031,11 @@ namespace TimerPlusMod
             {
                 Unflash();
             }
+            // A pointer held still at the edge of the frame sends no drag events,
+            // and holding still at the edge is exactly how a reach past the end of
+            // the list is asked for.
+            Reach();
+            Keyboard();
             Dock();
             Curtain(false);
         }

@@ -30,6 +30,10 @@ timers.
 - **Wait and duration drag**, as the sibling SpecialEffects mod's value fields do:
   pull sideways off the box and the number follows the pointer; stay on it and the
   drag selects text.
+- **Reaching up or down a column** selects every row between where the drag started
+  and where it is, scrolling the list when it runs past the end of it. One number
+  typed then goes to all of them, and one sideways drag moves all of them by the
+  same amount.
 - **Sorting** on wait and on duration, stable, so a second sort refines the first.
   Nothing else sorts: three ticks in a column are read off faster than a sort is
   clicked.
