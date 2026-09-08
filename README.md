@@ -154,6 +154,31 @@ Those two are the only columns that sort. Three ticks in a column of thirty-two
 rows are read off faster than a sort is clicked, and a table in keycode-name order
 answers a question nobody asks.
 
+## Logic Gate Plus
+
+The same table, for Besiege's logic gate. A row is a whole gate:
+
+| Column | What it does |
+| --- | --- |
+| (the number) | Which row this is. Point anywhere on the row and it turns into a red **X**: click to delete it |
+| **INPUT A** | The gate's first input, a key or a variable |
+| **INPUT B** | Its second. Barred with diagonal stripes for a gate that reads only one — the key is still there and still saved, so a gate switched back finds what it was given |
+| **GATE** | Which of the twelve: NOT, AND, OR, NOR, NAND, XOR, XNOR, RANDOM, SR LATCH, D LATCH, COUNTER, EDGE |
+| **M** | The gate's one switch: **I** for the edge detector's inverted, **T** for toggle mode, where a press flips an input rather than holding it. Barred and dead for the gates that have neither — random, both latches, the counter |
+| **EMULATE** | The key or variable the row presses while its gate says yes |
+
+Besiege's own block has two switches and shows one at a time, which is why the
+table has one column for both. Sorting is on **GATE** alone.
+
+Every gate is Besiege's own, read out of the game: the seven combinational ones,
+the two latches, the counter that divides by four, the random gate and the edge
+detector that answers for exactly one tick. **CONVERT TO LOGIC GATES** builds one
+of the game's logic gate blocks per row.
+
+One deliberate difference: no burnout. Besiege can burn a gate out for pulsing too
+fast, because a gate is a thing on the machine that can be broken; a row of a table
+is not one.
+
 ## Converting
 
 **CONVERT TO TIMER BLOCKS** builds one of Besiege's own timer blocks per row, lays
@@ -212,9 +237,10 @@ The block model is Creative Commons Attribution (CC-BY 3.0), from Poly Pizza:
 | Block | Model | By |
 | --- | --- | --- |
 | Timer Plus | [Timer](https://poly.pizza/m/0J1_OKm87pR) | Poly by Google |
+| Logic Gate Plus | [Simple computer](https://poly.pizza/m/doMMnviJrGi) | Robert Schlyter |
 
-It is fetched and converted by `tools/make-block-mesh.py` rather than committed,
-so the licence stays with its source.
+They are fetched and converted by `tools/make-block-mesh.py` rather than
+committed, so the licence stays with its source.
 
 ## Licence
 

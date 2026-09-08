@@ -38,6 +38,46 @@ namespace TimerPlusMod
         public MKey Mapper { get { return key; } }
 
         /// <summary>
+        /// The keyboard's own edges, and the emulated ones, separately.
+        ///
+        /// <see cref="Poll"/> merges the two, which is what a timer wants: one
+        /// activation, however it arrives. A logic gate wants them apart --
+        /// Besiege's own runs its state machine twice, once with the keyboard's
+        /// edges in its frame update and once with the emulated ones on the
+        /// emulation tick -- so these hand each set over on its own.
+        /// </summary>
+        public bool RealPressed { get { return key != null && key.IsPressed; } }
+
+        public bool RealHeld { get { return key != null && key.IsHeld; } }
+
+        /// <summary>`IsReleased` is the one key property that does not check
+        /// `useMessage` for itself, so a key handed over to a variable still
+        /// reports the player letting go of the keycode it used to be bound
+        /// to.</summary>
+        public bool RealReleased
+        {
+            get { return key != null && !key.useMessage && key.IsReleased; }
+        }
+
+        public bool EmulatedHeld { get { return emulatedHeld; } }
+
+        /// <summary>The latched emulated press, handed out once.</summary>
+        public bool TakePress()
+        {
+            bool had = emulatedPress;
+            emulatedPress = false;
+            return had;
+        }
+
+        /// <summary>The latched emulated release, handed out once.</summary>
+        public bool TakeRelease()
+        {
+            bool had = emulatedRelease;
+            emulatedRelease = false;
+            return had;
+        }
+
+        /// <summary>
         /// From <c>KeyEmulationUpdate</c> and nowhere else.
         ///
         /// Each key's snapshot advances only when one of *its own* edge methods is

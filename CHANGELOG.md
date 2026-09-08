@@ -2,8 +2,8 @@
 
 ## 0.1.0
 
-First version. One block, **Timer Plus**, holding a table of up to thirty-two
-timers.
+First version. Two blocks, each holding a table of up to thirty-two rows:
+**Timer Plus** for Besiege's timers and **Logic Gate Plus** for its logic gates.
 
 **Added**
 
@@ -53,6 +53,16 @@ timers.
 - Without UI Factory the block still works: its controls appear in Besiege's own
   block mapper and the panel quietly never builds.
 
+- **Logic Gate Plus.** The same table for Besiege's logic gate: two inputs, the
+  gate, its one switch and the key it presses. Every one of the twelve gates is the
+  game's own, read out of `LogicGate` and checked against its truth tables, its
+  latches, its counter and its one-tick edge — so a converted machine runs the same
+  as the one that made it. Input B is barred with diagonal stripes for a gate that
+  reads one input, and the switch is barred and dead for a gate that has neither of
+  the two it stands for; what is barred is still bound underneath. The switch wears
+  **T** or **I** for which of the two it is. Convert builds real logic gate
+  blocks.
+
 **Known and deliberate**
 
 - **Thirty-two rows is a hard cap.** `MKey` is the only mapper type that carries a
@@ -61,5 +71,9 @@ timers.
 - **Two rows pressing the same key at once raise one press.** Besiege
   reference-counts an emulated key; this is the game's behaviour and a real pair of
   timer blocks does the same.
+- **Logic Gate Plus does not burn out.** Besiege can burn a gate out for pulsing
+  too fast; a row of a table is not a thing on the machine that can be broken, and
+  thirty-two rows sharing one block's burnout would be a rule nobody could see the
+  shape of.
 - The stock mapper's row-count slider reads `1.00`–`32.00`. It is a slider because
   Besiege's mapper has no integer control.

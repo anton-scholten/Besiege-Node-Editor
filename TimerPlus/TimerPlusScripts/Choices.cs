@@ -79,6 +79,25 @@ namespace TimerPlusMod
             }
         }
 
+        /// <summary>
+        /// Whether the pointer is over the open list.
+        ///
+        /// Asked by the panel, which switches its raycaster off for a press that
+        /// did not land on its window -- and this list is the one thing of the
+        /// panel's that hangs outside it.
+        /// </summary>
+        public static bool Over(Vector2 screen)
+        {
+            if (list == null)
+            {
+                return false;
+            }
+            RectTransform frame = list.transform as RectTransform;
+            // Null camera: the canvas is a screen-space overlay.
+            return frame != null
+                && RectTransformUtility.RectangleContainsScreenPoint(frame, screen, null);
+        }
+
         public static void Close()
         {
             chosen = null;

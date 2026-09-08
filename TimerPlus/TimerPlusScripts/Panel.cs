@@ -110,6 +110,13 @@ namespace TimerPlusMod
         private const int CLoop = 5;
         private const int CEmulate = 6;
 
+        // And the logic table's, which shares only the number column.
+        private const int LInputA = 1;
+        private const int LInputB = 2;
+        private const int LGate = 3;
+        private const int LMode = 4;
+        private const int LEmulate = 5;
+
         private static readonly Vector2 Reference = new Vector2(1920f, 1080f);
         private static readonly Color RuleInk = new Color(0.55f, 0.62f, 0.72f, 0.30f);
 
@@ -125,6 +132,19 @@ namespace TimerPlusMod
         /// </summary>
         public static bool Usable;
 
+        /// <summary>
+        /// Whether the panel draws this block's table, which is what tells a block
+        /// to take its controls off Besiege's own mapper.
+        ///
+        /// Timer Plus only, for now: the logic table's columns are a different
+        /// table, and until the panel can draw one the Logic Gate Plus block keeps
+        /// its controls in the mapper where they can at least be reached.
+        /// </summary>
+        public static bool Serving(MonoBehaviour block)
+        {
+            return Usable;
+        }
+
         /// <summary>Set once the panel has given up -- no UI Factory, or a build
         /// that threw -- so the stock mapper is the only way to set a block and
         /// keeps its controls for good.</summary>
@@ -132,6 +152,11 @@ namespace TimerPlusMod
 
         private float width = DefaultWidth;
         private Canvas canvas;
+
+        /// <summary>What makes the panel answer the pointer, kept so it can be
+        /// switched off for the length of a drag that began somewhere else -- see
+        /// <see cref="StandOff"/>.</summary>
+        private GraphicRaycaster caster;
         private GameObject window;
         private RectTransform windowRect;
         private ScrollRect scroll;
@@ -146,6 +171,30 @@ namespace TimerPlusMod
         /// Both are why a rebuild happens: the geometry is per row count, and the
         /// bindings are per block.</summary>
         private TimerPlusBehaviour served;
+
+        /// <summary>The other block this panel draws a table for. Exactly one of
+        /// the two is ever set: the chrome -- the window, the docking, the frame,
+        /// the strip, the scrollbar -- is the same for both, and only the columns
+        /// differ.</summary>
+        private LogicGatePlusBehaviour logic;
+
+        /// <summary>Whether the open block is the logic table. Not called
+        /// `Logic`: Besiege has types of that name in the global namespace, and
+        /// this file is compiled inside `TimerPlusMod`.</summary>
+        private bool Gated { get { return logic != null; } }
+
+        /// <summary>How many rows the open block has, whichever it is.</summary>
+        private int Rows
+        {
+            get
+            {
+                if (Gated)
+                {
+                    return logic.Count;
+                }
+                return served == null ? 0 : served.Count;
+            }
+        }
         private int builtRows = -1;
         private float builtWidth = -1f;
 
@@ -178,6 +227,24 @@ namespace TimerPlusMod
             public Toggle Stop;
             public Toggle Loop;
             public KeyCell Emulate;
+
+            // ---- the logic table's own cells ---------------------------------
+
+            public KeyCell InA;
+            public KeyCell InB;
+            public GameObject Gate;
+            public Text GateName;
+            public Toggle ModeBox;
+
+            /// <summary>The bars drawn over input B for a gate that does not read
+            /// it, and over the switch for a gate that has neither of the two the
+            /// switch stands for.</summary>
+            public RawImage Barred;
+            public RawImage ModeBarred;
+
+            /// <summary>The letter on the switch: T for toggle mode, I for
+            /// inverted.</summary>
+            public Text ModeName;
         }
 
         private readonly List<Cells> table = new List<Cells>();
@@ -263,17 +330,19 @@ namespace TimerPlusMod
                 return;
             }
             TimerPlusBehaviour block = null;
+            LogicGatePlusBehaviour gates = null;
             try
             {
                 BlockMapper mapper = BlockMapper.CurrentInstance;
                 if (mapper != null && mapper.Block != null)
                 {
                     block = mapper.Block.GetComponent<TimerPlusBehaviour>();
+                    gates = mapper.Block.GetComponent<LogicGatePlusBehaviour>();
                 }
             }
             catch (Exception) { }
 
-            if (block == null)
+            if (block == null && gates == null)
             {
                 Hide();
                 return;
@@ -281,7 +350,14 @@ namespace TimerPlusMod
 
             try
             {
-                Show(block);
+                if (gates != null)
+                {
+                    Show(gates);
+                }
+                else
+                {
+                    Show(block);
+                }
             }
             catch (Exception e)
             {
@@ -303,6 +379,44 @@ namespace TimerPlusMod
             catch (Exception e) { Log.Warn("the panel could not close: " + e.Message); }
         }
 
+        /// <summary>The logic table's own open. The same shape as the timer's
+        /// below it: a rebuild when the block or its size changed, then a fill.
+        /// </summary>
+        private void Show(LogicGatePlusBehaviour block)
+        {
+            Rect frame;
+            if (MapperFrame(out frame))
+            {
+                Widen(frame);
+            }
+
+            if (logic != block)
+            {
+                sortColumn = -1;
+                sortAscending = true;
+            }
+            if (logic != block || served != null || builtRows != block.Count
+                || Mathf.Abs(builtWidth - width) > 0.5f || window == null)
+            {
+                logic = block;
+                served = null;
+                if (!Build())
+                {
+                    Hide();
+                    return;
+                }
+            }
+
+            Usable = true;
+            logic.ShowStock(false);
+            window.SetActive(true);
+            Unflash();
+            Fill();
+            Canvas.ForceUpdateCanvases();
+            Dock();
+            Curtain(true);
+        }
+
         private void Show(TimerPlusBehaviour block)
         {
             Rect frame;
@@ -318,10 +432,11 @@ namespace TimerPlusMod
                 sortColumn = -1;
                 sortAscending = true;
             }
-            if (served != block || builtRows != block.Count
+            if (served != block || logic != null || builtRows != block.Count
                 || Mathf.Abs(builtWidth - width) > 0.5f || window == null)
             {
                 served = block;
+                logic = null;
                 if (!Build())
                 {
                     Hide();
@@ -383,7 +498,7 @@ namespace TimerPlusMod
 
                 Fixed();
                 float height = Layout();
-                builtRows = served.Count;
+                builtRows = Rows;
                 builtWidth = width;
                 FitContent(height);
                 windowRect.sizeDelta =
@@ -425,7 +540,7 @@ namespace TimerPlusMod
             // interface, which is the one thing borrowing them was to prevent.
             scaler.matchWidthOrHeight = 1f;
 
-            go.AddComponent<GraphicRaycaster>();
+            caster = go.AddComponent<GraphicRaycaster>();
             return true;
         }
 
@@ -669,6 +784,27 @@ namespace TimerPlusMod
         /// </summary>
         private void Columns(out float[] x, out float[] w)
         {
+            if (Gated)
+            {
+                // The number, one switch, and four columns that hold a name: two
+                // inputs, the gate and the key. The gate takes a little less than
+                // the keys -- "SR LATCH" is the longest thing it ever says, and a
+                // variable name has no length this can choose.
+                float room = Mathf.Max(200f,
+                    Full - (NumberWidth + SwitchWidth + ColGap * 5f));
+                float key = room * 0.26f;
+                w = new float[] { NumberWidth, key, key, room - key * 3f,
+                                  SwitchWidth, key };
+                x = new float[w.Length];
+                float at2 = Margin;
+                for (int i = 0; i < w.Length; i++)
+                {
+                    x[i] = at2;
+                    at2 += w[i] + ColGap;
+                }
+                return;
+            }
+
             float fixedWidth = NumberWidth + SwitchWidth * 3f + ColGap * 6f;
             float rest = Mathf.Max(160f, Full - fixedWidth);
             // The two times take more than the key does. A heading grows under the
@@ -696,13 +832,14 @@ namespace TimerPlusMod
             float[] x, w;
             Columns(out x, out w);
 
-            y = Header(y, x, w);
+            y = Gated ? LogicHeader(y, x, w) : Header(y, x, w);
 
             table.Clear();
-            int count = served.Count;
+            int count = Rows;
             for (int i = 0; i < count; i++)
             {
-                table.Add(BuildRow(i, ref y, x, w));
+                table.Add(Gated ? LogicRowCells(i, ref y, x, w)
+                                : BuildRow(i, ref y, x, w));
             }
 
             return y + Margin;
@@ -887,6 +1024,161 @@ namespace TimerPlusMod
             drawn.raycastTarget = false;
         }
 
+        /// <summary>What the logic table's columns are headed with, and what each
+        /// says on hover. The number column is headed with nothing, as the timer's
+        /// is.</summary>
+        private static readonly string[] GateHeads =
+        {
+            "", "INPUT A", "INPUT B", "GATE", "M", "EMULATE"
+        };
+
+        private static readonly string[] GateHeadTips =
+        {
+            "",
+            "The gate's first input",
+            "The gate's second input\nBarred for a gate that reads only one",
+            "Which gate this row is",
+            "Inverted, for the edge detector\nToggle mode for every other gate:\n"
+                + "a press flips an input rather than holding it",
+            "The key or variable this row presses while its gate says yes"
+        };
+
+        private float LogicHeader(float y, float[] x, float[] w)
+        {
+            for (int c = LInputA; c < GateHeads.Length; c++)
+            {
+                GameObject go = UIF.Spawn(UIF.ButtonPrefab, content);
+                if (go == null)
+                {
+                    continue;
+                }
+                UIF.Fit(go.GetComponent<RectTransform>(), x[c], y, w[c], HeadHeight);
+                UIF.NoSwell(go);
+
+                bool sorts = c == LGate;
+                Text label = Pin(go, GateHeads[c], UIF.Ink);
+                if (sorts)
+                {
+                    Grow(go, label);
+                    marks[c] = Mark(go);
+                }
+                Tip.On(go, GateHeadTips[c]);
+
+                Button click = go.GetComponent<Button>();
+                if (click == null)
+                {
+                    continue;
+                }
+                if (sorts)
+                {
+                    click.onClick.AddListener(delegate { SortBy(LogicTable.ColGate); });
+                }
+                else
+                {
+                    click.enabled = false;
+                }
+            }
+            y += HeadHeight + RowGap;
+            return y;
+        }
+
+        /// <summary>
+        /// One row of the logic table: two inputs, the gate, its one switch and the
+        /// key it presses.
+        /// </summary>
+        private Cells LogicRowCells(int index, ref float y, float[] x, float[] w)
+        {
+            Cells cells = new Cells();
+
+            GameObject frame = new GameObject("Row" + index);
+            frame.transform.SetParent(content, false);
+            frame.AddComponent<RectTransform>();
+            UIF.Fit(frame.GetComponent<RectTransform>(), 0f, y, width, RowHeight);
+            cells.Frame = frame;
+            Transform host = frame.transform;
+
+            cells.Number = RowNumber.Make(host, x[CNumber], 0f, w[CNumber], RowHeight);
+            int which = index;
+            cells.Number.Clicked = delegate { Delete(which); };
+            cells.Number.Watch(frame);
+
+            cells.InA = KeyCell.Make(host, x[LInputA], 0f, w[LInputA], RowHeight);
+            cells.InA.Row = index;
+            cells.InA.Changed = GateKeyChanged;
+
+            cells.InB = KeyCell.Make(host, x[LInputB], 0f, w[LInputB], RowHeight);
+            cells.InB.Row = index;
+            cells.InB.Changed = GateKeyChanged;
+            // Drawn over input B for a gate that reads only one, and switched off
+            // for one that reads both. Built here rather than when it is first
+            // wanted: a row's gate changes under the pointer.
+            cells.Barred = Bars(cells.InB.gameObject);
+
+            cells.Gate = UIF.Spawn(UIF.ButtonPrefab, host);
+            if (cells.Gate != null)
+            {
+                UIF.Fit(cells.Gate.GetComponent<RectTransform>(), x[LGate], 0f,
+                        w[LGate], RowHeight);
+                UIF.NoSwell(cells.Gate);
+                cells.GateName = Pin(cells.Gate, "", UIF.Ink);
+                Grow(cells.Gate, cells.GateName);
+                int at = index;
+                Button click = cells.Gate.GetComponent<Button>();
+                if (click != null)
+                {
+                    click.onClick.AddListener(delegate { PickGate(at); });
+                }
+            }
+
+            cells.ModeBox = Box(host, x[LMode], w[LMode], index);
+            if (cells.ModeBox != null)
+            {
+                cells.ModeName = cells.ModeBox.GetComponentInChildren<Text>(true);
+                cells.ModeBarred = Bars(cells.ModeBox.gameObject);
+            }
+
+            cells.Emulate = KeyCell.Make(host, x[LEmulate], 0f, w[LEmulate], RowHeight);
+            cells.Emulate.Row = index;
+            cells.Emulate.Changed = GateKeyChanged;
+
+            y += RowHeight + RowGap;
+            return cells;
+        }
+
+        /// <summary>
+        /// The diagonal bars that say a cell is not read.
+        ///
+        /// Drawn over the cell rather than by hiding it: the key is still there and
+        /// still saved, and a gate switched back to one that reads B should find
+        /// what it was given. An empty space would say the setting was lost.
+        /// </summary>
+        private static RawImage Bars(GameObject over)
+        {
+            if (over == null)
+            {
+                return null;
+            }
+            GameObject go = new GameObject("Barred");
+            go.transform.SetParent(over.transform, false);
+            RectTransform rect = go.AddComponent<RectTransform>();
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+
+            RawImage drawn = go.AddComponent<RawImage>();
+            drawn.texture = Glyphs.Bars;
+            drawn.color = new Color(1f, 1f, 1f, 0.5f);
+            // Tiled: the picture is one diagonal stripe, and a cell is however wide
+            // the mapper is. uvRect counts in texture widths.
+            drawn.uvRect = new Rect(0f, 0f, 6f, 1f);
+            // The cell underneath still takes the pointer, so a barred key can be
+            // read and even rebound; it is drawn over, not switched off.
+            drawn.raycastTarget = false;
+            go.SetActive(false);
+            return drawn;
+        }
+
         private Cells BuildRow(int index, ref float y, float[] x, float[] w)
         {
             Cells cells = new Cells();
@@ -978,7 +1270,8 @@ namespace TimerPlusMod
             {
                 UIF.Fit(go.GetComponent<RectTransform>(), Margin, y, Full, RowHeight + 4f);
                 UIF.NoSwell(go);
-                convertLabel = Pin(go, "CONVERT TO TIMER BLOCKS", UIF.Ink);
+                convertLabel = Pin(go, Gated ? "CONVERT TO LOGIC GATES"
+                                             : "CONVERT TO TIMER BLOCKS", UIF.Ink);
                 Grow(go, convertLabel);
                 Button click = go.GetComponent<Button>();
                 if (click != null)
@@ -1493,6 +1786,11 @@ namespace TimerPlusMod
         /// </summary>
         private void Fill()
         {
+            if (Gated)
+            {
+                GateFill();
+                return;
+            }
             if (served == null)
             {
                 return;
@@ -1516,6 +1814,67 @@ namespace TimerPlusMod
                     if (cells.Loop != null) cells.Loop.isOn = row.Loop.IsActive;
                 }
                 Numbers();
+                Heads();
+            }
+            finally
+            {
+                filling = false;
+            }
+        }
+
+        /// <summary>
+        /// The logic table's fill. Every cell every time, for the reason the
+        /// timer's does it: a window kept for the next block of the same shape
+        /// would otherwise show the last one's values.
+        /// </summary>
+        private void GateFill()
+        {
+            filling = true;
+            try
+            {
+                for (int i = 0; i < table.Count && i < logic.Rows.Count; i++)
+                {
+                    LogicRow row = logic.Rows[i];
+                    Cells cells = table[i];
+                    if (!row.Ready)
+                    {
+                        continue;
+                    }
+                    int gate = row.Gate;
+                    cells.InA.Show(row.InputA);
+                    cells.InB.Show(row.InputB);
+                    cells.Emulate.Show(row.Emulate);
+                    if (cells.GateName != null)
+                    {
+                        cells.GateName.text = Gates.Names[gate];
+                    }
+                    if (cells.ModeBox != null)
+                    {
+                        cells.ModeBox.isOn = row.Switch;
+                    }
+                    if (cells.Barred != null)
+                    {
+                        cells.Barred.gameObject.SetActive(!Gates.UsesB(gate));
+                    }
+                    if (cells.ModeName != null)
+                    {
+                        cells.ModeName.text = Gates.ModeLetter(gate);
+                    }
+                    if (cells.ModeBarred != null)
+                    {
+                        // Barred *and* switched off, not merely barred: a switch
+                        // this gate never reads is one a click should not move.
+                        bool has = Gates.UsesMode(gate);
+                        cells.ModeBarred.gameObject.SetActive(!has);
+                        cells.ModeBox.interactable = has;
+                    }
+                    if (cells.Number != null)
+                    {
+                        // Row order, not a rank: a gate has no order of its own,
+                        // and the number is here to be pointed at.
+                        cells.Number.Number = (i + 1).ToString();
+                    }
+                }
                 Heads();
             }
             finally
@@ -1596,6 +1955,11 @@ namespace TimerPlusMod
         /// by. Only the two that sort have a heading to mark.</summary>
         private void Heads()
         {
+            if (Gated)
+            {
+                Mark(LGate, LogicTable.ColGate);
+                return;
+            }
             Mark(CWait, Table.ColWait);
             Mark(CDuration, Table.ColDuration);
         }
@@ -1614,6 +1978,69 @@ namespace TimerPlusMod
         }
 
         // ---- what the controls do --------------------------------------------
+
+        // ---- what the logic table's controls do -------------------------------
+
+        /// <summary>One of a logic row's three keys changed. Which one it is comes
+        /// from the cell the panel built it into, so a row does not have to carry a
+        /// column number about with it.</summary>
+        private void GateKeyChanged(KeyCell cell)
+        {
+            if (filling || logic == null || cell.Row < 0
+                || cell.Row >= logic.Rows.Count || cell.Row >= table.Count)
+            {
+                return;
+            }
+            LogicRow row = logic.Rows[cell.Row];
+            if (!row.Ready)
+            {
+                return;
+            }
+            Cells shown = table[cell.Row];
+            MKey key = cell == shown.InA ? row.InputA
+                     : (cell == shown.InB ? row.InputB : row.Emulate);
+            Apply(key, cell);
+            Queue(key);
+        }
+
+        /// <summary>Offers the twelve gates, in the game's own order.</summary>
+        private void PickGate(int index)
+        {
+            if (logic == null || index >= logic.Rows.Count || index >= table.Count)
+            {
+                return;
+            }
+            List<string> names = new List<string>();
+            for (int g = 0; g < Gates.Count; g++)
+            {
+                names.Add(Gates.Names[g]);
+            }
+            RectTransform under = table[index].Gate == null
+                ? null : table[index].Gate.transform as RectTransform;
+            int at = index;
+            Choices.Open(under, names, delegate(string picked)
+            {
+                Chose(at, names.IndexOf(picked));
+            });
+        }
+
+        private void Chose(int index, int gate)
+        {
+            if (logic == null || gate < 0 || index >= logic.Rows.Count)
+            {
+                return;
+            }
+            LogicRow row = logic.Rows[index];
+            if (!row.Ready)
+            {
+                return;
+            }
+            row.Kind.Value = gate;
+            Queue(row.Kind);
+            // The gate decides whether input B is read at all, and whether the
+            // switch means "inverted" -- both of which the row shows.
+            Fill();
+        }
 
         private void RowKeyChanged(KeyCell cell)
         {
@@ -1668,7 +2095,24 @@ namespace TimerPlusMod
         /// do not sort, so they have no column number.</param>
         private void Flipped(int index, float where, bool on)
         {
-            if (filling || served == null || index >= served.Rows.Count)
+            if (filling)
+            {
+                return;
+            }
+            if (Gated)
+            {
+                // The logic table has one switch a row, so there is nothing to tell
+                // apart: which of the game's two controls it stands for is the
+                // gate's business, not the panel's.
+                if (index >= logic.Rows.Count || !logic.Rows[index].Ready)
+                {
+                    return;
+                }
+                logic.Rows[index].Mode.IsActive = on;
+                Queue(logic.Rows[index].Mode);
+                return;
+            }
+            if (served == null || index >= served.Rows.Count)
             {
                 return;
             }
@@ -1749,6 +2193,16 @@ namespace TimerPlusMod
 
         private void SortBy(int column)
         {
+            if (Gated)
+            {
+                sortAscending = column == sortColumn ? !sortAscending : true;
+                sortColumn = column;
+                List<MapperType> gateTouched = new List<MapperType>();
+                LogicTable.Sort(logic, sortAscending, gateTouched);
+                Commit(gateTouched);
+                Fill();
+                return;
+            }
             if (served == null)
             {
                 return;
@@ -1763,6 +2217,20 @@ namespace TimerPlusMod
 
         private void AddRow()
         {
+            if (Gated)
+            {
+                List<MapperType> gateTouched = new List<MapperType>();
+                if (LogicTable.Add(logic, gateTouched) < 0)
+                {
+                    Flash(plusLabel, "REACHED THE "
+                          + LogicGatePlusBehaviour.MaxRows + " GATES LIMIT",
+                          UIF.Hot);
+                    return;
+                }
+                Commit(gateTouched);
+                Rebuild();
+                return;
+            }
             if (served == null)
             {
                 return;
@@ -1781,6 +2249,19 @@ namespace TimerPlusMod
 
         private void Delete(int index)
         {
+            if (Gated)
+            {
+                if (logic.Count <= 1)
+                {
+                    Flash(plusLabel, "A BLOCK KEEPS ONE ROW", UIF.Hot);
+                    return;
+                }
+                List<MapperType> gateTouched = new List<MapperType>();
+                LogicTable.Remove(logic, index, gateTouched);
+                Commit(gateTouched);
+                Rebuild();
+                return;
+            }
             if (served == null)
             {
                 return;
@@ -1798,6 +2279,22 @@ namespace TimerPlusMod
 
         private void DoConvert()
         {
+            if (Gated)
+            {
+                try
+                {
+                    int gatesMade = Conversion.Into(logic);
+                    Flash(convertLabel,
+                          gatesMade + (gatesMade == 1 ? " GATE ADDED" : " GATES ADDED"),
+                          UIF.Live);
+                }
+                catch (Exception e)
+                {
+                    Flash(convertLabel, "COULD NOT CONVERT", UIF.Hot);
+                    Log.Warn("convert failed: " + e);
+                }
+                return;
+            }
             if (served == null)
             {
                 return;
@@ -1871,6 +2368,7 @@ namespace TimerPlusMod
         private void Rebuild()
         {
             TimerPlusBehaviour block = served;
+            LogicGatePlusBehaviour gates = logic;
             // Where the list was looked at. A row added or deleted somewhere above
             // the fold should not carry the view back to the top -- the row being
             // worked on is the one on screen.
@@ -1878,6 +2376,7 @@ namespace TimerPlusMod
                 ? scroll.content.anchoredPosition.y : 0f;
             Teardown();
             served = block;
+            logic = gates;
             if (!Build())
             {
                 Hide();
@@ -1989,6 +2488,7 @@ namespace TimerPlusMod
                 }
                 return;
             }
+            StandOff();
             if (pending.Count > 0 && !Input.GetMouseButton(0))
             {
                 CommitPending();
@@ -2002,6 +2502,58 @@ namespace TimerPlusMod
         /// way a mapper goes away -- clicking off the block, or the block being
         /// deselected -- and the panel was then left hanging over the world.
         /// </summary>
+        /// <summary>
+        /// Keeps the panel out of a drag that started somewhere else.
+        ///
+        /// Besiege drags its own mapper by the mouse, and its handling stops the
+        /// moment the pointer is over another interface -- so dragging the window
+        /// down, over this panel, took the pointer off the game's own window and
+        /// the drag stopped dead with the window part-way. The block mapper alone
+        /// does not show it, because the mapper is tall enough that the pointer
+        /// stays on it.
+        ///
+        /// A press that does not land on this window means the gesture is somebody
+        /// else's for as long as the button is down, so the raycaster goes off and
+        /// nothing here is under the pointer at all. A press that lands on the
+        /// window is ours and is left alone.
+        /// </summary>
+        private void StandOff()
+        {
+            if (caster == null)
+            {
+                return;
+            }
+            if (Input.GetMouseButtonDown(0) && !Under())
+            {
+                caster.enabled = false;
+            }
+            else if (!caster.enabled && !Input.GetMouseButton(0)
+                     && !Input.GetMouseButton(1))
+            {
+                caster.enabled = true;
+            }
+        }
+
+        /// <summary>
+        /// Whether the pointer is over anything of the panel's.
+        ///
+        /// The window, and the list a cell opens -- which hangs outside the window
+        /// by design, and which a raycaster switched off for the length of a press
+        /// would otherwise make unclickable below the window's own bottom edge.
+        /// </summary>
+        private bool Under()
+        {
+            if (window == null || !window.activeSelf || windowRect == null)
+            {
+                return false;
+            }
+            Vector2 at = Input.mousePosition;
+            // Null camera: the canvas is a screen-space overlay.
+            return RectTransformUtility.RectangleContainsScreenPoint(
+                       windowRect, at, null)
+                || Choices.Over(at);
+        }
+
         private void LateUpdate()
         {
             // Tab hides Besiege's own interface, and this panel is the lower half
@@ -2064,6 +2616,10 @@ namespace TimerPlusMod
                 if (mapper == null || !BlockMapper.IsOpen || mapper.Block == null)
                 {
                     return false;
+                }
+                if (Gated)
+                {
+                    return mapper.Block.GetComponent<LogicGatePlusBehaviour>() == logic;
                 }
                 return mapper.Block.GetComponent<TimerPlusBehaviour>() == served
                     && served != null;

@@ -71,6 +71,71 @@ namespace TimerPlusMod
             }
         }
 
+        private static Texture bars;
+
+        /// <summary>
+        /// Diagonal bars, for a cell that is there but not read -- input B on a
+        /// gate that takes one input.
+        ///
+        /// One tile of a stripe, drawn to repeat: the picture is a square with the
+        /// stripe crossing it corner to corner, so laid end to end it is one
+        /// unbroken diagonal. Wrapped rather than clamped for the same reason.
+        /// </summary>
+        public static Texture Bars
+        {
+            get
+            {
+                if (bars == null)
+                {
+                    bars = Striped();
+                }
+                return bars;
+            }
+        }
+
+        private const int BarSize = 24;
+
+        /// <summary>How much of a tile the stripe covers.</summary>
+        private const float BarWidth = 0.34f;
+
+        private static Texture2D Striped()
+        {
+            Texture2D made = new Texture2D(BarSize, BarSize, TextureFormat.ARGB32,
+                                           false);
+            made.wrapMode = TextureWrapMode.Repeat;
+            Color[] pixels = new Color[BarSize * BarSize];
+            for (int y = 0; y < BarSize; y++)
+            {
+                for (int x = 0; x < BarSize; x++)
+                {
+                    int on = 0;
+                    for (int sy = 0; sy < 4; sy++)
+                    {
+                        for (int sx = 0; sx < 4; sx++)
+                        {
+                            float u = (x + (sx + 0.5f) / 4f) / BarSize;
+                            float v = (y + (sy + 0.5f) / 4f) / BarSize;
+                            // Distance along the diagonal, wrapped: one stripe per
+                            // tile, and the wrap is what makes the tiles join.
+                            float along = u + v;
+                            if (along >= 1f)
+                            {
+                                along -= 1f;
+                            }
+                            if (along < BarWidth)
+                            {
+                                on++;
+                            }
+                        }
+                    }
+                    pixels[y * BarSize + x] = new Color(1f, 1f, 1f, on / 16f);
+                }
+            }
+            made.SetPixels(pixels);
+            made.Apply();
+            return made;
+        }
+
         private const int ArrowSize = 32;
         private const int PlateSize = 64;
 

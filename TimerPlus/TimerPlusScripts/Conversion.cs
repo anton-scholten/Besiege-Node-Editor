@@ -17,8 +17,9 @@ namespace TimerPlusMod
     /// </summary>
     public static class Conversion
     {
-        /// <summary>Besiege's own timer block.</summary>
+        /// <summary>Besiege's own timer block, and its logic gate.</summary>
         private const int TimerBlock = 66;
+        private const int LogicGateBlock = 68;
 
         /// <summary>Its mapper keys, as a save spells them: the `bmt-` prefix and
         /// the names from `TimerBlock.Awake`.</summary>
@@ -30,6 +31,16 @@ namespace TimerPlusMod
         private const string KeyLoop = "bmt-loop";
         private const string KeyWait = "bmt-wait";
         private const string KeyDuration = "bmt-emulation-time";
+
+        /// <summary>The logic gate's own, from `LogicGate.Awake`. The gate itself
+        /// is an integer menu, and the two switches are the two the block shows one
+        /// of at a time -- which is why a row's single switch is written to
+        /// whichever of them its gate would have shown.</summary>
+        private const string KeyInputA = "bmt-activate-A";
+        private const string KeyInputB = "bmt-activate-B";
+        private const string KeyGate = "bmt-Gate";
+        private const string KeyToggleMode = "bmt-toggle-mode";
+        private const string KeyInverted = "bmt-inverted";
 
         /// <summary>One grid step. Besiege builds on a one-unit grid, so timers a
         /// unit apart land on it and can be attached to a machine without being
@@ -82,7 +93,7 @@ namespace TimerPlusMod
             // field is then read the way the table is.
             rows = InOrder(rows);
 
-            Vector3 origin = Origin(machine, block, rows.Count);
+            Vector3 origin = Origin(machine, block.BlockBehaviour, rows.Count);
             List<BlockInfo> made = new List<BlockInfo>();
             int columns = Mathf.Max(1, Mathf.CeilToInt(Mathf.Sqrt(rows.Count)));
             int lines = Mathf.Max(1, Mathf.CeilToInt(rows.Count / (float)columns));
@@ -135,15 +146,15 @@ namespace TimerPlusMod
         /// block that made them. They land selected with the move tool up, so this
         /// only has to be somewhere sensible rather than somewhere final.
         /// </summary>
-        private static Vector3 Origin(Machine machine, TimerPlusBehaviour block, int count)
+        private static Vector3 Origin(Machine machine, BlockBehaviour block, int count)
         {
             Vector3 here = Vector3.zero;
             try
             {
-                if (block.BlockBehaviour != null && machine.BuildingMachine != null)
+                if (block != null && machine.BuildingMachine != null)
                 {
                     here = machine.BuildingMachine.InverseTransformPoint(
-                        block.BlockBehaviour.transform.position);
+                        block.transform.position);
                 }
             }
             catch (Exception)
@@ -153,6 +164,82 @@ namespace TimerPlusMod
             }
             int columns = Mathf.Max(1, Mathf.CeilToInt(Mathf.Sqrt(count)));
             return here + new Vector3((columns * 0.5f + 1f) * Spacing, 0f, 0f);
+        }
+
+        /// <summary>
+        /// The logic table's own conversion: one of Besiege's logic gates per row,
+        /// laid out the same way and for the same reasons as the timers above.
+        /// </summary>
+        public static int Into(LogicGatePlusBehaviour block)
+        {
+            if (block == null)
+            {
+                throw new Exception("there is no block to convert");
+            }
+            Machine machine = Machine.Active();
+            if (machine == null)
+            {
+                throw new Exception("there is no machine to add to");
+            }
+            if (!machine.CanModify)
+            {
+                throw new Exception("this machine cannot be changed here");
+            }
+
+            List<GateData> rows = LogicTable.Snapshot(block);
+            if (rows.Count == 0)
+            {
+                throw new Exception("there are no rows to convert");
+            }
+
+            Vector3 origin = Origin(machine, block.BlockBehaviour, rows.Count);
+            List<BlockInfo> made = new List<BlockInfo>();
+            int columns = Mathf.Max(1, Mathf.CeilToInt(Mathf.Sqrt(rows.Count)));
+            int lines = Mathf.Max(1, Mathf.CeilToInt(rows.Count / (float)columns));
+
+            for (int i = 0; i < rows.Count; i++)
+            {
+                // Left to right along x, and each line after the first nearer the
+                // camera, exactly as the timers are laid out.
+                Vector3 at = origin + new Vector3(
+                    ((i % columns) - (columns - 1) * 0.5f) * Spacing,
+                    0f,
+                    ((lines - 1) * 0.5f - (i / columns)) * Spacing);
+                made.Add(One(rows[i], at));
+            }
+
+            return Drop.Into(made, machine);
+        }
+
+        /// <summary>One row as the game's own description of a logic gate.</summary>
+        private static BlockInfo One(GateData row, Vector3 at)
+        {
+            XDataHolder data = new XDataHolder();
+            data.Write(new XInteger("bmt-version", 1));
+
+            data.Write(new XInteger(KeyGate, row.Gate));
+            // The block has two switches and shows one at a time; the row has one
+            // switch and means whichever of them this gate would show. Writing it
+            // to both would set a thing the player never asked for the moment they
+            // changed the gate on the block afterwards.
+            data.Write(new XBoolean(
+                Gates.Inverts(row.Gate) ? KeyInverted : KeyToggleMode, row.Mode));
+
+            Binding(data, KeyInputA, row.AVariable, row.AKey, KeyCode.U);
+            // Written even for a gate that does not read it: the block keeps its B
+            // key whatever the gate is, and a row switched to AND afterwards should
+            // find the input it was given.
+            Binding(data, KeyInputB, row.BVariable, row.BKey, KeyCode.I);
+            Binding(data, KeyEmulate, row.EmulateVariable, row.EmulateKey, KeyCode.C);
+
+            BlockInfo info = new BlockInfo();
+            info.Guid = Guid.NewGuid();
+            info.ID = (BlockType)LogicGateBlock;
+            info.Position = at;
+            info.Rotation = Upright;
+            info.Scale = Vector3.one;
+            info.BlockData = data;
+            return info;
         }
 
         /// <summary>One row as the game's own description of a timer block.</summary>

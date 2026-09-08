@@ -101,12 +101,25 @@ What depends on what:
   `SafeAwake` and a repaint replaces the material outright. The colours are held
   to the palette `tools/make-block-mesh.py` writes -- run it and it says so.
 - **`Row`** is one row's controls plus its phase; **`Clock`** is the phase machine.
+- **`LogicGatePlusBehaviour`**, **`LogicRow`**, **`Gates`**, **`LogicTable`** are the
+  same four things for the second block. `Gates` is Besiege's `LogicGate` read out
+  with `peek.sh`: `Advance` is its `UpdateState` (the latches, the counter, the
+  toggled inputs) and `Answer` is its `EvaluateEmulation`. Both take the gate and
+  the row's switch as arguments rather than reading the mapper, so the build can
+  check them without a live block -- `tools/tests/TableCheck.cs` holds every gate
+  to the game's own truth table. The block has no activation key: a gate has
+  inputs, not a start.
   A row has no activation of its own: the block's key starts every row, and the
   mapper above the table is where it is set.
 - **`Table`** lifts rows out of their controls as `RowData` so they can be sorted
   and deleted — a row *is* its controls, and reordering rows means moving values
   between them.
-- **`Panel`** builds two things: the rows, in the Window prefab's own ScrollRect,
+- **`Panel`** serves *both* blocks: `served` or `logic` is set, never both, and
+  only the columns differ -- the window, docking, frame, strip, scrollbar, curtain
+  and tooltips are shared. `StandOff` switches the panel's `GraphicRaycaster` off
+  for the length of any drag that did not begin on the window: Besiege drags its
+  own mapper by the mouse and gives up the moment the pointer is over another
+  interface, so a window dragged down over this panel used to stop dead. It builds two things: the rows, in the Window prefab's own ScrollRect,
   and a fixed strip along the bottom -- rule, `+`, convert, message line -- parented
   to the window with the viewport held clear of it by `StripHeight`. The strip has
   no plate: what keeps the rows out from under it is `Curtain`, which measures each
@@ -198,6 +211,10 @@ the per-row `"Emu<n>"`, `"Wait<n>"`, `"Dur<n>"`, `"Hold<n>"`, `"Stop<n>"`,
 `"Loop<n>"` are what a saved machine stores its settings under.
 Renaming one silently resets that setting on every existing machine. The display
 names beside them are only labels and are free to change.
+
+**Do not rename the logic block's mapper keys either** -- `"A<n>"`, `"B<n>"`,
+`"Gate<n>"`, `"Mode<n>"`, `"Out<n>"` -- or change `<ID>2</ID>` in
+`LogicGatePlus.xml`, for the same reasons.
 
 **Do not lower `TimerPlusBehaviour.MaxRows`.** Raising it is safe. Lowering it
 orphans the controls of every row above the new cap, and a machine saved with

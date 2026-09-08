@@ -48,7 +48,7 @@ static class XmlCheck
         Dictionary<string, string> resources = Resources(args);
         bad += Present(resources, args);
         Schema schema = Schema.Read(args);
-        float[] iconPose = IconPose(args);
+        Dictionary<string, float[]> poses = IconPoses(args);
         int files = 0;
         int icons = 0;
 
@@ -99,7 +99,7 @@ static class XmlCheck
             // mesh tool, which renders a preview from it. Neither can be judged
             // without the other -- a preview drawn from a stale pose is a picture
             // of a block that does not exist -- so they are held together.
-            bad += Photographed(root, iconPose, args[i], ref icons);
+            bad += Photographed(root, Pose(poses, args[i]), args[i], ref icons);
 
             bad += Modules(root, schema, modId, args[i]);
         }
@@ -202,8 +202,17 @@ static class XmlCheck
     /// The mesh tool's ICON pose, read out of the Python rather than copied, so
     /// that the pose the preview is drawn from is the pose the game is given.
     /// </summary>
-    static float[] IconPose(string[] args)
+    /// <summary>
+    /// Every block's toolbar pose, as `make-block-mesh.py` holds it, by the name
+    /// the tool calls the block.
+    ///
+    /// The tool draws a preview from those numbers, and a pose judged from a
+    /// preview is only the pose the game gives if the two agree -- so they are
+    /// held together here rather than left to be noticed in a toolbar.
+    /// </summary>
+    static Dictionary<string, float[]> IconPoses(string[] args)
     {
+        Dictionary<string, float[]> found = new Dictionary<string, float[]>();
         for (int i = 0; i < args.Length; i++)
         {
             if (!args[i].EndsWith(".py"))
@@ -220,25 +229,38 @@ static class XmlCheck
                 continue;               // an absent tool is not a broken block
             }
             string number = @"\s*(-?[0-9.]+)\s*";
-            Match m = Regex.Match(source,
-                @"^ICON\s*=\s*\(" + number + "," + number + "," + number + @"\)",
-                RegexOptions.Multiline);
-            if (!m.Success)
+            // A block's entry names it and then, a few lines down, poses it.
+            foreach (Match m in Regex.Matches(source,
+                "\"([A-Za-z0-9_]+)\"\\s*:\\s*\\{.*?\"icon\"\\s*:\\s*\\("
+                + number + "," + number + "," + number + @"\)",
+                RegexOptions.Singleline))
             {
-                continue;
-            }
-            float[] pose = new float[3];
-            for (int k = 0; k < 3; k++)
-            {
-                if (!float.TryParse(m.Groups[k + 1].Value, NumberStyles.Float,
-                                    CultureInfo.InvariantCulture, out pose[k]))
+                float[] pose = new float[3];
+                bool read = true;
+                for (int k = 0; k < 3; k++)
                 {
-                    return null;
+                    if (!float.TryParse(m.Groups[k + 2].Value, NumberStyles.Float,
+                                        CultureInfo.InvariantCulture, out pose[k]))
+                    {
+                        read = false;
+                    }
+                }
+                if (read)
+                {
+                    found[m.Groups[1].Value] = pose;
                 }
             }
-            return pose;
         }
-        return null;
+        return found;
+    }
+
+    /// <summary>The pose for the block in this file, matched by file name -- the
+    /// XML beside the tool's entry for it is called the same thing.</summary>
+    static float[] Pose(Dictionary<string, float[]> poses, string path)
+    {
+        string name = Path.GetFileNameWithoutExtension(path);
+        float[] want;
+        return poses.TryGetValue(name, out want) ? want : null;
     }
 
     /// <summary>

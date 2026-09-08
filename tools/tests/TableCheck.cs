@@ -36,14 +36,20 @@ static class TableCheck
         Stopping();
         Holding();
         Converting();
+        Combinational();
+        ToggleMode();
+        Latches();
+        Counting();
+        Edges();
+        GateSorting();
 
         if (bad > 0)
         {
             Console.Error.WriteLine(bad + " check(s) failed.");
             return 1;
         }
-        Console.WriteLine("Offline check: timer ticks, phases, sort order, ties and key\n"
-            + "               names all as the game's own timer has them.");
+        Console.WriteLine("Offline check: timer ticks, phases, sort order, ties, key\n"
+            + "               names and every logic gate as the game has them.");
         return 0;
     }
 
@@ -77,6 +83,142 @@ static class TableCheck
         List<RowData> rows = Rows(1f, 3f, 2f);
         Sort(rows, Table.ColWait, false);
         Same("waits sort descending", "3,2,1", Waits(rows));
+    }
+
+    // ---- the logic gates -------------------------------------------------
+
+    /// <summary>One tick of a gate: the state machine, then the answer.</summary>
+    static bool Gate(LogicRow row, int gate, bool mode, bool pressedA, bool pressedB,
+                     bool heldA, bool heldB, bool releasedA)
+    {
+        Gates.Advance(row, gate, mode, pressedA, pressedB, heldA, heldB, releasedA);
+        return Gates.Answer(row, gate);
+    }
+
+    /// <summary>A gate held at A and B, with no edges: the plain truth table.</summary>
+    static bool Held(int gate, bool a, bool b)
+    {
+        return Gate(new LogicRow(), gate, false, false, false, a, b, false);
+    }
+
+    /// <summary>
+    /// The seven gates that are only their inputs. Read straight off Besiege's
+    /// own `EvaluateEmulation`, so this is the check that the reading was right.
+    /// </summary>
+    static void Combinational()
+    {
+        Same("NOT", "10", Bits(Gates.Not));
+        Same("AND", "0001", Bits4(Gates.And));
+        Same("OR", "0111", Bits4(Gates.Or));
+        Same("NOR", "1000", Bits4(Gates.Nor));
+        Same("NAND", "1110", Bits4(Gates.Nand));
+        Same("XOR", "0110", Bits4(Gates.Xor));
+        Same("XNOR", "1001", Bits4(Gates.Xnor));
+    }
+
+    /// <summary>A one-input gate over A false, true.</summary>
+    static string Bits(int gate)
+    {
+        return (Held(gate, false, false) ? "1" : "0")
+             + (Held(gate, true, false) ? "1" : "0");
+    }
+
+    /// <summary>A two-input gate over 00, 01, 10, 11.</summary>
+    static string Bits4(int gate)
+    {
+        string all = "";
+        for (int i = 0; i < 4; i++)
+        {
+            all += Held(gate, (i & 2) != 0, (i & 1) != 0) ? "1" : "0";
+        }
+        return all;
+    }
+
+    /// <summary>
+    /// Toggle mode: a press flips an input and it stays flipped, which is what
+    /// makes a gate usable from a key somebody taps rather than holds.
+    /// </summary>
+    static void ToggleMode()
+    {
+        LogicRow row = new LogicRow();
+        Same("a tap turns AND's A on", false,
+             Gate(row, Gates.And, true, true, false, false, false, false));
+        Same("and then B makes it true", true,
+             Gate(row, Gates.And, true, false, true, false, false, false));
+        Same("tapping A again turns it off", false,
+             Gate(row, Gates.And, true, true, false, false, false, false));
+    }
+
+    static void Latches()
+    {
+        LogicRow sr = new LogicRow();
+        Same("SR latch sets on A", true,
+             Gate(sr, Gates.SRLatch, false, true, false, false, false, false));
+        Same("SR latch holds", true,
+             Gate(sr, Gates.SRLatch, false, false, false, false, false, false));
+        Same("SR latch clears on B", false,
+             Gate(sr, Gates.SRLatch, false, false, true, false, false, false));
+
+        LogicRow d = new LogicRow();
+        Same("D latch takes A while B is held", true,
+             Gate(d, Gates.DLatch, false, false, false, true, true, false));
+        Same("D latch holds when B lets go", true,
+             Gate(d, Gates.DLatch, false, false, false, false, false, false));
+        Same("D latch follows A again on B", false,
+             Gate(d, Gates.DLatch, false, false, false, false, true, false));
+    }
+
+    /// <summary>
+    /// The counter answers on the wrap and nowhere else: four presses in, one
+    /// press out. That is what makes a chain of them divide.
+    /// </summary>
+    static void Counting()
+    {
+        LogicRow row = new LogicRow();
+        string got = "";
+        for (int i = 0; i < 8; i++)
+        {
+            got += Gate(row, Gates.Counter, false, true, false, false, false, false)
+                 ? "1" : "0";
+        }
+        Same("counter divides by four", "00010001", got);
+
+        LogicRow reset = new LogicRow();
+        Gate(reset, Gates.Counter, false, true, false, false, false, false);
+        Gate(reset, Gates.Counter, false, true, false, false, false, false);
+        Same("B resets the count", false,
+             Gate(reset, Gates.Counter, false, false, true, false, false, false));
+    }
+
+    /// <summary>
+    /// The edge detector answers for exactly one tick, and its switch means
+    /// "inverted": the edge it answers to is the letting go rather than the
+    /// press.
+    /// </summary>
+    static void Edges()
+    {
+        LogicRow row = new LogicRow();
+        Same("an edge is one tick", true,
+             Gate(row, Gates.EdgeDetect, false, true, false, true, false, false));
+        Same("and no more", false,
+             Gate(row, Gates.EdgeDetect, false, false, false, true, false, false));
+
+        LogicRow back = new LogicRow();
+        Same("inverted ignores the press", false,
+             Gate(back, Gates.EdgeDetect, true, true, false, true, false, false));
+        Same("and answers the release", true,
+             Gate(back, Gates.EdgeDetect, true, false, false, false, false, true));
+    }
+
+    static void GateSorting()
+    {
+        GateData a = new GateData();
+        GateData b = new GateData();
+        a.Gate = Gates.Xor;
+        b.Gate = Gates.And;
+        Same("gates sort by the game's own order", true,
+             LogicTable.Compare(b, a, true) < 0);
+        Same("and reverse", true, LogicTable.Compare(b, a, false) > 0);
     }
 
     /// <summary>What a cell shows for a keycode. These are read at a glance in a
@@ -328,6 +470,12 @@ static class TableCheck
             out_[i] = ((int)rows[i].Wait).ToString();
         }
         return string.Join(",", out_);
+    }
+
+    /// <summary>The same for a yes or a no, which most of the gate checks are.</summary>
+    static void Same(string what, bool want, bool got)
+    {
+        Same(what, want ? "yes" : "no", got ? "yes" : "no");
     }
 
     static void Same(string what, string want, string got)
