@@ -30,6 +30,24 @@ namespace TimerPlusMod
         /// After that it is the mapper's own width, so the two read as one window
         /// with a seam rather than a panel wider than what it hangs from.</summary>
         private const float DefaultWidth = 434f;
+
+        /// <summary>
+        /// The narrowest the logic table is drawn.
+        ///
+        /// It has three columns holding a key or a variable name where the timer's
+        /// has two, and a name shrunk to fit is a name read by leaning in. This is
+        /// what leaves each of them room for seven characters at the size the rest
+        /// of the panel is lettered in -- as near the mapper's own width as that
+        /// allows, and the rest of the way is taken out of the number and switch
+        /// columns below rather than off a name. The panel is docked by its left
+        /// edge, so what is over is all on the right.
+        /// </summary>
+        private const float GatesWidth = 434f;
+
+        /// <summary>The key/variable bubble in the logic table, narrower than the
+        /// timer's: three columns wear one where the timer has two, and the four
+        /// units are worth more to the name beside it than to the picture.</summary>
+        private const float GateBubble = 18f;
         private const float Margin = 10f;
         private const float RowHeight = 24f;
         private const float RowGap = 3f;
@@ -384,22 +402,26 @@ namespace TimerPlusMod
         /// </summary>
         private void Show(LogicGatePlusBehaviour block)
         {
+            // Which table it is, before the width is worked out: the logic table
+            // has a minimum the timer's does not, and Widen reads it.
+            bool other = logic != block || served != null;
+            logic = block;
+            served = null;
+
             Rect frame;
             if (MapperFrame(out frame))
             {
                 Widen(frame);
             }
 
-            if (logic != block)
+            if (other)
             {
                 sortColumn = -1;
                 sortAscending = true;
             }
-            if (logic != block || served != null || builtRows != block.Count
+            if (other || builtRows != block.Count
                 || Mathf.Abs(builtWidth - width) > 0.5f || window == null)
             {
-                logic = block;
-                served = null;
                 if (!Build())
                 {
                     Hide();
@@ -419,24 +441,26 @@ namespace TimerPlusMod
 
         private void Show(TimerPlusBehaviour block)
         {
+            bool other = served != block || logic != null;
+            served = block;
+            logic = null;
+
             Rect frame;
             if (MapperFrame(out frame))
             {
                 Widen(frame);
             }
 
-            if (served != block)
+            if (other)
             {
                 // The sort marker says which column *this* block was last sorted
                 // by, and a different block was not sorted at all.
                 sortColumn = -1;
                 sortAscending = true;
             }
-            if (served != block || logic != null || builtRows != block.Count
+            if (other || builtRows != block.Count
                 || Mathf.Abs(builtWidth - width) > 0.5f || window == null)
             {
-                served = block;
-                logic = null;
                 if (!Build())
                 {
                     Hide();
@@ -777,6 +801,25 @@ namespace TimerPlusMod
         private float Full { get { return width - Margin * 2f - BarGutter; } }
 
         /// <summary>
+        /// Where the table starts and how wide it is.
+        ///
+        /// The logic table is drawn tighter than the timer's: it has six columns
+        /// where the timer has seven narrower ones, and every unit of margin is a
+        /// unit a variable name does not get. The left inset is a hair rather than
+        /// a margin, and the right one is the scrollbar and no more -- the bar is
+        /// eight wide, inset five, and three clear of the last column.
+        /// </summary>
+        private float Edge { get { return Gated ? 4f : Margin; } }
+
+        private float Wide
+        {
+            get
+            {
+                return Gated ? width - Edge - (BarWidth + BarInset + 3f) : Full;
+            }
+        }
+
+        /// <summary>
         /// Where each column starts and how wide it is. The number and the three
         /// switches are fixed; what is left is shared between the two times and the
         /// key -- a variable name needs the room and a time needs four characters
@@ -790,13 +833,17 @@ namespace TimerPlusMod
                 // inputs, the gate and the key. The gate takes a little less than
                 // the keys -- "SR LATCH" is the longest thing it ever says, and a
                 // variable name has no length this can choose.
+                // Tighter than the timer's number and switch columns: a number of
+                // two digits and one tick box need less than they were given, and
+                // every unit taken off them is a unit a variable name keeps.
+                float number = NumberWidth - 2f;
+                float mode = SwitchWidth - 2f;
                 float room = Mathf.Max(200f,
-                    Full - (NumberWidth + SwitchWidth + ColGap * 5f));
-                float key = room * 0.26f;
-                w = new float[] { NumberWidth, key, key, room - key * 3f,
-                                  SwitchWidth, key };
+                    Wide - (number + mode + ColGap * 5f));
+                float key = room * 0.275f;
+                w = new float[] { number, key, key, room - key * 3f, mode, key };
                 x = new float[w.Length];
-                float at2 = Margin;
+                float at2 = Edge;
                 for (int i = 0; i < w.Length; i++)
                 {
                     x[i] = at2;
@@ -1029,18 +1076,17 @@ namespace TimerPlusMod
         /// is.</summary>
         private static readonly string[] GateHeads =
         {
-            "", "INPUT A", "INPUT B", "GATE", "M", "EMULATE"
+            "", "INPUT A", "INPUT B", "GATE", "M", "OUTPUT"
         };
 
         private static readonly string[] GateHeadTips =
         {
             "",
-            "The gate's first input",
-            "The gate's second input\nBarred for a gate that reads only one",
-            "Which gate this row is",
-            "Inverted, for the edge detector\nToggle mode for every other gate:\n"
-                + "a press flips an input rather than holding it",
-            "The key or variable this row presses while its gate says yes"
+            "",
+            "",
+            "",
+            "Edge detector: invert\nOther gates: toggle",
+            ""
         };
 
         private float LogicHeader(float y, float[] x, float[] w)
@@ -1102,11 +1148,13 @@ namespace TimerPlusMod
             cells.Number.Clicked = delegate { Delete(which); };
             cells.Number.Watch(frame);
 
-            cells.InA = KeyCell.Make(host, x[LInputA], 0f, w[LInputA], RowHeight);
+            cells.InA = KeyCell.Make(host, x[LInputA], 0f, w[LInputA], RowHeight,
+                                     GateBubble);
             cells.InA.Row = index;
             cells.InA.Changed = GateKeyChanged;
 
-            cells.InB = KeyCell.Make(host, x[LInputB], 0f, w[LInputB], RowHeight);
+            cells.InB = KeyCell.Make(host, x[LInputB], 0f, w[LInputB], RowHeight,
+                                     GateBubble);
             cells.InB.Row = index;
             cells.InB.Changed = GateKeyChanged;
             // Drawn over input B for a gate that reads only one, and switched off
@@ -1137,7 +1185,8 @@ namespace TimerPlusMod
                 cells.ModeBarred = Bars(cells.ModeBox.gameObject);
             }
 
-            cells.Emulate = KeyCell.Make(host, x[LEmulate], 0f, w[LEmulate], RowHeight);
+            cells.Emulate = KeyCell.Make(host, x[LEmulate], 0f, w[LEmulate], RowHeight,
+                                         GateBubble);
             cells.Emulate.Row = index;
             cells.Emulate.Changed = GateKeyChanged;
 
@@ -1250,7 +1299,7 @@ namespace TimerPlusMod
             GameObject go = UIF.Spawn(UIF.ButtonPrefab, fixedStrip);
             if (go != null)
             {
-                UIF.Fit(go.GetComponent<RectTransform>(), Margin, y, Full, RowHeight);
+                UIF.Fit(go.GetComponent<RectTransform>(), Edge, y, Wide, RowHeight);
                 UIF.NoSwell(go);
                 plusLabel = Pin(go, "+", UIF.Ink);
                 Grow(go, plusLabel);
@@ -1268,7 +1317,7 @@ namespace TimerPlusMod
             GameObject go = UIF.Spawn(UIF.ButtonPrefab, fixedStrip);
             if (go != null)
             {
-                UIF.Fit(go.GetComponent<RectTransform>(), Margin, y, Full, RowHeight + 4f);
+                UIF.Fit(go.GetComponent<RectTransform>(), Edge, y, Wide, RowHeight + 4f);
                 UIF.NoSwell(go);
                 convertLabel = Pin(go, Gated ? "CONVERT TO LOGIC GATES"
                                              : "CONVERT TO TIMER BLOCKS", UIF.Ink);
@@ -1768,7 +1817,7 @@ namespace TimerPlusMod
 
         private float Rule(float y)
         {
-            Plate(fixedStrip, Margin, y + RuleGap * 0.5f, Full, 2f, RuleInk);
+            Plate(fixedStrip, Edge, y + RuleGap * 0.5f, Wide, 2f, RuleInk);
             return y + RuleGap + 2f + RowGap;
         }
 
@@ -2683,6 +2732,10 @@ namespace TimerPlusMod
         private bool Widen(Rect frame)
         {
             float wide = frame.width * Scale();
+            if (Gated && wide < GatesWidth)
+            {
+                wide = GatesWidth;
+            }
             if (Mathf.Abs(wide - width) <= 0.5f)
             {
                 return false;

@@ -163,12 +163,14 @@ The same table, for Besiege's logic gate. A row is a whole gate:
 | (the number) | Which row this is. Point anywhere on the row and it turns into a red **X**: click to delete it |
 | **INPUT A** | The gate's first input, a key or a variable |
 | **INPUT B** | Its second. Barred with diagonal stripes for a gate that reads only one — the key is still there and still saved, so a gate switched back finds what it was given |
+
 | **GATE** | Which of the twelve: NOT, AND, OR, NOR, NAND, XOR, XNOR, RANDOM, SR LATCH, D LATCH, COUNTER, EDGE |
 | **M** | The gate's one switch: **I** for the edge detector's inverted, **T** for toggle mode, where a press flips an input rather than holding it. Barred and dead for the gates that have neither — random, both latches, the counter |
-| **EMULATE** | The key or variable the row presses while its gate says yes |
+| **OUTPUT** | The key or variable the row presses while its gate says yes |
 
 Besiege's own block has two switches and shows one at a time, which is why the
-table has one column for both. Sorting is on **GATE** alone.
+table has one column for both. Sorting is on **GATE** alone. Only the **M** column carries a tip; the rest say
+what they are.
 
 Every gate is Besiege's own, read out of the game: the seven combinational ones,
 the two latches, the counter that divides by four, the random gate and the edge

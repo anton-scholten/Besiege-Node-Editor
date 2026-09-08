@@ -28,6 +28,12 @@ namespace TimerPlusMod
         /// bubble icon to be read at a glance, which is what it holds.</summary>
         public const float ModeWidth = 22f;
 
+        /// <summary>What this cell's bubble is actually drawn at. The default is
+        /// <see cref="ModeWidth"/>; the logic table asks for a narrower one,
+        /// because it has three of these columns to fit where the timer has two and
+        /// the bubble is a picture that reads at either size.</summary>
+        private float bubble = ModeWidth;
+
         private const float Gap = 2f;
 
         private GameObject mode;
@@ -111,23 +117,30 @@ namespace TimerPlusMod
 
         public static KeyCell Make(Transform host, float x, float y, float w, float h)
         {
+            return Make(host, x, y, w, h, ModeWidth);
+        }
+
+        public static KeyCell Make(Transform host, float x, float y, float w, float h,
+                                   float bubble)
+        {
             GameObject go = new GameObject("KeyCell");
             go.transform.SetParent(host, false);
             UIF.Fit(go.AddComponent<RectTransform>(), x, y, w, h);
 
             KeyCell self = go.AddComponent<KeyCell>();
+            self.bubble = bubble;
             self.Build(w, h);
             return self;
         }
 
         private void Build(float w, float h)
         {
-            float rest = w - ModeWidth - Gap;
+            float rest = w - bubble - Gap;
 
             mode = UIF.Spawn(UIF.ButtonPrefab, transform);
             if (mode != null)
             {
-                UIF.Fit(mode.GetComponent<RectTransform>(), 0f, 0f, ModeWidth, h);
+                UIF.Fit(mode.GetComponent<RectTransform>(), 0f, 0f, bubble, h);
                 UIF.NoSwell(mode);
                 modeLabel = Caption(mode, "K");
                 Button click = mode.GetComponent<Button>();
@@ -140,7 +153,7 @@ namespace TimerPlusMod
             plate = UIF.Spawn(UIF.ButtonPrefab, transform);
             if (plate != null)
             {
-                UIF.Fit(plate.GetComponent<RectTransform>(), ModeWidth + Gap, 0f, rest, h);
+                UIF.Fit(plate.GetComponent<RectTransform>(), bubble + Gap, 0f, rest, h);
                 UIF.NoSwell(plate);
                 plateLabel = Caption(plate, blank);
                 Button click = plate.GetComponent<Button>();
@@ -153,7 +166,7 @@ namespace TimerPlusMod
             GameObject field = UIF.Spawn(UIF.InputPrefab, transform);
             if (field != null)
             {
-                UIF.Fit(field.GetComponent<RectTransform>(), ModeWidth + Gap, 0f, rest, h);
+                UIF.Fit(field.GetComponent<RectTransform>(), bubble + Gap, 0f, rest, h);
                 box = field.GetComponent<InputField>();
                 if (box != null)
                 {
