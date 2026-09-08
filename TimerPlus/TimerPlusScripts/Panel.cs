@@ -775,6 +775,7 @@ namespace TimerPlusMod
             table.Clear();
             plusLabel = null;
             convertLabel = null;
+            pinBox = null;
             flashing = null;
             for (int i = 0; i < marks.Length; i++)
             {
@@ -1312,12 +1313,37 @@ namespace TimerPlusMod
             return y + RowHeight + RowGap;
         }
 
+        /// <summary>How much of the bottom row the pin switch takes, the convert
+        /// button having the rest.</summary>
+        private const float PinShare = 0.25f;
+
         private float Footer(float y)
         {
+            float tall = RowHeight + 4f;
+            float pinWide = Wide * PinShare;
+
+            // The switch first, on the left, because it is a thing the convert
+            // button does rather than a thing of its own.
+            GameObject pin = UIF.Spawn(UIF.TogglePrefab, fixedStrip);
+            if (pin != null)
+            {
+                UIF.Fit(pin.GetComponent<RectTransform>(), Edge, y,
+                        pinWide - ColGap, tall);
+                UIF.NoSwell(pin);
+                Text label = Pin(pin, "PIN BLOCKS", UIF.Ink);
+                Grow(pin, label);
+                pinBox = pin.GetComponent<Toggle>();
+                if (pinBox != null)
+                {
+                    pinBox.onValueChanged.AddListener(Pinning);
+                }
+            }
+
             GameObject go = UIF.Spawn(UIF.ButtonPrefab, fixedStrip);
             if (go != null)
             {
-                UIF.Fit(go.GetComponent<RectTransform>(), Edge, y, Wide, RowHeight + 4f);
+                UIF.Fit(go.GetComponent<RectTransform>(), Edge + pinWide, y,
+                        Wide - pinWide, tall);
                 UIF.NoSwell(go);
                 convertLabel = Pin(go, Gated ? "CONVERT TO LOGIC GATES"
                                              : "CONVERT TO TIMER BLOCKS", UIF.Ink);
@@ -1328,7 +1354,27 @@ namespace TimerPlusMod
                     click.onClick.AddListener(DoConvert);
                 }
             }
-            return y + RowHeight + 4f;
+            return y + tall;
+        }
+
+        /// <summary>The pin switch, and what it is set to now.</summary>
+        private Toggle pinBox;
+
+        private void Pinning(bool on)
+        {
+            if (filling)
+            {
+                return;
+            }
+            MToggle control = Gated
+                ? (logic == null ? null : logic.PinControl)
+                : (served == null ? null : served.PinControl);
+            if (control == null)
+            {
+                return;
+            }
+            control.IsActive = on;
+            Queue(control);
         }
 
         // ---- the small pieces ------------------------------------------------
@@ -1864,6 +1910,7 @@ namespace TimerPlusMod
                 }
                 Numbers();
                 Heads();
+                ShowPin();
             }
             finally
             {
@@ -1925,10 +1972,29 @@ namespace TimerPlusMod
                     }
                 }
                 Heads();
+                ShowPin();
             }
             finally
             {
                 filling = false;
+            }
+        }
+
+        /// <summary>Puts the block's pin setting on the switch that shows it.
+        /// Inside a fill, so writing it back does not answer for the player.
+        /// </summary>
+        private void ShowPin()
+        {
+            if (pinBox == null)
+            {
+                return;
+            }
+            MToggle control = Gated
+                ? (logic == null ? null : logic.PinControl)
+                : (served == null ? null : served.PinControl);
+            if (control != null)
+            {
+                pinBox.isOn = control.IsActive;
             }
         }
 

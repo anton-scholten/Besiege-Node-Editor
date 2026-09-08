@@ -42,6 +42,12 @@ namespace TimerPlusMod
         private const string KeyToggleMode = "bmt-toggle-mode";
         private const string KeyInverted = "bmt-inverted";
 
+        /// <summary>And the pin's, from `PinBlockController.Awake`. A pin with
+        /// nothing bound to `unpin` never lets go, and `hide-visual` is the
+        /// block's own way of taking its picture off the machine.</summary>
+        private const string KeyUnpin = "bmt-unpin";
+        private const string KeyHidePin = "bmt-hide-visual";
+
         /// <summary>One grid step. Besiege builds on a one-unit grid, so timers a
         /// unit apart land on it and can be attached to a machine without being
         /// nudged first.</summary>
@@ -108,6 +114,10 @@ namespace TimerPlusMod
                     0f,
                     ((lines - 1) * 0.5f - (i / columns)) * Spacing);
                 made.Add(One(rows[i], key, variable, automatic, at));
+                if (block.Pins)
+                {
+                    made.Add(Pinned(at));
+                }
             }
 
             return Drop.Into(made, machine);
@@ -206,6 +216,10 @@ namespace TimerPlusMod
                     0f,
                     ((lines - 1) * 0.5f - (i / columns)) * Spacing);
                 made.Add(One(rows[i], at));
+                if (block.Pins)
+                {
+                    made.Add(Pinned(at));
+                }
             }
 
             return Drop.Into(made, machine);
@@ -274,6 +288,34 @@ namespace TimerPlusMod
             BlockInfo info = new BlockInfo();
             info.Guid = Guid.NewGuid();
             info.ID = (BlockType)TimerBlock;
+            info.Position = at;
+            info.Rotation = Upright;
+            info.Scale = Vector3.one;
+            info.BlockData = data;
+            return info;
+        }
+
+        /// <summary>
+        /// A pin, in the same place as the block it holds still.
+        ///
+        /// Nothing bound to its unpin key and its visuals hidden, which is what
+        /// makes it furniture rather than another block to look at: the field of
+        /// timers reads as a field of timers, and none of them wanders off when the
+        /// machine is run. Besiege rebuilds a machine's joints from where its
+        /// blocks are, so a pin at the block's own position is a pin inside it.
+        /// </summary>
+        private static BlockInfo Pinned(Vector3 at)
+        {
+            XDataHolder data = new XDataHolder();
+            data.Write(new XInteger("bmt-version", 1));
+            data.Write(new XBoolean(KeyHidePin, true));
+            // "None" and no keycode: the key exists and answers to nothing, which
+            // is how a save spells a key nobody has bound.
+            data.Write(new XStringArray(KeyUnpin, Spell(null, KeyCode.None, KeyCode.None)));
+
+            BlockInfo info = new BlockInfo();
+            info.Guid = Guid.NewGuid();
+            info.ID = BlockType.Pin;
             info.Position = at;
             info.Rotation = Upright;
             info.Scale = Vector3.one;

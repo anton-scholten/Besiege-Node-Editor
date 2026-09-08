@@ -61,6 +61,12 @@ namespace TimerPlusMod
         /// multiplayer with everything else.</summary>
         private MSlider rowCount;
 
+        /// <summary>Whether converting also drops a pin inside each block it
+        /// makes. On by default: a field of timers arriving loose is a field of
+        /// timers that falls over, and a pin with nothing bound and its visuals
+        /// hidden is the way the game itself holds a block still.</summary>
+        private MToggle pinBlocks;
+
         private readonly List<Row> rows = new List<Row>();
         private KeyReader masterReader;
 
@@ -116,6 +122,12 @@ namespace TimerPlusMod
 
         public MSlider CountControl { get { return rowCount; } }
 
+        /// <summary>The pin switch itself, for the panel to draw, and what it says.
+        /// </summary>
+        public MToggle PinControl { get { return pinBlocks; } }
+
+        public bool Pins { get { return pinBlocks != null && pinBlocks.IsActive; } }
+
         // ---- setting up ------------------------------------------------------
 
         public override void SafeAwake()
@@ -134,6 +146,7 @@ namespace TimerPlusMod
             // Through BlockBehaviour, like the two below, for the suffix: the
             // modding API's own AddSlider hardcodes "x", and this is a count.
             int wanted = Module == null ? 3 : Module.Rows;
+            pinBlocks = AddToggle("Pin blocks", "PinKey", true);
             rowCount = BlockBehaviour.AddSlider("Rows", "RowsKey",
                 Mathf.Clamp(wanted, 1, MaxRows), 1f, MaxRows, "", "");
 
@@ -215,6 +228,7 @@ namespace TimerPlusMod
             shownRows = count;
 
             if (rowCount != null) rowCount.DisplayInMapper = visible;
+            if (pinBlocks != null) pinBlocks.DisplayInMapper = visible;
 
             for (int i = 0; i < rows.Count; i++)
             {

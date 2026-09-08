@@ -175,7 +175,7 @@ what they are.
 Every gate is Besiege's own, read out of the game: the seven combinational ones,
 the two latches, the counter that divides by four, the random gate and the edge
 detector that answers for exactly one tick. **CONVERT TO LOGIC GATES** builds one
-of the game's logic gate blocks per row.
+of the game's logic gate blocks per row, pinned the same way.
 
 One deliberate difference: no burnout. Besiege can burn a gate out for pulsing too
 fast, because a gate is a thing on the machine that can be broken; a row of a table
@@ -186,6 +186,11 @@ is not one.
 **CONVERT TO TIMER BLOCKS** builds one of Besiege's own timer blocks per row, lays
 them out on a horizontal plane beside this block, and hands them over as a
 selection with the move tool up. One undo takes them all back.
+
+**PIN BLOCKS**, beside it and on by default, drops one of the game's pins inside
+each block it makes — nothing bound to its unpin key and its visuals hidden — so a
+field of timers stays where it was put when the machine runs. Turn it off and the
+blocks arrive loose.
 
 They are laid out in the table's own numbering — first to fire at the top left,
 then along and down — so the field reads the way the table does, whatever order the

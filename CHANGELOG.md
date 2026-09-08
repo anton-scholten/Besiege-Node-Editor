@@ -46,6 +46,9 @@ First version. Two blocks, each holding a table of up to thirty-two rows:
   and shaped like the sibling Clippy mod's — capitals, sixteen point, air either
   side — which is where the three switch columns, headed with a picture apiece, say
   what they are in words.
+- **Pin blocks**, a switch beside the convert button and on by default: each block
+  conversion makes gets one of the game's pins inside it, with nothing bound and
+  its visuals hidden, so a field of them stays where it was put.
 - **Convert to timer blocks**: one of Besiege's own timers per row, laid out on a
   horizontal plane in the table's own numbering — first to fire at the top left,
   then along and down — and handed over as a selection through the game's own

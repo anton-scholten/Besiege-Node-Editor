@@ -34,6 +34,10 @@ namespace TimerPlusMod
         /// <summary>How many rows are in use, 1..<see cref="MaxRows"/>.</summary>
         private MSlider rowCount;
 
+        /// <summary>Whether converting also drops a pin inside each gate it makes.
+        /// See <see cref="TimerPlusBehaviour.PinControl"/>.</summary>
+        private MToggle pinBlocks;
+
         private readonly List<LogicRow> rows = new List<LogicRow>();
 
         /// <summary>Every input key this block owns, which is what Besiege is
@@ -45,6 +49,10 @@ namespace TimerPlusMod
         public IList<LogicRow> Rows { get { return rows; } }
 
         public MSlider CountControl { get { return rowCount; } }
+
+        public MToggle PinControl { get { return pinBlocks; } }
+
+        public bool Pins { get { return pinBlocks != null && pinBlocks.IsActive; } }
 
         public int Count
         {
@@ -71,6 +79,8 @@ namespace TimerPlusMod
         {
             // One mesh, one texture, nothing to swap to.
             Skins.Hide(BlockBehaviour);
+
+            pinBlocks = AddToggle("Pin blocks", "PinKey", true);
 
             int wanted = Module == null ? 3 : Module.Rows;
             rowCount = BlockBehaviour.AddSlider("Rows", "RowsKey",
@@ -141,6 +151,10 @@ namespace TimerPlusMod
             if (rowCount != null)
             {
                 rowCount.DisplayInMapper = visible;
+            }
+            if (pinBlocks != null)
+            {
+                pinBlocks.DisplayInMapper = visible;
             }
             for (int i = 0; i < rows.Count; i++)
             {

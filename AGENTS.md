@@ -148,7 +148,10 @@ What depends on what:
   mapper controls, and a panel that captured one would show the first block's
   values and write to it.
 - **`Conversion`** and **`Drop`** build `BlockInfo`s and add them through Besiege's
-  own additive-load path, in wait order rather than row order.
+  own additive-load path, in wait order rather than row order. With the block's pin
+  switch on, each one gets a `BlockType.Pin` at the same position, `bmt-hide-visual`
+  true and `bmt-unpin` bound to nothing -- Besiege rebuilds joints from where blocks
+  are, so a pin at the block's own position is a pin inside it.
 - **`Variables`** lists the names in use on the machine by walking
   `Machine.BuildingBlocks` and reading every `MKey.message`. Not
   `KeyInputController.usedMessages`: that is filled by `Machine.InitSimBlock` at
@@ -213,7 +216,7 @@ Renaming one silently resets that setting on every existing machine. The display
 names beside them are only labels and are free to change.
 
 **Do not rename the logic block's mapper keys either** -- `"A<n>"`, `"B<n>"`,
-`"Gate<n>"`, `"Mode<n>"`, `"Out<n>"` -- or change `<ID>2</ID>` in
+`"Gate<n>"`, `"Mode<n>"`, `"Out<n>"`, or either block's `"PinKey"` -- or change `<ID>2</ID>` in
 `LogicGatePlus.xml`, for the same reasons.
 
 **Do not lower `TimerPlusBehaviour.MaxRows`.** Raising it is safe. Lowering it
