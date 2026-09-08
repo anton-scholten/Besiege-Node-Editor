@@ -88,6 +88,13 @@ itself is a table you cannot read across.
 as the last two, so a sequence being typed in carries on. A block keeps at least
 one row, so the last one will not delete.
 
+Ten rows are shown at once; past that the table scrolls, and adding or deleting a
+row leaves the view where it was. **+** and **CONVERT TO TIMER BLOCKS** do not
+scroll with the rows — they sit along the bottom of the window and stay there,
+because a table long enough to scroll is exactly when they are wanted. Anything the
+panel has to say — a block already holding all thirty-two rows, a convert that
+failed — is said on the button it is about, in red, for a few seconds.
+
 The table is drawn at the mapper's own width, so the two are one window with a
 seam across it.
 
@@ -108,10 +115,13 @@ bubble with **three dots** while the cell is on the keyboard, and clicking it ha
 the cell to a variable; a bubble with a **cross** while a variable holds it, and
 clicking takes it back.
 
-In key mode, click the plate and press the key you want, or `Escape` to unbind it.
-In variable mode, type a name and the row presses that name rather than a key —
-which is how one block on a machine drives another. Several names separated by `;`
-all work.
+In key mode, click the plate and press the key you want — a mouse button counts as
+a key — or `Escape` to unbind it.
+
+In variable mode the cell offers every variable name already in use anywhere on the
+machine, eight at a time with a scrollbar past that, so wiring one block to another
+is picking the name rather than spelling it. A name nobody has used yet is typed
+straight into the box. Several names separated by `;` all work.
 
 ## Sorting
 
@@ -129,6 +139,10 @@ answers a question nobody asks.
 **CONVERT TO TIMER BLOCKS** builds one of Besiege's own timer blocks per row, lays
 them out on a horizontal plane beside this block, and hands them over as a
 selection with the move tool up. One undo takes them all back.
+
+They are laid out in the table's own numbering — first to fire at the top left,
+then along and down — so the field reads the way the table does, whatever order the
+rows happen to be sitting in.
 
 The Timer Plus block stays where it is, so you can convert again or keep editing.
 The panel closes as the timers arrive, because they become the selection and that

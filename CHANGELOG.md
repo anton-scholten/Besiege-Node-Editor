@@ -14,7 +14,9 @@ timers.
 - **The table**, drawn through UI Factory and docked under Besiege's own block
   mapper, which keeps the block's activation key and its Automatic switch: wait,
   duration, hold to run, allow stop, loop and the emulated key, a row at a time,
-  with `+` at the bottom to add another. Every row is started by the block's own
+  with `+` to add another. Ten rows are shown at once and the rest scroll; `+` and
+  the convert button are pinned along the bottom of the window rather than
+  scrolling with them. Every row is started by the block's own
   key — the mapper above the table is the one place activation is set.
 - **A number down the left** ranking the rows by wait, so the timer that fires
   first is 1 however the table is ordered. It has no heading; a column of small
@@ -27,14 +29,17 @@ timers.
   clicked.
 - **Variables everywhere a key can go**, on the block's own activation and on the
   key every row presses, switched with Besiege's own key/variable bubbles borrowed
-  off the mapper.
+  off the mapper. A cell on a variable offers the names already in use on the
+  machine — read off its blocks' own keys, since nothing else knows them in the
+  build area — eight at a time, with a scrollbar past that.
 - **Tooltips** on the column headings, fading in under the heading they explain
   and shaped like the sibling Clippy mod's — capitals, sixteen point, air either
   side — which is where the three switch columns, headed with a picture apiece, say
   what they are in words.
 - **Convert to timer blocks**: one of Besiege's own timers per row, laid out on a
-  horizontal plane and handed over as a selection through the game's own additive
-  load, so one undo takes them all back.
+  horizontal plane in the table's own numbering — first to fire at the top left,
+  then along and down — and handed over as a selection through the game's own
+  additive load, so one undo takes them all back.
 - Without UI Factory the block still works: its controls appear in Besiege's own
   block mapper and the panel quietly never builds.
 

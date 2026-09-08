@@ -77,6 +77,11 @@ namespace TimerPlusMod
             string variable = Bindings.IsVariable(block.MasterKey)
                 ? Bindings.Variable(block.MasterKey) : null;
 
+            // In the order the table numbers them -- by wait, first to fire first
+            // -- rather than in whatever order the rows happen to sit in. The
+            // field is then read the way the table is.
+            rows = InOrder(rows);
+
             Vector3 origin = Origin(machine, block, rows.Count);
             List<BlockInfo> made = new List<BlockInfo>();
             int columns = Mathf.Max(1, Mathf.CeilToInt(Mathf.Sqrt(rows.Count)));
@@ -84,14 +89,44 @@ namespace TimerPlusMod
 
             for (int i = 0; i < rows.Count; i++)
             {
+                // Left to right along x, and each line after the first nearer the
+                // camera: the build view looks along +z, so a line laid at a
+                // smaller z is the next one down the screen.
                 Vector3 at = origin + new Vector3(
                     ((i % columns) - (columns - 1) * 0.5f) * Spacing,
                     0f,
-                    ((i / columns) - (lines - 1) * 0.5f) * Spacing);
+                    ((lines - 1) * 0.5f - (i / columns)) * Spacing);
                 made.Add(One(rows[i], key, variable, automatic, at));
             }
 
             return Drop.Into(made, machine);
+        }
+
+        /// <summary>
+        /// The rows by wait, ties keeping the order they are in -- the same rank
+        /// the table's number column shows, worked out the same way, so timer 1 in
+        /// the panel is the first block in the field.
+        ///
+        /// An insertion sort, stable and as much machinery as thirty-two rows
+        /// deserve. <see cref="Table.Sort"/> is not reused because that one writes
+        /// through to the block's controls; this is a copy of the values, and the
+        /// table itself is left in whatever order the player put it.
+        /// </summary>
+        private static List<RowData> InOrder(List<RowData> rows)
+        {
+            List<RowData> all = new List<RowData>(rows);
+            for (int i = 1; i < all.Count; i++)
+            {
+                RowData moving = all[i];
+                int at = i;
+                while (at > 0 && all[at - 1].Wait > moving.Wait)
+                {
+                    all[at] = all[at - 1];
+                    at--;
+                }
+                all[at] = moving;
+            }
+            return all;
         }
 
         /// <summary>

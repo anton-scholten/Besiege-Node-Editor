@@ -60,6 +60,23 @@ namespace TimerPlusMod
         private bool held;
 
         /// <summary>
+        /// Whether the click that is about to arrive has already been used.
+        ///
+        /// A mouse button is a bindable key, and binding one takes the button
+        /// *down*: the matching *up* is what raises the plate's own click, which
+        /// would put the cell straight back to listening and lose what it had just
+        /// caught. So a mouse binding swallows the click that made it, and the
+        /// next one -- a fresh press, meaning what it says -- goes through.
+        /// </summary>
+        private bool swallow;
+
+        /// <summary>Frames since every mouse button came up, counted only while a
+        /// click is being swallowed. One clear frame is given to the click event
+        /// before the flag is dropped, because Update and the event system do not
+        /// agree on an order within a frame.</summary>
+        private int settled;
+
+        /// <summary>
         /// The one cell listening for a key, if any.
         ///
         /// Static because two cells listening at once bind the same press to both,
@@ -149,6 +166,12 @@ namespace TimerPlusMod
                     }
                     box.onEndEdit.AddListener(Typed);
                 }
+                // Clicking the box offers the names already on the machine. On the
+                // field itself rather than a control beside it: the box is the
+                // whole cell in variable mode, and uGUI hands a click to every
+                // handler on an object, so the field goes on taking typing.
+                Choices.Opener opener = field.AddComponent<Choices.Opener>();
+                opener.Clicked = Offer;
                 field.SetActive(false);
             }
         }
@@ -296,6 +319,7 @@ namespace TimerPlusMod
             if (variable && box != null)
             {
                 box.ActivateInputField();
+                Offer();
             }
             Raise();
         }
@@ -304,6 +328,11 @@ namespace TimerPlusMod
         {
             if (variable)
             {
+                return;
+            }
+            if (swallow)
+            {
+                swallow = false;
                 return;
             }
             if (!listening && waiting != null && waiting != this)
@@ -332,6 +361,37 @@ namespace TimerPlusMod
             Paint();
         }
 
+        /// <summary>
+        /// Offers the names already in use on the machine.
+        ///
+        /// Nothing is offered when there are none: an empty list under the box
+        /// says less than the box itself does, and the box is still the way a name
+        /// nobody has used yet gets typed.
+        /// </summary>
+        private void Offer()
+        {
+            if (!variable)
+            {
+                return;
+            }
+            Choices.Open(transform as RectTransform, Variables.Known(), Picked);
+        }
+
+        private void Picked(string name)
+        {
+            if (!variable || string.IsNullOrEmpty(name))
+            {
+                return;
+            }
+            Variable = name;
+            if (box != null)
+            {
+                box.text = name;
+            }
+            Paint();
+            Raise();
+        }
+
         private void Typed(string text)
         {
             // Not only Enter: this also arrives when the box loses focus and when
@@ -350,6 +410,19 @@ namespace TimerPlusMod
 
         private void Update()
         {
+            if (swallow)
+            {
+                bool down = Input.GetMouseButton(0) || Input.GetMouseButton(1)
+                         || Input.GetMouseButton(2);
+                settled = down ? 0 : settled + 1;
+                if (settled > 1)
+                {
+                    // The press that bound the button is long over and no click
+                    // came of it -- the pointer was dragged off the plate, or the
+                    // panel was rebuilt under it.
+                    swallow = false;
+                }
+            }
             if (!listening)
             {
                 return;
@@ -373,8 +446,17 @@ namespace TimerPlusMod
             waiting = null;
             Hold(false);
             Code = caught;
+            swallow = Mouse(caught);
+            settled = 0;
             Paint();
             Raise();
+        }
+
+        /// <summary>Whether a keycode is one of the mouse buttons, which are
+        /// bindable and are also how the plate is clicked.</summary>
+        private static bool Mouse(KeyCode code)
+        {
+            return code >= KeyCode.Mouse0 && code <= KeyCode.Mouse6;
         }
 
         private void Raise()
@@ -412,6 +494,9 @@ namespace TimerPlusMod
 
         private void OnDisable()
         {
+            // A list offered from a row that has just been switched off would hang
+            // over the panel with nothing under it.
+            Choices.Close();
             listening = false;
             if (waiting == this)
             {

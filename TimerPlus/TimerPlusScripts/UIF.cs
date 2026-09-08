@@ -57,6 +57,11 @@ namespace TimerPlusMod
         /// panel's colours are not another thing that has to resolve first.</summary>
         public static readonly Color Hot = new Color(0.92f, 0.13f, 0.29f, 1f);
 
+        /// <summary>The panel's own dark plate, for something drawn on top of the
+        /// window rather than in it -- the variable list. Near enough the window's
+        /// own background to belong to it, opaque enough to read words on.</summary>
+        public static readonly Color Shade = new Color(0.10f, 0.13f, 0.17f, 0.97f);
+
         /// <summary>The cyan Besiege uses for a reset, and here for a row that is
         /// running.</summary>
         public static readonly Color Live = new Color(0.012f, 1f, 0.847f, 1f);

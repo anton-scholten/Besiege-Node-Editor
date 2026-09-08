@@ -40,12 +40,53 @@ namespace TimerPlusMod
         /// short of it, or the bar is drawn over the end of every one of them.</summary>
         private const float BarGutter = 18f;
 
-        private const float MaxHeight = 660f;
-        private const float MinHeight = 180f;
+        /// <summary>The scrollbar drawn in that gutter, and its inset from the
+        /// window's edge.</summary>
+        private const float BarWidth = 8f;
+        private const float BarInset = 5f;
+
+        private static readonly Color RailInk = new Color(1f, 1f, 1f, 0.10f);
+        private static readonly Color GripInk = new Color(1f, 1f, 1f, 0.45f);
+
+        /// <summary>
+        /// The height of the strip along the bottom of the window: the rule, the
+        /// "+", the convert button and the line anything has to be said on.
+        ///
+        /// Those are not rows of the table and do not scroll with it -- a table
+        /// with thirty rows in it is exactly when somebody wants the convert button,
+        /// and it was at the bottom of a list they had to scroll to the end of.
+        /// A constant rather than a measurement, so the viewport can be held clear
+        /// of the strip before the strip is built.
+        ///
+        /// The strip has no plate of its own. It had one for a while, to stop rows
+        /// showing through it, and a plate over the window's own plate is the
+        /// window's colour laid down twice -- which reads as a dark band under the
+        /// table rather than part of it. What actually keeps the rows out is the
+        /// clipping: a `RectMask2D` on the viewport, and <see cref="Curtain"/>
+        /// measuring against the viewport rather than the window.
+        /// </summary>
+        private const float StripHeight = RuleGap + 2f + RowGap
+                                        + RowHeight + RowGap
+                                        + RowHeight + 4f + Margin;
+
+        /// <summary>How many rows are shown before the table starts scrolling.
+        /// Ten is about as many as the eye takes in at once, and a window taller
+        /// than that under the mapper is a window in the way of the machine.</summary>
+        private const int RowsShown = 10;
+
+        /// <summary>The tallest the window is drawn: the heading, ten rows, and the
+        /// strip along the bottom.</summary>
+        private const float MaxHeight = Margin + HeadHeight + RowGap
+                                      + RowsShown * (RowHeight + RowGap)
+                                      + Margin + StripHeight;
+        /// <summary>The shortest the window is drawn: the heading, one row and the
+        /// strip. Anything less is empty space under a table of one.</summary>
+        private const float MinHeight = Margin + HeadHeight + RowGap
+                                      + RowHeight + Margin + StripHeight;
 
         /// <summary>Fixed column widths. The number and the three switches do not
         /// get wider on a wider mapper; the three that hold values do.</summary>
-        private const float SwitchWidth = 26f;
+        private const float SwitchWidth = 24f;
         private const float NumberWidth = 22f;
         private const float ColGap = 3f;
 
@@ -134,7 +175,14 @@ namespace TimerPlusMod
         }
 
         private readonly List<Cells> table = new List<Cells>();
-        private Text status;
+        /// <summary>The two buttons' own lettering, which is also where anything
+        /// the panel has to say is said -- see <see cref="Flash"/>.</summary>
+        private Text plusLabel;
+        private Text convertLabel;
+
+        /// <summary>Where the "+" and the convert button live: pinned to the bottom
+        /// of the window, outside the scrolling view.</summary>
+        private Transform fixedStrip;
         /// <summary>The sort mark on each sortable heading: one triangle, shown on
         /// the column the table is sorted by and turned over for a descending
         /// sort.</summary>
@@ -279,7 +327,7 @@ namespace TimerPlusMod
             served.ShowStock(false);
             window.SetActive(true);
             // Whatever the last visit was told is not news about this one.
-            Say("", UIF.Ink);
+            Unflash();
             Fill();
             Canvas.ForceUpdateCanvases();
             Dock();
@@ -325,12 +373,15 @@ namespace TimerPlusMod
                 // scrolling content would be clipped with the row it explains and
                 // drawn under whichever row came after it.
                 Tip.Tips.Home(canvas.GetComponent<RectTransform>());
+                Choices.Home(canvas.GetComponent<RectTransform>());
 
+                Fixed();
                 float height = Layout();
                 builtRows = served.Count;
                 builtWidth = width;
                 FitContent(height);
-                windowRect.sizeDelta = new Vector2(width, Mathf.Min(height, MaxHeight));
+                windowRect.sizeDelta =
+                    new Vector2(width, Mathf.Min(height + StripHeight, MaxHeight));
                 return true;
             }
             catch (Exception e)
@@ -446,67 +497,125 @@ namespace TimerPlusMod
         /// which is what actually keeps a row inside the frame -- but a viewport
         /// with a real rect is what everything else measures against.
         /// </summary>
+        /// <summary>
+        /// Holds the scrolling view inside the window and above the strip, and
+        /// clips whatever hangs out of it.
+        ///
+        /// The viewport is found rather than assumed. `ScrollRect.viewport` is
+        /// allowed to be null -- uGUI then scrolls inside the ScrollRect's own rect
+        /// -- and the prefab's need not be called "Viewport". Getting this wrong is
+        /// invisible until something has to be kept out of a part of the window:
+        /// with no viewport there is nothing to clip against, nothing to shorten,
+        /// and <see cref="Curtain"/> falls back to the whole window, so rows scroll
+        /// straight over the buttons along the bottom.
+        /// </summary>
+        /// <summary>
+        /// The frame the rows scroll inside: ours, made here, with the prefab's
+        /// content moved into it.
+        ///
+        /// Asking the ScrollRect for its viewport does not work. It is allowed to
+        /// be null -- uGUI then scrolls inside the ScrollRect's own rect -- and the
+        /// prefab's need not be named anything in particular; every attempt to find
+        /// it and shorten it left the ScrollRect believing its frame was the whole
+        /// window, which is how rows ended up over the strip and how the last rows
+        /// could not be scrolled to at all.
+        ///
+        /// A frame of our own is the end of that. It is the window less the strip
+        /// and less the bar's gutter, so how far the list scrolls is exactly how
+        /// much of it does not fit, and the bar hides itself when all of it does.
+        /// </summary>
         private void Clip()
         {
-            RectTransform view = scroll.viewport;
-            if (view == null)
-            {
-                Transform found = Attach.Find(window.transform, "Viewport");
-                if (found != null)
-                {
-                    view = found.GetComponent<RectTransform>();
-                }
-                scroll.viewport = view;
-            }
-            if (view == null)
-            {
-                return;
-            }
+            GameObject go = new GameObject("Frame");
+            go.transform.SetParent(window.transform, false);
+            RectTransform view = go.AddComponent<RectTransform>();
             view.anchorMin = Vector2.zero;
             view.anchorMax = Vector2.one;
             view.pivot = new Vector2(0f, 1f);
-            view.offsetMin = Vector2.zero;
+            view.offsetMin = new Vector2(0f, StripHeight);
             view.offsetMax = new Vector2(-BarGutter, 0f);
+            // Clips by rectangle. A stencil Mask would do it too and would be one
+            // more thing sharing a stencil buffer with the window's own.
+            go.AddComponent<RectMask2D>();
 
-            Mask mask = view.GetComponent<Mask>();
-            if (mask != null)
-            {
-                mask.enabled = true;
-                // The window already has a background; this would be a second plate
-                // over it.
-                mask.showMaskGraphic = false;
-            }
-            else if (view.GetComponent<RectMask2D>() == null)
-            {
-                view.gameObject.AddComponent<RectMask2D>();
-            }
+            scroll.viewport = view;
+            RectTransform rows = scroll.content;
+            rows.SetParent(view, false);
+            rows.anchorMin = new Vector2(0f, 1f);
+            rows.anchorMax = new Vector2(1f, 1f);
+            rows.pivot = new Vector2(0.5f, 1f);
+            rows.anchoredPosition = Vector2.zero;
+            rows.sizeDelta = new Vector2(0f, rows.sizeDelta.y);
         }
 
-        /// <summary>The scrollbar into the gutter the rows leave for it.</summary>
+        /// <summary>
+        /// The bar down the right of the table.
+        ///
+        /// Built rather than borrowed. The Window prefab brings one, but it is
+        /// anchored to the whole window and the strip along the bottom is not part
+        /// of the list -- and a prefab's rect, reshaped from outside, is a thing
+        /// that keeps coming back. This one is ours, it stops where the list stops,
+        /// and it is the only bar the ScrollRect knows about.
+        /// </summary>
         private void Rail()
         {
-            UnityEngine.UI.Scrollbar bar = scroll.verticalScrollbar;
-            if (bar == null)
+            if (scroll.verticalScrollbar != null)
             {
-                return;
+                scroll.verticalScrollbar.gameObject.SetActive(false);
+                scroll.verticalScrollbar = null;
             }
-            RectTransform rect = bar.GetComponent<RectTransform>();
-            if (rect != null)
-            {
-                rect.anchorMin = new Vector2(1f, 0f);
-                rect.anchorMax = new Vector2(1f, 1f);
-                rect.pivot = new Vector2(1f, 1f);
-                rect.sizeDelta = new Vector2(BarGutter, 0f);
-                rect.anchoredPosition = Vector2.zero;
-            }
-            bar.gameObject.SetActive(true);
-            scroll.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHide;
+
+            GameObject track = new GameObject("Rail");
+            track.transform.SetParent(window.transform, false);
+            RectTransform rail = track.AddComponent<RectTransform>();
+            rail.anchorMin = new Vector2(1f, 0f);
+            rail.anchorMax = new Vector2(1f, 1f);
+            rail.pivot = new Vector2(1f, 1f);
+            // Down the right, from the top of the window to the top of the strip.
+            rail.offsetMin = new Vector2(-(BarWidth + BarInset), StripHeight);
+            rail.offsetMax = new Vector2(-BarInset, 0f);
+            Image back = track.AddComponent<Image>();
+            back.color = RailInk;
+
+            GameObject area = new GameObject("Sliding Area");
+            area.transform.SetParent(track.transform, false);
+            RectTransform slide = area.AddComponent<RectTransform>();
+            slide.anchorMin = Vector2.zero;
+            slide.anchorMax = Vector2.one;
+            slide.offsetMin = Vector2.zero;
+            slide.offsetMax = Vector2.zero;
+
+            GameObject held = new GameObject("Handle");
+            held.transform.SetParent(area.transform, false);
+            RectTransform grip = held.AddComponent<RectTransform>();
+            grip.offsetMin = Vector2.zero;
+            grip.offsetMax = Vector2.zero;
+            Image face = held.AddComponent<Image>();
+            face.color = GripInk;
+
+            // Fully qualified: Besiege has a `Scrollbar` of its own in the global
+            // namespace, and this file is compiled inside `TimerPlusMod`.
+            UnityEngine.UI.Scrollbar bar =
+                track.AddComponent<UnityEngine.UI.Scrollbar>();
+            bar.direction = UnityEngine.UI.Scrollbar.Direction.BottomToTop;
+            bar.handleRect = grip;
+            bar.targetGraphic = face;
+
+            scroll.verticalScrollbar = bar;
+            // AutoHide and not AutoHideAndExpandViewport: the second resizes the
+            // viewport, and the viewport here is whatever the prefab decided.
+            scroll.verticalScrollbarVisibility =
+                ScrollRect.ScrollbarVisibility.AutoHide;
         }
 
         private void Teardown()
         {
+            // Whatever a cell was offering belongs to a cell that is going away.
+            Choices.Close();
             table.Clear();
-            status = null;
+            plusLabel = null;
+            convertLabel = null;
+            flashing = null;
             for (int i = 0; i < marks.Length; i++)
             {
                 marks[i] = null;
@@ -520,6 +629,7 @@ namespace TimerPlusMod
             }
             window = null;
             windowRect = null;
+            fixedStrip = null;
             scroll = null;
             content = null;
             builtRows = -1;
@@ -542,9 +652,10 @@ namespace TimerPlusMod
             float rest = Mathf.Max(160f, Full - fixedWidth);
             // The two times take more than the key does. A heading grows under the
             // pointer, and "DURATION" grown by a tenth has to stay inside its own
-            // column; a keycode or a variable name is read at whatever width is
-            // left, and there is enough left.
-            float num = rest * 0.32f;
+            // column. What is left goes to the key, which needs enough of it for a
+            // variable name -- a name a character longer than the column is a name
+            // shrunk until it is not read at a glance.
+            float num = rest * 0.31f;
             float emu = rest - num * 2f;
 
             w = new float[] { NumberWidth, num, num,
@@ -573,9 +684,6 @@ namespace TimerPlusMod
                 table.Add(BuildRow(i, ref y, x, w));
             }
 
-            y = Plus(y);
-            y = Rule(y);
-            y = Footer(y);
             return y + Margin;
         }
 
@@ -655,7 +763,7 @@ namespace TimerPlusMod
                     }
                 }
 
-                Tip.On(go, HeadTips[c] + (sorts ? "\n(click to sort)" : ""));
+                Tip.On(go, HeadTips[c]);
 
                 Button click = go.GetComponent<Button>();
                 if (click == null)
@@ -794,16 +902,43 @@ namespace TimerPlusMod
             return cells;
         }
 
-        /// <summary>The last row of the table: one button across it that adds
-        /// another.</summary>
+        /// <summary>
+        /// The strip along the bottom of the window, outside the scrolling view:
+        /// the rule that closes the table off, the "+" that adds a row, the convert
+        /// button and the message line.
+        ///
+        /// Parented to the window rather than to the scrolling content, and the
+        /// viewport is held clear of it in <see cref="Clip"/>, so the two never
+        /// overlap however many rows there are.
+        /// </summary>
+        private void Fixed()
+        {
+            GameObject go = new GameObject("Fixed");
+            go.transform.SetParent(window.transform, false);
+            RectTransform rect = go.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(0f, 0f);
+            rect.anchorMax = new Vector2(1f, 0f);
+            rect.pivot = new Vector2(0f, 0f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = new Vector2(0f, StripHeight);
+            fixedStrip = go.transform;
+
+            float y = 0f;
+            y = Rule(y);
+            y = Plus(y);
+            Footer(y);
+        }
+
+        /// <summary>The button that adds a row, across the strip.</summary>
         private float Plus(float y)
         {
-            GameObject go = UIF.Spawn(UIF.ButtonPrefab, content);
+            GameObject go = UIF.Spawn(UIF.ButtonPrefab, fixedStrip);
             if (go != null)
             {
                 UIF.Fit(go.GetComponent<RectTransform>(), Margin, y, Full, RowHeight);
                 UIF.NoSwell(go);
-                Grow(go, Pin(go, "+", UIF.Ink));
+                plusLabel = Pin(go, "+", UIF.Ink);
+                Grow(go, plusLabel);
                 Button click = go.GetComponent<Button>();
                 if (click != null)
                 {
@@ -815,35 +950,28 @@ namespace TimerPlusMod
 
         private float Footer(float y)
         {
-            GameObject go = UIF.Spawn(UIF.ButtonPrefab, content);
+            GameObject go = UIF.Spawn(UIF.ButtonPrefab, fixedStrip);
             if (go != null)
             {
                 UIF.Fit(go.GetComponent<RectTransform>(), Margin, y, Full, RowHeight + 4f);
                 UIF.NoSwell(go);
-                Grow(go, Pin(go, "CONVERT TO TIMER BLOCKS", UIF.Ink));
+                convertLabel = Pin(go, "CONVERT TO TIMER BLOCKS", UIF.Ink);
+                Grow(go, convertLabel);
                 Button click = go.GetComponent<Button>();
                 if (click != null)
                 {
                     click.onClick.AddListener(DoConvert);
                 }
             }
-            y += RowHeight + 4f + RowGap;
-
-            // Empty unless something has to be said. It used to carry a running
-            // "N rows -> N timer blocks", which said nothing the table above it did
-            // not already show; what is left is the place a refusal or a
-            // confirmation goes.
-            status = Label("", Margin, y, Full, RowHeight, UIF.Ink,
-                           TextAnchor.MiddleLeft);
-            return y + RowHeight;
+            return y + RowHeight + 4f;
         }
 
         // ---- the small pieces ------------------------------------------------
 
-        private Text Label(string text, float x, float y, float w, float h,
-                           Color colour, TextAnchor align)
+        private Text Label(Transform host, string text, float x, float y,
+                           float w, float h, Color colour, TextAnchor align)
         {
-            GameObject go = UIF.Spawn(UIF.TextPrefab, content);
+            GameObject go = UIF.Spawn(UIF.TextPrefab, host);
             if (go == null)
             {
                 return null;
@@ -968,8 +1096,8 @@ namespace TimerPlusMod
 
         private float Rule(float y)
         {
-            Plate(content, Margin, y + RuleGap * 0.5f, Full, 2f, RuleInk);
-            return y + RuleGap + 2f;
+            Plate(fixedStrip, Margin, y + RuleGap * 0.5f, Full, 2f, RuleInk);
+            return y + RuleGap + 2f + RowGap;
         }
 
         // ---- reading the block -----------------------------------------------
@@ -1248,8 +1376,8 @@ namespace TimerPlusMod
             int made = Table.Add(served, touched);
             if (made < 0)
             {
-                Say("this block already holds " + TimerPlusBehaviour.MaxRows
-                    + " rows, which is as many as it can.", UIF.Hot);
+                Flash(plusLabel, "REACHED THE " + TimerPlusBehaviour.MaxRows
+                      + " TIMERS LIMIT", UIF.Hot);
                 return;
             }
             Commit(touched);
@@ -1264,7 +1392,7 @@ namespace TimerPlusMod
             }
             if (served.Count <= 1)
             {
-                Say("a block keeps at least one row.", UIF.Hot);
+                Flash(plusLabel, "A BLOCK KEEPS ONE ROW", UIF.Hot);
                 return;
             }
             List<MapperType> touched = new List<MapperType>();
@@ -1288,26 +1416,56 @@ namespace TimerPlusMod
                 // the player actually sees is the timers arriving under the move
                 // tool, which is the same answer the load screen gives.
                 Log.Info(made + " timer block(s) added from the table.");
-                Say(made + (made == 1 ? " timer block added, " : " timer blocks added, ")
-                    + "selected and ready to move. One undo takes them back.", UIF.Live);
+                Flash(convertLabel,
+                      made + (made == 1 ? " TIMER ADDED" : " TIMERS ADDED"), UIF.Live);
             }
             catch (Exception e)
             {
-                Say("could not convert: " + e.Message, UIF.Hot);
+                Flash(convertLabel, "COULD NOT CONVERT", UIF.Hot);
                 Log.Warn("convert failed: " + e);
             }
         }
 
-        /// <summary>A line under the button, until the next thing that has
-        /// something to say. Not a log: the log is where the detail goes.</summary>
-        private void Say(string text, Color colour)
+        /// <summary>
+        /// Says something on the button it is about, for a few seconds, and then
+        /// puts the button's own word back.
+        ///
+        /// It was a line of its own along the bottom of the panel, which cost a
+        /// row of height on every block for something shown a few seconds a
+        /// session. On the button, the message is where the click that caused it
+        /// was, and the panel is a row shorter.
+        /// </summary>
+        private void Flash(Text label, string words, Color colour)
         {
-            if (status == null)
+            if (label == null)
             {
                 return;
             }
-            status.text = text;
-            status.color = colour;
+            Unflash();
+            flashing = label;
+            flashWas = label.text;
+            flashUntil = Time.unscaledTime + FlashSeconds;
+            label.text = words;
+            label.color = colour;
+        }
+
+        /// <summary>How long a message holds the button before its own word comes
+        /// back. Long enough to read twice.</summary>
+        private const float FlashSeconds = 4f;
+
+        private Text flashing;
+        private string flashWas;
+        private float flashUntil;
+
+        private void Unflash()
+        {
+            if (flashing == null)
+            {
+                return;
+            }
+            flashing.text = flashWas;
+            flashing.color = UIF.Ink;
+            flashing = null;
         }
 
         /// <summary>
@@ -1318,6 +1476,11 @@ namespace TimerPlusMod
         private void Rebuild()
         {
             TimerPlusBehaviour block = served;
+            // Where the list was looked at. A row added or deleted somewhere above
+            // the fold should not carry the view back to the top -- the row being
+            // worked on is the one on screen.
+            float keep = scroll != null && scroll.content != null
+                ? scroll.content.anchoredPosition.y : 0f;
             Teardown();
             served = block;
             if (!Build())
@@ -1329,7 +1492,30 @@ namespace TimerPlusMod
             Fill();
             Canvas.ForceUpdateCanvases();
             Dock();
+            Look(keep);
             Curtain(true);
+        }
+
+        /// <summary>
+        /// Puts the view back where it was, as far as the list still goes.
+        ///
+        /// Clamped rather than remembered exactly: deleting the last rows makes the
+        /// list shorter than the offset it was scrolled to, and a ScrollRect left
+        /// past its own end shows empty space until something nudges it.
+        /// </summary>
+        private void Look(float keep)
+        {
+            if (scroll == null || scroll.content == null || windowRect == null)
+            {
+                return;
+            }
+            float span = Mathf.Max(0f, scroll.content.sizeDelta.y
+                - (scroll.viewport != null ? scroll.viewport.rect.height
+                                           : windowRect.rect.height));
+            Vector2 at = scroll.content.anchoredPosition;
+            scroll.content.anchoredPosition =
+                new Vector2(at.x, Mathf.Clamp(keep, 0f, span));
+            Canvas.ForceUpdateCanvases();
         }
 
         // ---- writing back ----------------------------------------------------
@@ -1432,6 +1618,10 @@ namespace TimerPlusMod
                 Hide();
                 return;
             }
+            if (flashing != null && Time.unscaledTime >= flashUntil)
+            {
+                Unflash();
+            }
             Dock();
             Curtain(false);
         }
@@ -1490,7 +1680,8 @@ namespace TimerPlusMod
             // What is left between the bottom of the mapper and the bottom of the
             // screen. The window takes that and scrolls the rest.
             float room = frame.yMin * scale - Margin;
-            float tall = Mathf.Max(MinHeight, Mathf.Min(contentHeight, MaxHeight, room));
+            float tall = Mathf.Max(MinHeight,
+                Mathf.Min(contentHeight + StripHeight, MaxHeight, room));
             if (Mathf.Abs(windowRect.sizeDelta.y - tall) > 0.5f)
             {
                 windowRect.sizeDelta = new Vector2(width, tall);
@@ -1539,12 +1730,13 @@ namespace TimerPlusMod
         /// </summary>
         private void Curtain(bool force)
         {
-            if (scroll == null || scroll.content == null || content == null)
+            if (scroll == null || scroll.content == null || content == null
+                || windowRect == null)
             {
                 return;
             }
             float at = scroll.content.anchoredPosition.y;
-            float tall = windowRect != null ? windowRect.sizeDelta.y : 0f;
+            float tall = windowRect.rect.height;
             if (!force && Mathf.Abs(at - curtainAt) < Slop
                        && Mathf.Abs(tall - curtainTall) < Slop)
             {
@@ -1553,6 +1745,16 @@ namespace TimerPlusMod
             curtainAt = at;
             curtainTall = tall;
 
+            // Measured against the window, through the transforms, rather than
+            // against the ScrollRect's viewport. A viewport may be missing, may be
+            // named anything, and may be the ScrollRect's own rect -- and each of
+            // those was a way for a row to be counted as on screen while it was
+            // over the strip along the bottom. The window is none of those things,
+            // and the strip is measured from its bottom edge.
+            float half = tall * 0.5f;
+            float floor = -half + StripHeight;
+            Vector3[] corners = new Vector3[4];
+
             for (int i = 0; i < content.childCount; i++)
             {
                 RectTransform row = content.GetChild(i) as RectTransform;
@@ -1560,9 +1762,11 @@ namespace TimerPlusMod
                 {
                     continue;
                 }
-                float top = at + row.anchoredPosition.y;
-                float bottom = top - row.sizeDelta.y;
-                bool inside = top <= Slop && bottom >= -tall - Slop;
+                row.GetWorldCorners(corners);
+                // 0 is the bottom-left corner and 1 the top-left.
+                float bottom = windowRect.InverseTransformPoint(corners[0]).y;
+                float top = windowRect.InverseTransformPoint(corners[1]).y;
+                bool inside = bottom >= floor - Slop && top <= half + Slop;
                 if (row.gameObject.activeSelf != inside)
                 {
                     row.gameObject.SetActive(inside);

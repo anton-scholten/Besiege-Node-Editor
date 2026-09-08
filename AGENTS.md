@@ -92,13 +92,43 @@ What depends on what:
 - **`Table`** lifts rows out of their controls as `RowData` so they can be sorted
   and deleted — a row *is* its controls, and reordering rows means moving values
   between them.
-- **`Panel`** is one UI Factory window, on a `DontDestroyOnLoad` object, watching
+- **`Panel`** builds two things: the rows, in the Window prefab's own ScrollRect,
+  and a fixed strip along the bottom -- rule, `+`, convert, message line -- parented
+  to the window with the viewport held clear of it by `StripHeight`. The strip has
+  no plate: what keeps the rows out from under it is `Curtain`, which measures each
+  row against the **window's** own rect through `GetWorldCorners` +
+  `InverseTransformPoint` and switches off anything not wholly above the strip. Not
+  against the ScrollRect's viewport: that may be null, may be named anything, and
+  may be the ScrollRect's own rect, and each of those let rows draw over the strip.
+  The `RectMask2D` on the viewport is a second line and not the one to rely on.
+  The scrolling frame is the panel's own too -- `Clip` makes a `Frame` object the
+  size of the window less the strip and the bar's gutter, moves the prefab's
+  content into it and points `ScrollRect.viewport` at it. Asking the prefab where
+  its viewport was failed three ways (null, differently named, the ScrollRect's own
+  rect), and each left the ScrollRect believing its frame was the whole window: rows
+  over the strip, last rows unreachable, and a bar that never hid itself. Same for
+  the bar: built in `Rail`, stopping where the list stops. There is no message
+  line: `Flash` puts a refusal or a result on the button it is about, for four
+  seconds, and puts the button's own word back afterwards. A plate
+  there is the window's own colour laid down twice, and reads as a dark band. It is one UI
+  Factory window, on a `DontDestroyOnLoad` object, watching
   `BlockMapper.onMapperOpen`. It holds the *behaviour*, never a control, and reads
   the controls fresh on every fill: two blocks of the same kind do not share their
   mapper controls, and a panel that captured one would show the first block's
   values and write to it.
 - **`Conversion`** and **`Drop`** build `BlockInfo`s and add them through Besiege's
-  own additive-load path.
+  own additive-load path, in wait order rather than row order.
+- **`Variables`** lists the names in use on the machine by walking
+  `Machine.BuildingBlocks` and reading every `MKey.message`. Not
+  `KeyInputController.usedMessages`: that is filled by `Machine.InitSimBlock` at
+  the start of a run and is empty in the build area, which is where the list is
+  wanted. **`Choices`** is the menu it is shown in -- one list on the canvas, like
+  the tooltip and for the same clipping reason, with a `RectMask2D` because a
+  stencil `Mask` on the same canvas as the window's own cuts holes in it, and a
+  hand-built scrollbar past eight names (there is no prefab bar outside a UI
+  Factory window). `UnityEngine.UI.Scrollbar` is spelled out in full there:
+  Besiege has a `Scrollbar` of its own in the global namespace, the same collision
+  that cost `Keys` and `Convert` their names.
 - **`UIF`** is the only file that names `Besiege.UI` — see the soft-dependency rule
   below.
 - **`MapperArt`** borrows the game's own key/variable bubble icons off a live
