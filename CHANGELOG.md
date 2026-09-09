@@ -75,12 +75,20 @@ First version. Two blocks, each holding a table of up to thirty-two rows:
   game's assemblies. The palette is a row of drawn gate symbols, ports are circles
   that fill when something lands on them, wires come off by being pulled away, and
   a right-click on the board offers the same list where the pointer is. Nodes can
-  be picked out with a modifier-click or a dragged box and copied as a set; **TIDY**
-  lays the board out and folds ends standing for the same key or variable into one.
+  be picked out by a click, a modifier-click or a dragged box, moved as a set and
+  copied as one; **TIDY** lays the board out and folds ends standing for the same
+  key or variable into one. The board is two zoomed-out views across and two down,
+  and nodes and the view both stop at its edge.
   Every edit is one step of Besiege's own undo, carrying the whole block, so one
-  press puts every gate back where it was with the wires it had. Its four hotkeys
-  are in Besiege's controls screen and default to 1+C, 1+V, 1+Z and 1+Y -- the game
-  itself owns the Control versions of all four.
+  press puts every gate back where it was with the wires it had -- the game's undo
+  and no other, since an edit on the board and an edit in the table are the same
+  edit. A gate removed, here or in the table, takes its own wires with it and comes
+  back with them on that one press. A gesture the board cannot carry out says so in
+  a word over the thing refused: a wire from an end straight into an output, a name
+  a second end already stands for, a gate on a block whose thirty-two rows are
+  used, the last gate being deleted. Its two hotkeys are in Besiege's controls
+  screen and default to 1+C and 1+V -- the game itself owns the Control versions
+  of both.
 
 **Known and deliberate**
 

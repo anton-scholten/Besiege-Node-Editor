@@ -3,7 +3,8 @@ using System;
 namespace TimerPlusMod
 {
     /// <summary>
-    /// The node editor's own hotkeys, as the player has them bound.
+    /// The node editor's own hotkeys -- copy and paste -- as the player has them
+    /// bound.
     ///
     /// Declared in `Mod.xml` under `&lt;Keys&gt;`, which is what puts them in
     /// Besiege's own controls screen -- so they can be rebound like anything else,
@@ -17,16 +18,10 @@ namespace TimerPlusMod
         private static bool asked;
         private static Modding.ModKey copy;
         private static Modding.ModKey paste;
-        private static Modding.ModKey undo;
-        private static Modding.ModKey redo;
 
         public static bool Copy { get { Look(); return Down(copy); } }
 
         public static bool Paste { get { Look(); return Down(paste); } }
-
-        public static bool Undo { get { Look(); return Down(undo); } }
-
-        public static bool Redo { get { Look(); return Down(redo); } }
 
         private static bool Down(Modding.ModKey key)
         {
@@ -51,8 +46,6 @@ namespace TimerPlusMod
             {
                 copy = Modding.ModKeys.GetKey("board-copy");
                 paste = Modding.ModKeys.GetKey("board-paste");
-                undo = Modding.ModKeys.GetKey("board-undo");
-                redo = Modding.ModKeys.GetKey("board-redo");
             }
             catch (Exception e)
             {

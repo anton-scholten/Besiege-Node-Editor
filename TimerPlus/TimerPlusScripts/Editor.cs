@@ -50,13 +50,27 @@ namespace TimerPlusMod
         private const float BarHeight = 26f;
         private const float Margin = 8f;
         private const float NodeWidth = 124f;
-        private const float NodeHeight = 56f;
+        private const float NodeHeight = 50f;
+
+        /// <summary>How tall a gate is drawn. Shorter than an end: an end holds the
+        /// key or the name it stands for, and a gate holds nothing -- what it
+        /// answers to is a name the board makes up and nobody needs to read.
+        /// </summary>
+        private const float GateHeight = 34f;
+
+        /// <summary>And how wide. A gate holds a picture and, sometimes, a switch;
+        /// the width of an end is the width of the name in it, and a gate has no
+        /// name.</summary>
+        private const float GateWidth = 86f;
 
         /// <summary>How big a gate's picture is drawn: in the palette, and on the
         /// node itself.</summary>
         private const float PaletteIcon = 26f;
         private const float NodeIcon = 24f;
         private const float PortSize = 11f;
+
+        /// <summary>How big the switch on a gate that has one is drawn.</summary>
+        private const float Switch = 22f;
 
         /// <summary>How much of the board a port answers to, as against how much of
         /// it is drawn. See <see cref="Port"/>.</summary>
@@ -65,8 +79,26 @@ namespace TimerPlusMod
         /// <summary>How big the cross that removes a node is. Bigger than a port:
         /// it is the one thing on a node that is aimed at rather than dragged.
         /// </summary>
-        private const float CrossSize = 16f;
+        private const float CrossSize = 24f;
         private const float WireWidth = 2f;
+
+        /// <summary>How far the wheel zooms, either way.</summary>
+        private const float LeastZoom = 0.4f;
+        private const float MostZoom = 2.5f;
+
+        /// <summary>
+        /// How much board there is to put nodes on.
+        ///
+        /// Two views across and two down at the furthest the wheel zooms out,
+        /// measured off the window's own opening size: room for a circuit far
+        /// larger than thirty-two gates, and an end to it. A board without one is a
+        /// board somebody can drop a node into and never find again -- and ZOOM FIT
+        /// would then have to draw it, which means everything else on it too small
+        /// to read.
+        /// </summary>
+        private const float BoardWide = (StartWidth - Margin * 2f) * 2f / LeastZoom;
+        private const float BoardTall =
+            (StartHeight - BarHeight - Margin * 3f - 30f) * 2f / LeastZoom;
 
         private static readonly Vector2 Reference = new Vector2(1920f, 1080f);
         private static readonly Color Ink = new Color(0.10f, 0.13f, 0.17f, 0.96f);
@@ -136,6 +168,7 @@ namespace TimerPlusMod
             public Vector2 At;
         }
 
+
         private readonly List<GameObject> parts = new List<GameObject>();
         private readonly List<RectTransform> ports = new List<RectTransform>();
         private readonly List<GameObject> wires = new List<GameObject>();
@@ -194,16 +227,84 @@ namespace TimerPlusMod
                 return;
             }
             Editor on = Serving(block);
-            if (on == null)
+            if (on != null)
             {
-                on = Lending() ?? Another() ?? Newest();
+                // Already up on this block. Drawing it again would cost a teardown
+                // and lose what is picked out, for a board that is already right --
+                // it only comes to the front.
+                on.shown = ++showings;
+                on.Claim();
+                Stack();
+                return;
             }
+            on = Lending() ?? Another() ?? Newest();
             if (on == null)
             {
                 return;
             }
             on.Show(block);
             Stack();
+        }
+
+        /// <summary>
+        /// Keeps the boards on the block whose menu is up.
+        ///
+        /// A board is how a logic block is read, so selecting another one should
+        /// bring that one up: a board nobody has pinned follows the menu, and a
+        /// pinned board is somebody's -- it keeps what it is showing, and the block
+        /// just selected gets a board of its own.
+        ///
+        /// Asked here every so often rather than left to the menu's own opening,
+        /// because a mapper changes hands in more ways than it announces: an undo
+        /// reopens it, and so does clicking straight from one block to another. A
+        /// board that missed one of those is a board drawing a block nobody is
+        /// looking at.
+        /// </summary>
+        private static void Following()
+        {
+            if (followed == Time.frameCount)
+            {
+                return;
+            }
+            followed = Time.frameCount;
+            LogicGatePlusBehaviour block = Menu();
+            if (block == null || Serving(block) != null)
+            {
+                return;
+            }
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (all[i] != null && Up(all[i]) && !all[i].pinned)
+                {
+                    all[i].Show(block);
+                    Stack();
+                    return;
+                }
+            }
+            // Every board that is up is pinned, so this block gets another one --
+            // or the newest, once there are four.
+            Open(block);
+        }
+
+        private static int followed;
+
+        /// <summary>The logic block whose menu is up, if the menu is up on one of
+        /// ours at all.</summary>
+        private static LogicGatePlusBehaviour Menu()
+        {
+            try
+            {
+                BlockMapper mapper = BlockMapper.CurrentInstance;
+                if (mapper == null || !BlockMapper.IsOpen || mapper.Block == null)
+                {
+                    return null;
+                }
+                return mapper.Block.GetComponent<LogicGatePlusBehaviour>();
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
 
         /// <summary>The board already up on this block, if there is one.</summary>
@@ -400,10 +501,47 @@ namespace TimerPlusMod
             }
         }
 
+        /// <summary>
+        /// The board's frame.
+        ///
+        /// Wrapped, because everything the window does between frames is in one
+        /// method and Unity stops at the first thing that throws: a single null
+        /// halfway down took the board's redrawing, its keys and its auto-panning
+        /// with it and left a window that drew once and then ignored the world.
+        /// Said once, with the whole exception, so it is a line in the log rather
+        /// than a mystery.
+        /// </summary>
         private void Update()
         {
-            if (served == null || window == null || !window.activeSelf)
+            try
             {
+                Ticking();
+            }
+            catch (Exception e)
+            {
+                if (!moaned)
+                {
+                    moaned = true;
+                    Log.Warn("the board's frame threw, and what comes after it in "
+                             + "the frame did not run: " + e);
+                }
+            }
+        }
+
+        private static bool moaned;
+
+        private void Ticking()
+        {
+            if (window == null || !window.activeSelf)
+            {
+                return;
+            }
+            if (served == null)
+            {
+                // The block it was drawing has been taken off the machine. A board
+                // of a circuit that no longer exists is a window to close, pinned
+                // or not.
+                Close();
                 return;
             }
             // Tab hides Besiege's own interface and this is part of it; Escape is
@@ -422,14 +560,6 @@ namespace TimerPlusMod
             else if (Hotkeys.Paste)
             {
                 Paste();
-            }
-            else if (Hotkeys.Undo)
-            {
-                Undo();
-            }
-            else if (Hotkeys.Redo)
-            {
-                Redo();
             }
             Carrying();
             Pointing();
@@ -455,6 +585,15 @@ namespace TimerPlusMod
                 return;
             }
             asks = Time.unscaledTime + 0.05f;
+
+            LogicGatePlusBehaviour was = served;
+            Following();
+            if (served != was)
+            {
+                // This board has just been handed another block, which has already
+                // drawn it.
+                return;
+            }
 
             if (owed)
             {
@@ -522,11 +661,16 @@ namespace TimerPlusMod
             // a menu that opens and a menu that stutters.
             owed = true;
             read = Reading();
-            // The shared tooltip and list belong to the window opened last.
+            Claim();
+        }
+
+        /// <summary>Takes the shared tooltip, which belongs to whichever window was
+        /// opened last.</summary>
+        private void Claim()
+        {
             if (canvas != null)
             {
-                RectTransform home = canvas.GetComponent<RectTransform>();
-                Tip.Tips.Home(home);
+                Tip.Tips.Home(canvas.GetComponent<RectTransform>());
             }
         }
 
@@ -678,17 +822,7 @@ namespace TimerPlusMod
         /// drawing.</summary>
         private bool Menued()
         {
-            try
-            {
-                BlockMapper mapper = BlockMapper.CurrentInstance;
-                return mapper != null && BlockMapper.IsOpen && served != null
-                    && mapper.Block != null
-                    && mapper.Block.GetComponent<LogicGatePlusBehaviour>() == served;
-            }
-            catch (Exception)
-            {
-                return false;
-            }
+            return served != null && Menu() == served;
         }
 
         /// <summary>
@@ -711,8 +845,6 @@ namespace TimerPlusMod
         private RectTransform styleRect;
         private RectTransform tidyRect;
         private RectTransform fitRect;
-        private RectTransform undoRect;
-        private RectTransform redoRect;
         private readonly List<RectTransform> palette = new List<RectTransform>();
         private readonly List<Corner> corners = new List<Corner>();
         private Text styleLabel;
@@ -778,32 +910,6 @@ namespace TimerPlusMod
                 if (click != null)
                 {
                     click.onClick.AddListener(Fitted);
-                }
-            }
-
-            GameObject back = UIF.Spawn(UIF.ButtonPrefab, bar.transform);
-            if (back != null)
-            {
-                undoRect = back.GetComponent<RectTransform>();
-                UIF.NoSwell(back);
-                Grow(back, Caption(back, "UNDO", TextAnchor.MiddleCenter).transform);
-                Button click = back.GetComponent<Button>();
-                if (click != null)
-                {
-                    click.onClick.AddListener(Undo);
-                }
-            }
-
-            GameObject again = UIF.Spawn(UIF.ButtonPrefab, bar.transform);
-            if (again != null)
-            {
-                redoRect = again.GetComponent<RectTransform>();
-                UIF.NoSwell(again);
-                Grow(again, Caption(again, "REDO", TextAnchor.MiddleCenter).transform);
-                Button click = again.GetComponent<Button>();
-                if (click != null)
-                {
-                    click.onClick.AddListener(Redo);
                 }
             }
 
@@ -968,14 +1074,6 @@ namespace TimerPlusMod
             {
                 UIF.Fit(fitRect, 3f + bit * 5.8f + 6f, 3f, bit * 3.4f, bit);
             }
-            if (undoRect != null)
-            {
-                UIF.Fit(undoRect, 3f + bit * 9.2f + 9f, 3f, bit * 2.4f, bit);
-            }
-            if (redoRect != null)
-            {
-                UIF.Fit(redoRect, 3f + bit * 11.6f + 12f, 3f, bit * 2.4f, bit);
-            }
             if (shutRect != null)
             {
                 UIF.Fit(shutRect, size.x - bit - 3f, 3f, bit, bit);
@@ -1079,8 +1177,11 @@ namespace TimerPlusMod
             // And dragged out of the palette onto the board, which is the other
             // way a hand reaches for a thing it wants somewhere in particular.
             NodeDrag drag = go.AddComponent<NodeDrag>();
-            int shown = what;
-            drag.Carrying = delegate(Vector2 screen) { Carrying(shown, screen); };
+            int dragged = what;
+            drag.Carrying = delegate(Vector2 screen)
+            {
+                Carrying(born, dragged, screen);
+            };
             drag.Carried = delegate(Vector2 screen)
             {
                 Drop();
@@ -1094,7 +1195,7 @@ namespace TimerPlusMod
         /// A see-through copy rather than the node itself: the node does not exist
         /// yet, and a hand that changes its mind should leave the board as it was.
         /// </summary>
-        private void Carrying(int gate, Vector2 screen)
+        private void Carrying(int kind, int gate, Vector2 screen)
         {
             if (canvas == null)
             {
@@ -1102,12 +1203,14 @@ namespace TimerPlusMod
             }
             if (ghost == null)
             {
-                ghost = Rounded(canvas.transform, 0f, 0f, NodeWidth, NodeHeight,
+                Vector2 span = Sized(kind, gate);
+                ghost = Rounded(canvas.transform, 0f, 0f, span.x, span.y,
                                 new Color(Ink.r, Ink.g, Ink.b, 0.55f));
-                if (gate >= 0)
+                Texture face = gate >= 0 ? Glyphs.Gate(gate)
+                    : (kind == Place.Note ? Glyphs.Note : null);
+                if (face != null)
                 {
-                    RawImage drawn = Picture(ghost.transform, Glyphs.Gate(gate),
-                                             NodeIcon);
+                    RawImage drawn = Picture(ghost.transform, face, NodeIcon);
                     drawn.color = new Color(1f, 1f, 1f, 0.7f);
                 }
                 RectTransform rect = ghost.GetComponent<RectTransform>();
@@ -1182,8 +1285,25 @@ namespace TimerPlusMod
             {
                 return;
             }
-            Born(kind, gate, new Vector2(local.x - NodeWidth * 0.5f,
-                                         -local.y - NodeHeight * 0.5f), true);
+            // Put down by its middle, whatever size that node is: a gate is
+            // narrower than an end and a comment smaller than either, and one
+            // width for all three dropped two of them beside the pointer rather
+            // than under it.
+            Vector2 span = Sized(kind, gate);
+            Born(kind, gate, new Vector2(local.x - span.x * 0.5f,
+                                         -local.y - span.y * 0.5f), true);
+        }
+
+        /// <summary>How big a node of this sort is drawn, before anything is
+        /// written in it.</summary>
+        private static Vector2 Sized(int kind, int gate)
+        {
+            if (gate >= 0)
+            {
+                return new Vector2(GateWidth, GateHeight);
+            }
+            return kind == Place.Note ? new Vector2(NoteLeast, 42f)
+                                      : new Vector2(NodeWidth, NodeHeight);
         }
 
         /// <summary>A picture in the middle of a control.</summary>
@@ -1336,16 +1456,7 @@ namespace TimerPlusMod
         {
             try
             {
-                BlockBehaviour block = served.BlockBehaviour;
-                if (block == null)
-                {
-                    return null;
-                }
-                // `BlockInfo.FromBlockBehaviour` hands back the last state the
-                // block saved rather than what its controls hold now, so the block
-                // is asked to save first or the snapshot is a frame stale.
-                block.OnSave(new XDataHolder());
-                return BlockInfo.FromBlockBehaviour(block);
+                return LogicTable.Marked(served);
             }
             catch (Exception)
             {
@@ -1375,23 +1486,7 @@ namespace TimerPlusMod
             {
                 return;                 // nothing actually moved
             }
-            try
-            {
-                Machine machine = Machine.Active();
-                if (machine == null || machine.UndoSystem == null)
-                {
-                    return;
-                }
-                BlockInfo after = Snap();
-                if (after != null)
-                {
-                    machine.UndoSystem.EditBlock(after, before);
-                }
-            }
-            catch (Exception e)
-            {
-                Log.Warn("could not file the edit for undo: " + e.Message);
-            }
+            LogicTable.Filed(served, before);
         }
 
         /// <summary>
@@ -1434,6 +1529,14 @@ namespace TimerPlusMod
                     {
                         continue;           // nothing bound, or a row makes it
                     }
+                    if (Mine(variable))
+                    {
+                        // A wire whose gate has gone. The board's own minted names
+                        // are never things arriving from the machine, so this is a
+                        // loose end rather than an input, and drawing a node for it
+                        // would be inventing one out of a deletion.
+                        continue;
+                    }
                     Ensure(Place.Input, variable, key);
                 }
 
@@ -1441,6 +1544,19 @@ namespace TimerPlusMod
                     ? Bindings.Variable(row.Emulate) : null;
                 KeyCode code = said == null ? Bindings.Code(row.Emulate)
                                             : KeyCode.None;
+                if (said == null && code == KeyCode.None)
+                {
+                    // A row that answers to nothing is given a name of the board's
+                    // own making. Nobody reads it -- it is what a wire out of this
+                    // gate carries, and it is why a gate needs nothing typed into
+                    // it.
+                    string mint = Minted();
+                    Bindings.BindVariable(row.Emulate, mint);
+                    List<MapperType> named = new List<MapperType>();
+                    named.Add(row.Emulate);
+                    Commit(named);
+                    continue;
+                }
                 if (said == null)
                 {
                     if (code != KeyCode.None && !Read(null, code))
@@ -1461,6 +1577,18 @@ namespace TimerPlusMod
                     }
                 }
             }
+        }
+
+        /// <summary>Whether a name is one of this block's own, minted for a gate's
+        /// answer rather than typed by anybody.</summary>
+        private bool Mine(string variable)
+        {
+            if (variable == null || served == null)
+            {
+                return false;
+            }
+            string prefix = served.Prefix;
+            return !string.IsNullOrEmpty(prefix) && variable.StartsWith(prefix);
         }
 
         /// <summary>Whether any row's input is bound to this.</summary>
@@ -1675,6 +1803,24 @@ namespace TimerPlusMod
         {
             if (served == null || from == to)
             {
+                return;
+            }
+            Place landing = Placed(to);
+            if (Row(from) == null && landing != null
+                && landing.Kind == Place.Output)
+            {
+                // Both ends of this wire are ends of the board. There is no row to
+                // carry it -- what an output stands for is a key some row presses,
+                // and an input is a key arriving from the machine -- so the only
+                // way to draw it would be to give the two of them one name, which
+                // is not a wire but two nodes standing for the same thing. Put a
+                // gate between them.
+                //
+                // Refused before anything else happens: what follows would name the
+                // input end on its way past, and a refusal that leaves a mark is a
+                // refusal somebody has to undo.
+                Told(to, 1, "cannot directly\nconnect to output");
+                Strings();
                 return;
             }
             string variable;
@@ -1974,7 +2120,8 @@ namespace TimerPlusMod
             // under the pointer until something is drawn there again.
             marks.Clear();
             rims.Clear();
-            notes.Clear();
+            bins.Clear();
+            binned = -1;
             under = -1;
             ports.Clear();
             if (served == null || content == null)
@@ -2010,8 +2157,10 @@ namespace TimerPlusMod
             // A comment is as big as what is written in it; everything else is
             // one size.
             bool note = place != null && place.Kind == Place.Note;
-            float wide = NodeWidth;
-            float tall = NodeHeight;
+            float wide = row != null ? GateWidth : NodeWidth;
+            // A gate is its picture, its switch and its ports; only the two ends
+            // have anything written on them, so only they need the room for it.
+            float tall = row != null ? GateHeight : NodeHeight;
 
             GameObject body = Rounded(content, at.x, at.y, wide, tall,
                                       note ? Paper : Ink);
@@ -2026,19 +2175,27 @@ namespace TimerPlusMod
             {
                 marks.Add(null);
                 rims.Add(null);
-                notes.Add(null);
             }
             marks[index] = null;
             rims[index] = null;
+            while (bins.Count <= index)
+            {
+                bins.Add(null);
+            }
+            bins[index] = null;
             if (Picked(index))
             {
-                rims[index] = Edge(body, 1f, wide, tall);
-                rims[index].SetActive(true);
+                rims[index] = Edged(index, 1f);
+                if (rims[index] != null)
+                {
+                    rims[index].SetActive(true);
+                }
             }
 
             Hover watch = body.AddComponent<Hover>();
             watch.Node = index;
             watch.Over = Watched;
+            watch.Chose = Chosen;
 
             // The middle button pans the board wherever it is pressed, node or no
             // node: a hand reaching for the view should not have to find a gap
@@ -2060,28 +2217,46 @@ namespace TimerPlusMod
 
             if (note)
             {
-                GameObject bin = Cross(body, me, wide);
-                Comment(body, index, place, wide, tall, bin);
+                Comment(body, index, place, wide, tall);
                 return;
             }
 
             // The heading: a gate's picture, or the word an end is. Drawn straight
             // onto the node rather than spawned -- a button prefab brings a plate
             // of its own, and a second dark box inside a dark box is a box nobody
-            // asked for. Nothing to click either: a modifier-click picks the node
-            // out and is taken from the pointer, so every part of a node answers it
-            // the same way.
+            // asked for. Nothing to click either, which is what makes a click
+            // anywhere on a node that is not one of its controls pick the node
+            // out: uGUI hands a click to the first handler at or above what it
+            // hit, and the first one above a heading is the node.
+            //
+            // A gate with a switch keeps the right of its plate for it, clear of
+            // the answer port's reach -- which is wider than the circle drawn in it
+            // and would otherwise take the clicks along the switch's own edge. What
+            // is left is the picture's.
+            bool switched = row != null && Gates.UsesMode(row.Gate);
+            float switchAt = wide - PortSize - (PortReach - PortSize) * 0.5f
+                             - Switch;
+
             GameObject head = new GameObject("Head");
             head.transform.SetParent(body.transform, false);
             head.AddComponent<RectTransform>();
-            UIF.Fit(head.GetComponent<RectTransform>(), PortSize + 2f, 3f,
-                    NodeWidth - PortSize * 2f - 4f, 26f);
             if (row != null)
             {
+                // The picture has the gate to itself unless there is a switch, and
+                // then it has what the switch has left: a picture centred in the
+                // whole width sits under the switch rather than beside it.
+                float room = switched ? switchAt - PortSize - 2f
+                                      : wide - PortSize * 2f - 4f;
+                UIF.Fit(head.GetComponent<RectTransform>(), PortSize + 2f, 3f,
+                        room, tall - 6f);
                 Picture(head.transform, Glyphs.Gate(row.Gate), NodeIcon);
             }
             else
             {
+                // Just above the cell rather than filling the plate: a word
+                // centred in half a node's height is a word with a hole over it.
+                UIF.Fit(head.GetComponent<RectTransform>(), PortSize + 2f, 3f,
+                        wide - PortSize * 2f - 4f, 20f);
                 Caption(head, place.Kind == Place.Input ? "INPUT" : "OUTPUT",
                         TextAnchor.MiddleCenter);
             }
@@ -2096,16 +2271,16 @@ namespace TimerPlusMod
                     GameObject mode = UIF.Spawn(UIF.TogglePrefab, body.transform);
                     if (mode != null)
                     {
-                        // Level with the gate's own picture and big enough to read
-                        // the letter on: the head is 26 tall from y = 3, so this
-                        // sits on the same middle.
-                        float side = 22f;
-                        UIF.Fit(mode.GetComponent<RectTransform>(),
-                                NodeWidth - PortSize - side - 4f,
-                                3f + (26f - side) * 0.5f, side, side);
+                        // Inside the gate, beside its answer port and level with
+                        // the picture. Measured from the gate's own width: it was
+                        // measured from an end's, which is wider, and the switch
+                        // stood off the side of the node.
+                        UIF.Fit(mode.GetComponent<RectTransform>(), switchAt,
+                                (tall - Switch) * 0.5f, Switch, Switch);
                         UIF.NoSwell(mode);
-                        Caption(mode, Gates.ModeLetter(row.Gate),
-                                TextAnchor.MiddleCenter);
+                        Text letter = Caption(mode, Gates.ModeLetter(row.Gate),
+                                              TextAnchor.MiddleCenter);
+                        Grow(mode, letter.transform, 1.3f);
                         Toggle box = mode.GetComponent<Toggle>();
                         if (box != null)
                         {
@@ -2135,13 +2310,12 @@ namespace TimerPlusMod
                         }
                     }
                 }
-                Names(body, index);
             }
             else
             {
                 // An end of the board: what it stands for, as a key or a variable.
-                KeyCell cell = KeyCell.Make(body.transform, PortSize + 2f, 31f,
-                                            NodeWidth - PortSize * 2f - 4f, 22f, 18f);
+                KeyCell cell = KeyCell.Make(body.transform, PortSize + 2f, 25f,
+                                            wide - PortSize * 2f - 4f, 22f, 18f);
                 cell.ignoreCtrl = true;
                 cell.Load(Shown(index, place.Variable, place.Key), place.Key);
                 Place mine = place;
@@ -2154,40 +2328,55 @@ namespace TimerPlusMod
             // The ports. An answer on the right, inputs on the left -- one for a
             // gate that reads one, none at all on an input node.
             bool answers = row != null || place.Kind == Place.Input;
+            float middle = tall * 0.5f - PortSize * 0.5f;
             ports[index * 3] = answers
-                ? Port(body.transform, NodeWidth - PortSize,
-                       NodeHeight * 0.5f - PortSize * 0.5f, true, index, 0)
+                ? Port(body.transform, wide - PortSize, middle, true, index, 0)
                 : null;
             if (row != null)
             {
+                // A gate that reads two has them a quarter and three quarters down
+                // its side, whatever it is drawn at; one that reads one has it in
+                // the middle.
                 bool two = Gates.UsesB(row.Gate);
                 ports[index * 3 + 1] = Port(body.transform, 0f,
-                    two ? 10f : NodeHeight * 0.5f - PortSize * 0.5f, false, index, 0);
+                    two ? tall * 0.25f - PortSize * 0.5f : middle, false, index, 0);
                 if (two)
                 {
                     ports[index * 3 + 2] = Port(body.transform, 0f,
-                        NodeHeight - 10f - PortSize, false, index, 1);
+                        tall * 0.75f - PortSize * 0.5f, false, index, 1);
                 }
             }
             else if (place.Kind == Place.Output)
             {
-                ports[index * 3 + 1] = Port(body.transform, 0f,
-                    NodeHeight * 0.5f - PortSize * 0.5f, false, index, 0);
+                ports[index * 3 + 1] = Port(body.transform, 0f, middle, false,
+                                            index, 0);
             }
 
-            Cross(body, me, NodeWidth);
         }
 
-        /// <summary>The red cross that removes a node. Top right of every one of
-        /// them, so removing one is the same reach whatever kind it is.</summary>
-        private GameObject Cross(GameObject body, int me, float wide)
+        /// <summary>
+        /// The red cross that removes a node, in the corner of the node the pointer
+        /// is on.
+        ///
+        /// Only that one: a cross on every node is a row of little red crosses over
+        /// a board somebody is reading, and the hand that means to remove a node is
+        /// already on it. Centred on the corner, so half of it stands off the node
+        /// -- and reaching for it still counts as pointing at the node, because
+        /// uGUI counts a node as pointed at while the pointer is on any child of
+        /// it, wherever that child happens to be drawn.
+        /// </summary>
+        private GameObject Cross(GameObject host, int me)
         {
             // Drawn rather than spawned: a UI Factory button brings its own dark
-            // plate, and a cross on a node wants to be a cross and nothing else.
+            // plate, and a cross wants to be a cross and nothing else.
             GameObject bin = new GameObject("Bin");
-            bin.transform.SetParent(body.transform, false);
+            bin.transform.SetParent(host.transform, false);
             RectTransform rect = bin.AddComponent<RectTransform>();
-            UIF.Fit(rect, wide - CrossSize - 1f, 1f, CrossSize, CrossSize);
+            rect.anchorMin = new Vector2(1f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(CrossSize, CrossSize);
+            rect.anchoredPosition = Vector2.zero;
             Image catcher = bin.AddComponent<Image>();
             catcher.color = new Color(0f, 0f, 0f, 0f);
             Text cross = Caption(bin, "x", TextAnchor.MiddleCenter);
@@ -2274,7 +2463,7 @@ namespace TimerPlusMod
         /// note to whoever opens the board next.
         /// </summary>
         private void Comment(GameObject body, int index, Place place,
-                             float wide, float tall, GameObject bin)
+                             float wide, float tall)
         {
             GameObject box = UIF.Spawn(UIF.InputPrefab, body.transform);
             if (box == null)
@@ -2299,28 +2488,54 @@ namespace TimerPlusMod
                 ghostText.text = "comment";
             }
             field.text = place.Words == null ? "" : place.Words;
-            // Picked out, it is something being moved rather than something being
-            // written in: a click on it takes hold of the node, which is what the
-            // hand that picked it out is reaching for.
-            field.interactable = !Picked(index);
-            while (notes.Count <= index)
-            {
-                notes.Add(null);
-            }
-            notes[index] = field;
+            field.interactable = true;
+            // Greyed while it is put out of reach for a drag (below), and a comment
+            // flickering pale every time it is moved is not worth the tint.
+            field.transition = Selectable.Transition.None;
             // A modifier-click is for the node, not for the text: the same rule the
             // key cells follow.
             Deaf guard = box.AddComponent<Deaf>();
             guard.box = field;
+            // The middle button pans from the text as well as from the plate.
+            Waving(box);
 
             Place mine = place;
             int me = index;
             GameObject plate = body;
             RectTransform inner = box.GetComponent<RectTransform>();
-            RectTransform crossed = bin == null ? null
-                : bin.GetComponent<RectTransform>();
+
+            // A click on the writing puts the caret in it -- that is the field's
+            // own doing, and it is what a hand clicking on words expects. A *drag*
+            // on the writing moves the node, which is the other thing a hand does
+            // to a note on a board.
+            //
+            // Both have to come off the same object, because uGUI gives a drag to
+            // the first handler at or above what it hit and that is the field. So
+            // the node's drag is put on the field beside the field's own, and the
+            // field is made non-interactable for the length of it: its handlers
+            // all begin `if (!MayDrag(...)) return;`, and that asks. Without it a
+            // drag would move the node and select the words at the same time.
+            InputField dragged = field;
+            NodeDrag carry = box.AddComponent<NodeDrag>();
+            carry.frame = body.GetComponent<RectTransform>();
+            carry.Held = delegate
+            {
+                dragged.interactable = false;
+                Holding(me, carry);
+            };
+            carry.Moved = delegate(Vector2 by)
+            {
+                Hauling(new Vector2(by.x, -by.y));
+            };
+            carry.Dropped = delegate
+            {
+                dragged.interactable = true;
+                dragging = false;
+                hauler = null;
+                Kept();
+            };
             // The size it actually wants, now that there is a font to ask about it.
-            Stretch(body, inner, field.textComponent, crossed, field.text);
+            Stretch(body, inner, field.textComponent, field.text);
             // Resized as it is typed rather than when the typing ends: a box that
             // only grows once the hand has moved on hides what is being written
             // into it. The layout is written when the typing ends -- one undo step
@@ -2329,7 +2544,7 @@ namespace TimerPlusMod
             InputField typing = field;
             field.onValueChanged.AddListener(delegate(string typed)
             {
-                Stretch(plate, inner, laid, crossed, typed);
+                Stretch(plate, inner, laid, typed);
                 // The caret is drawn from the last laying-out of the text, and the
                 // box it is laid out in has just changed size: without this the
                 // caret is a line behind where the letters are.
@@ -2345,7 +2560,7 @@ namespace TimerPlusMod
         /// without drawing the board again -- which would take the box out from
         /// under the hand typing into it.</summary>
         private void Stretch(GameObject body, RectTransform inner,
-                             Text drawn, RectTransform bin, string words)
+                             Text drawn, string words)
         {
             float wide;
             float tall;
@@ -2356,10 +2571,6 @@ namespace TimerPlusMod
             {
                 inner.sizeDelta = new Vector2(wide - NoteEdge * 2f,
                                               tall - NoteEdge * 2f);
-            }
-            if (bin != null)
-            {
-                bin.anchoredPosition = new Vector2(wide - CrossSize - 1f, -1f);
             }
             // Both dashed edges -- the faint one and the one that says picked out
             // -- are children of the plate and stretch with it, so what is left is
@@ -2411,123 +2622,6 @@ namespace TimerPlusMod
             // The plate is as big as what is written on it, so this is a redraw
             // rather than a repaint.
             Kept();
-            Redraw();
-        }
-
-        /// <summary>
-        /// The box holding what a gate's answer goes out on.
-        ///
-        /// The same cell the two ends carry, so a gate can answer on a key as
-        /// readily as on a name: one control that switches between the two, rather
-        /// than a text box that could only ever hold a name.
-        /// </summary>
-        private void Names(GameObject body, int index)
-        {
-            KeyCell cell = KeyCell.Make(body.transform, PortSize + 2f, 31f,
-                                        NodeWidth - PortSize * 2f - 4f, 22f, 18f);
-            // Control over a node picks it out; the cell stands aside for that.
-            cell.ignoreCtrl = true;
-            string variable;
-            KeyCode key;
-            Answer(index, out variable, out key);
-            cell.Load(Shown(index, variable, key), key);
-            int me = index;
-            cell.Changed = delegate(KeyCell edited)
-            {
-                Renaming(me, edited);
-            };
-        }
-
-        /// <summary>A gate's answer bound by hand. Everything reading the old one
-        /// is moved to the new, or the wires would come apart.</summary>
-        private void Renaming(int node, KeyCell cell)
-        {
-            LogicRow row = Row(node);
-            if (row == null || !row.Ready)
-            {
-                return;
-            }
-            string was = Bindings.IsVariable(row.Emulate)
-                ? Bindings.Variable(row.Emulate) : null;
-            KeyCode wasKey = was == null ? Bindings.Code(row.Emulate)
-                                         : KeyCode.None;
-            string now = cell.UsesVariable && cell.Variable != null
-                ? cell.Variable.Trim() : null;
-            if (now != null && now.Length == 0)
-            {
-                now = null;
-            }
-            KeyCode nowKey = cell.UsesVariable ? KeyCode.None : cell.Code;
-            if (Doubled(node, -1, now, nowKey))
-            {
-                Warned(cell.transform as RectTransform, "already assigned!");
-                // Another gate already answers to this, and two rows answering to
-                // one name are one node as far as the board is concerned: one of
-                // them would never be drawn. Wiring a gate to an *end* by naming it
-                // is a different thing and still allowed -- that is what an end is.
-                cell.Load(Shown(node, was, wasKey), wasKey);
-                return;
-            }
-            Wants(node, cell.UsesVariable && now == null);
-            if ((now == null && nowKey == KeyCode.None) || (was == now && wasKey == nowKey))
-            {
-                // Either the cell was emptied on its way from a key to a name --
-                // which is not the gate being unbound, and writing it through cut
-                // every wire the answer fed -- or it changed which of the two it is
-                // and nothing else. Neither is a change to write, and drawing the
-                // board again for one is what took the cell away from under the
-                // hand.
-                return;
-            }
-
-            List<MapperType> touched = new List<MapperType>();
-            if (now != null && now.Length > 0)
-            {
-                Bindings.BindVariable(row.Emulate, now);
-            }
-            else
-            {
-                Bindings.Bind(row.Emulate, nowKey);
-            }
-            touched.Add(row.Emulate);
-
-            bool had = was != null || wasKey != KeyCode.None;
-            bool has = (now != null && now.Length > 0) || nowKey != KeyCode.None;
-            // Not onto a name something else already answers to: see `Rebind`.
-            if (had && has && !Elsewhere(node, now, nowKey))
-            {
-                for (int i = 0; i < Rows; i++)
-                {
-                    LogicRow other = Row(i);
-                    if (other == null || !other.Ready)
-                    {
-                        continue;
-                    }
-                    for (int port = 0; port < 2; port++)
-                    {
-                        MKey input = port == 0 ? other.InputA : other.InputB;
-                        string name = Bindings.IsVariable(input)
-                            ? Bindings.Variable(input) : null;
-                        bool mine = was != null
-                            ? name == was
-                            : (name == null && Bindings.Code(input) == wasKey);
-                        if (!mine)
-                        {
-                            continue;
-                        }
-                        if (now != null && now.Length > 0)
-                        {
-                            Bindings.BindVariable(input, now);
-                        }
-                        else
-                        {
-                            Bindings.Bind(input, nowKey);
-                        }
-                        touched.Add(input);
-                    }
-                }
-            }
-            Commit(touched);
             Redraw();
         }
 
@@ -2625,12 +2719,11 @@ namespace TimerPlusMod
         /// <summary>
         /// Whether another node of the same sort already stands for this binding.
         ///
-        /// Two ends on one name, or two gates answering to one name, are one node
-        /// drawn twice: the wires belong to whichever is found first and the other
-        /// is drawn bare. A gate and an end sharing a name is a different matter --
-        /// that is the wire between them.
+        /// Two ends on one name are one end drawn twice: the wires belong to
+        /// whichever is found first and the other is drawn bare. A gate and an end
+        /// sharing a name is a different matter -- that is the wire between them.
         /// </summary>
-        /// <param name="kind">The kind of end to look for, or -1 for a row.</param>
+        /// <param name="kind">The kind of end being bound.</param>
         private bool Doubled(int node, int kind, string variable, KeyCode key)
         {
             if (variable == null && key == KeyCode.None)
@@ -2644,7 +2737,20 @@ namespace TimerPlusMod
                     continue;
                 }
                 Place place = Placed(i);
-                if (kind < 0 ? place != null : (place == null || place.Kind != kind))
+                bool end = place != null && (place.Kind == Place.Input
+                                             || place.Kind == Place.Output);
+                // Two ends never share a binding, whichever kinds they are. An
+                // output renamed to what an input stands for is not two nodes with
+                // the same name on a drawing: the rows pressing that output really
+                // do drive everything reading that input, so the board would draw a
+                // wire from each of them to each of those -- wiring nobody did, out
+                // of a rename.
+                //
+                // A gate's answer is a different matter for an output, because an
+                // output holding a gate's name is exactly how that gate feeds it.
+                // An input taking one is the same trap as above, so it is refused.
+                bool clash = end || (place == null && kind == Place.Input);
+                if (!clash)
                 {
                     continue;
                 }
@@ -2779,8 +2885,17 @@ namespace TimerPlusMod
             }
         }
 
+        /// <summary>A place kept inside the board: see <see cref="BoardWide"/>.
+        /// The node's own corner, with room left for the node itself.</summary>
+        private static Vector2 Fenced(Vector2 at)
+        {
+            return new Vector2(Mathf.Clamp(at.x, 0f, BoardWide - NodeWidth),
+                               Mathf.Clamp(at.y, 0f, BoardTall - NodeHeight));
+        }
+
         private void Move(int node, Vector2 to)
         {
+            to = Fenced(to);
             Place place = Placed(node);
             if (place != null)
             {
@@ -2890,6 +3005,27 @@ namespace TimerPlusMod
         private const float Grab = 26f;
         private const float Free = 54f;
 
+        /// <summary>
+        /// How far a drag has to leave the port before it is decided which of that
+        /// port's wires it is on.
+        ///
+        /// Every wire out of an answer starts at the same point, so within a few
+        /// pixels of it they are all equally near and the choice would be a
+        /// toss-up. A little way out they have fanned apart and the one the hand
+        /// set off along is the one it means.
+        /// </summary>
+        private const float Decide = 34f;
+
+        /// <summary>How near a port a wire in hand has to be let go to be put back
+        /// on it: wider than the usual reach, because a wire dropped where it came
+        /// from is a hand that changed its mind rather than one aiming.</summary>
+        private const float Home = PortSize * 2f;
+
+        /// <summary>Set once a drag off an answer has settled which wire it has
+        /// hold of, if any. It does not change its mind after that: what is left is
+        /// that wire, or -- once it strays far enough -- a new one.</summary>
+        private bool chose;
+
         private void Pulling(PortMark from, Vector2 screen, bool began)
         {
             if (began)
@@ -2897,6 +3033,7 @@ namespace TimerPlusMod
                 carried = -1;
                 held = -1;
                 heldPort = -1;
+                chose = false;
                 if (!from.Output)
                 {
                     Lifted(from);
@@ -3016,14 +3153,33 @@ namespace TimerPlusMod
             if (nearest < 0)
             {
                 held = -1;
+                chose = true;               // nothing on this port to have hold of
                 return;
             }
-            if (held < 0 && best <= Grab)
+            if (!chose)
             {
-                held = nearest;
-                heldPort = port;
+                // Still leaving the port. Nothing is in hand yet, and the wire
+                // under the pointer is drawn as a new one until the hand has gone
+                // far enough to say which.
+                if ((pullTo - start).magnitude < Decide)
+                {
+                    return;
+                }
+                chose = true;
+                held = best <= Grab ? nearest : -1;
+                heldPort = held >= 0 ? port : -1;
+                return;
             }
-            else if (held >= 0 && best > Free)
+            if (held < 0)
+            {
+                return;                     // a new wire, and it stays a new one
+            }
+            // From here the only question is whether the hand is still on the wire
+            // it took: measured against that wire and not against whichever is
+            // nearest, or a drag that passed near another wire held on to the wrong
+            // one.
+            RectTransform taken = Held(held * 3 + 1 + heldPort);
+            if (taken == null || Aside(pullTo, start, Middle(taken)) > Free)
             {
                 held = -1;
                 heldPort = -1;
@@ -3052,7 +3208,10 @@ namespace TimerPlusMod
             // there: ports answer to more of the board than they draw, so two
             // nodes side by side have overlapping targets and the wire went to
             // whichever was drawn last rather than the one it was dropped on.
-            to = Nearest(to);
+            // A wire in hand is put back on a port it is let go anywhere near: it
+            // was taken off one, and a hand that changed its mind should not have
+            // to aim to undo that.
+            to = Nearest(to, carried >= 0 || held >= 0 ? Home : PortReach * 0.5f);
             if (served == null)
             {
                 Strings();
@@ -3089,6 +3248,14 @@ namespace TimerPlusMod
                 Offering(from, screen);
                 return;
             }
+            if (from.Node != to.Node)
+            {
+                // Two ports of the same sort: an answer let go over an answer, or
+                // an input over an input. A wire runs from one to the other, so
+                // there is nothing to be made of this but a word about it.
+                Told(to.Node, to.Output ? 0 : 1 + to.Port,
+                     "has to connect\nto an input");
+            }
             Strings();
         }
 
@@ -3123,6 +3290,15 @@ namespace TimerPlusMod
             Choices.OpenAt(screen, names, delegate(string picked)
             {
                 int which = names.IndexOf(picked);
+                if (answering && Row(source) == null
+                    && Kinded(which) == Place.Output)
+                {
+                    // An end at both ends of the wire, with no row to carry it --
+                    // see `Join`. Said before the node is made rather than after,
+                    // so a refusal does not leave one standing on the board.
+                    Told(source, 0, "cannot directly\nconnect to output");
+                    return;
+                }
                 int born = Made(which, at);
                 if (born < 0)
                 {
@@ -3172,19 +3348,24 @@ namespace TimerPlusMod
             {
                 return -1;
             }
+            int kind = Kinded(which);
+            return Born(kind, kind < 0 ? which - 3 : -1, at, true);
+        }
+
+        /// <summary>What that list's nth entry is: one of the two ends, a comment,
+        /// or a gate -- which is -1, with the gate's own number three along.
+        /// </summary>
+        private static int Kinded(int which)
+        {
             if (which == 0)
             {
-                return Born(Place.Input, -1, at, true);
+                return Place.Input;
             }
             if (which == 1)
             {
-                return Born(Place.Output, -1, at, true);
+                return Place.Output;
             }
-            if (which == 2)
-            {
-                return Born(Place.Note, -1, at, true);
-            }
-            return Born(-1, which - 3, at, true);
+            return which == 2 ? Place.Note : -1;
         }
 
         /// <summary>
@@ -3195,7 +3376,7 @@ namespace TimerPlusMod
         /// and the raycast gives the one drawn last. Distance gives the one
         /// somebody aimed at.
         /// </summary>
-        private PortMark Nearest(PortMark found)
+        private PortMark Nearest(PortMark found, float reach)
         {
             RectTransform closest = null;
             float best = 0f;
@@ -3212,7 +3393,7 @@ namespace TimerPlusMod
                     best = off;
                 }
             }
-            if (closest == null || best > PortReach * 0.5f)
+            if (closest == null || best > reach)
             {
                 return found;
             }
@@ -3580,16 +3761,19 @@ namespace TimerPlusMod
             {
                 return -1;
             }
-            Vector2 at = placed ? where
+            Vector2 at = Fenced(placed ? where
                 : new Vector2(30f + (Nodes % 5) * (NodeWidth + 30f),
-                              20f + (Nodes / 5) * (NodeHeight + 20f));
+                              20f + (Nodes / 5) * (NodeHeight + 20f)));
             if (gate >= 0)
             {
                 List<MapperType> touched = new List<MapperType>();
                 int row = LogicTable.Add(served, touched);
                 if (row < 0)
                 {
-                    return -1;              // the block is full
+                    // A gate is a row and the block holds thirty-two of them; see
+                    // AGENTS.md for why that number cannot move.
+                    Warned(sheet, "reached 32\ngates limit");
+                    return -1;
                 }
                 LogicRow made = served.Rows[row];
                 if (made.Ready)
@@ -3600,7 +3784,10 @@ namespace TimerPlusMod
                     // inputs; a node dropped on the board should arrive empty.
                     Bindings.Bind(made.InputA, KeyCode.None);
                     Bindings.Bind(made.InputB, KeyCode.None);
-                    Bindings.Bind(made.Emulate, KeyCode.None);
+                    // Its answer is a name of the board's own making, given now
+                    // rather than when a wire is drawn: a gate that answers to
+                    // nothing is a gate nothing can be wired to.
+                    Bindings.BindVariable(made.Emulate, Minted());
                     touched.Add(made.InputA);
                     touched.Add(made.InputB);
                     touched.Add(made.Emulate);
@@ -3663,9 +3850,13 @@ namespace TimerPlusMod
             }
             if (served.Count <= 1)
             {
-                return false;               // a block keeps one row
+                // A block keeps one row: there is nowhere for a block with no rows
+                // to keep the settings of the row it would need to get one back.
+                Told(index, -1, "must keep at\nleast one gate");
+                return false;
             }
-            LogicTable.Remove(served, index, touched);
+            // The row and whatever was still wired to it, in one edit.
+            LogicTable.Erase(served, index, touched);
             Board.Forget(index);
             return true;
         }
@@ -3733,12 +3924,57 @@ namespace TimerPlusMod
 
         private void Panning(Vector2 by)
         {
+            Panned(by);
+        }
+
+        /// <summary>
+        /// The same, saying how far it actually went.
+        ///
+        /// Which is not always how far it was asked to go: the view is kept over
+        /// the board, and a board being chased by a node dragged against its own
+        /// edge has run out of room. Whoever is compensating for the pan -- the
+        /// auto-pan holds the dragged node still against it -- has to know.
+        /// </summary>
+        private Vector2 Panned(Vector2 by)
+        {
             if (content == null)
             {
-                return;
+                return Vector2.zero;
             }
-            content.anchoredPosition += by;
+            Vector2 was = content.anchoredPosition;
+            content.anchoredPosition = Bounded(was + by);
             Strings();
+            return content.anchoredPosition - was;
+        }
+
+        /// <summary>
+        /// The view kept over the board, give or take a margin.
+        ///
+        /// A little way past the edge, so a node against it is not jammed against
+        /// the window frame; no further, because panning into blank grid for ever
+        /// is how a board gets lost.
+        /// </summary>
+        private Vector2 Bounded(Vector2 at)
+        {
+            if (sheet == null || content == null)
+            {
+                return at;
+            }
+            float much = content.localScale.x;
+            Rect room = sheet.rect;
+            // Half a view past the edge either way: enough that a node against the
+            // fence is not jammed against the window frame, and enough for ZOOM FIT
+            // to centre a small board without the next pan snapping it back.
+            float overX = room.width * 0.5f;
+            float overY = room.height * 0.5f;
+            // The content's corner is its top left, and it moves the other way from
+            // the view: to see the right of the board, its x goes negative. To see
+            // the foot of it, its y goes up.
+            float leftmost = room.width - BoardWide * much - overX;
+            at.x = Mathf.Clamp(at.x, Mathf.Min(leftmost, overX), overX);
+            float lowest = BoardTall * much - room.height + overY;
+            at.y = Mathf.Clamp(at.y, -overY, Mathf.Max(lowest, -overY));
+            return at;
         }
 
         /// <summary>
@@ -3753,7 +3989,8 @@ namespace TimerPlusMod
                 return;
             }
             float was = content.localScale.x;
-            float now = Mathf.Clamp(was * (wheel > 0f ? 1.1f : 1f / 1.1f), 0.4f, 2.5f);
+            float now = Mathf.Clamp(was * (wheel > 0f ? 1.1f : 1f / 1.1f),
+                                    LeastZoom, MostZoom);
             if (Mathf.Abs(now - was) < 0.0001f)
             {
                 return;
@@ -3768,6 +4005,7 @@ namespace TimerPlusMod
                 content.anchoredPosition = local - from * (now / was);
             }
             content.localScale = new Vector3(now, now, 1f);
+            content.anchoredPosition = Bounded(content.anchoredPosition);
             Strings();
         }
 
@@ -3844,37 +4082,6 @@ namespace TimerPlusMod
             Strings();
         }
 
-        private void Undo() { Step(true); }
-
-        private void Redo() { Step(false); }
-
-        private void Step(bool back)
-        {
-            try
-            {
-                Machine machine = Machine.Active();
-                if (machine == null || machine.UndoSystem == null)
-                {
-                    return;
-                }
-                if (back)
-                {
-                    machine.UndoSystem.Undo();
-                }
-                else
-                {
-                    machine.UndoSystem.Redo();
-                }
-            }
-            catch (Exception e)
-            {
-                Log.Warn("could not step the undo: " + e.Message);
-            }
-            // The rows have moved under us; Update notices and redraws.
-            read = null;
-            mark = null;
-        }
-
         // ---- picking things out ----------------------------------------------
 
         /// <summary>The dashed edge round a node that has one now, made at the size
@@ -3913,9 +4120,16 @@ namespace TimerPlusMod
         /// comment -- both of which follow the selection without the board being
         /// drawn again.</summary>
         private readonly List<GameObject> rims = new List<GameObject>();
-        private readonly List<InputField> notes = new List<InputField>();
+
+        /// <summary>The cross that removes a node, one to a node and made the first
+        /// time the pointer finds that node.</summary>
+        private readonly List<GameObject> bins = new List<GameObject>();
 
         private int under = -1;
+
+        /// <summary>Which node is showing its cross, so the last one can be put
+        /// away when the pointer moves on.</summary>
+        private int binned = -1;
 
         /// <summary>Set while a switch is being put back after a click that was
         /// meant for the node under it, so its own handler stands down.</summary>
@@ -3931,6 +4145,54 @@ namespace TimerPlusMod
             {
                 under = -1;
             }
+        }
+
+        /// <summary>Shows or hides a node's cross, making it the first time it is
+        /// wanted: most nodes are never pointed at.</summary>
+        private void Binned(int node, bool on)
+        {
+            if (node < 0 || node >= parts.Count || parts[node] == null)
+            {
+                return;
+            }
+            while (bins.Count <= node)
+            {
+                bins.Add(null);
+            }
+            if (on && bins[node] == null)
+            {
+                bins[node] = Cross(parts[node], node);
+            }
+            if (bins[node] != null && bins[node].activeSelf != on)
+            {
+                bins[node].SetActive(on);
+            }
+        }
+
+        /// <summary>
+        /// A click on a node's own body picks it out.
+        ///
+        /// With a modifier held this stands aside and <see cref="Pointing"/> takes
+        /// the click from the pointer instead, so control-clicking a node's key
+        /// cell or its switch picks the node out rather than doing what the control
+        /// under the pointer would have done.
+        /// </summary>
+        private void Chosen(int node)
+        {
+            if (Picking() || node < 0 || node >= Nodes)
+            {
+                return;
+            }
+            if (dragging)
+            {
+                // uGUI hands out the click at the end of a drag as well, whenever
+                // the object pressed is the object dragged -- which a node always
+                // is. Taking it would clear a selection somebody had just finished
+                // moving. The drag says it is still going: it is ended a moment
+                // after this, in the same release.
+                return;
+            }
+            Pick(node, false);
         }
 
         /// <summary>Whether control is held, which is what turns a click into a
@@ -3969,11 +4231,23 @@ namespace TimerPlusMod
                 {
                     marks[i] = Edged(i, 0.5f);
                 }
-                if (marks[i].activeSelf != show)
+                // Null where the node has never been pointed at: the faint edges
+                // are made on demand, and asking one that does not exist whether it
+                // is shown threw here every frame -- which took everything after
+                // this in Update with it, selection and the fading message
+                // included.
+                if (marks[i] != null && marks[i].activeSelf != show)
                 {
                     marks[i].SetActive(show);
                 }
             }
+            // The cross belongs to whatever the pointer is on, and follows it.
+            if (binned != under)
+            {
+                Binned(binned, false);
+                binned = under;
+            }
+            Binned(under, true);
             // Taken when the button comes up rather than when it goes down: with
             // control held a drag is an axis-locked move, and a press that picked
             // the node out would change the selection every time one began.
@@ -4063,7 +4337,9 @@ namespace TimerPlusMod
                 return;
             }
             push = push / Verge * Chase * Time.unscaledDeltaTime;
-            Panning(push);
+            // How far the view actually went, which is nothing once the board's own
+            // edge is reached.
+            push = Panned(push);
             // The same distance the other way, in the board's own units, so what is
             // being dragged stays under the pointer.
             float much = content.localScale.x;
@@ -4203,6 +4479,24 @@ namespace TimerPlusMod
         private CanvasGroup warningFade;
         private float warnAt;
 
+        /// <summary>
+        /// The message put where the hand that was refused is: over one of a node's
+        /// ports, or over the whole node where the port is -1.
+        ///
+        /// Over the thing refused rather than in a corner of the window, because a
+        /// message somewhere else is a message about nothing in particular.
+        /// </summary>
+        private void Told(int node, int port, string words)
+        {
+            RectTransform over = port >= 0 ? Held(node * 3 + port) : null;
+            if (over == null && node >= 0 && node < parts.Count
+                && parts[node] != null)
+            {
+                over = parts[node].transform as RectTransform;
+            }
+            Warned(over != null ? over : sheet, words);
+        }
+
         private void Warned(RectTransform over, string words)
         {
             if (canvas == null || over == null)
@@ -4224,8 +4518,19 @@ namespace TimerPlusMod
                 made.pivot = new Vector2(0f, 1f);
             }
             warningLabel.text = words.ToUpperInvariant();
+            // As many lines as it was written with: a refusal that needs a clause
+            // to be understood -- what cannot be done, and what to do instead --
+            // reads as two short lines and not as one long one.
+            int lines = 1;
+            for (int i = 0; i < words.Length; i++)
+            {
+                if (words[i] == '\n')
+                {
+                    lines++;
+                }
+            }
             float wide = Mathf.Max(90f, warningLabel.preferredWidth + 18f);
-            float tall = 22f;
+            float tall = 22f + (lines - 1) * 15f;
 
             // Over the control that refused it, in the canvas's own coordinates.
             RectTransform home = canvas.GetComponent<RectTransform>();
@@ -4248,7 +4553,7 @@ namespace TimerPlusMod
             warning.transform.SetAsLastSibling();
             warning.SetActive(true);
             warningFade.alpha = 1f;
-            warnAt = Time.unscaledTime + 1.8f;
+            warnAt = Time.unscaledTime + 1f;
         }
 
         /// <summary>Takes the message away again, fading it out at the end so it
@@ -4337,10 +4642,6 @@ namespace TimerPlusMod
                 if (rims[i] != null && rims[i].activeSelf != on)
                 {
                     rims[i].SetActive(on);
-                }
-                if (i < notes.Count && notes[i] != null)
-                {
-                    notes[i].interactable = !on;
                 }
             }
         }
@@ -4671,8 +4972,9 @@ namespace TimerPlusMod
                 place.Variable = copy.Variable;
                 place.Key = copy.Key;
                 place.Words = copy.Words;
-                place.X = corner.x + copy.At.x;
-                place.Y = corner.y + copy.At.y;
+                Vector2 laid = Fenced(corner + copy.At);
+                place.X = laid.x;
+                place.Y = laid.y;
                 if (copy.Kind != Place.Note
                     && Elsewhere(-1, copy.Variable, copy.Key))
                 {
@@ -4764,7 +5066,7 @@ namespace TimerPlusMod
                 }
                 Bindings.BindVariable(fresh.Emulate, said);
                 touched.Add(fresh.Emulate);
-                Board.Put(row, corner + copy.At);
+                Board.Put(row, Fenced(corner + copy.At));
                 made[i] = row;
             }
 
@@ -5023,17 +5325,36 @@ namespace TimerPlusMod
                 }
             }
             float centre = 20f + (deepest - 1) * pitch * 0.5f;
+            // The gap between columns, not the distance between their left edges:
+            // a column of gates is narrower than a column of ends, so one pitch for
+            // all of them leaves more clear board after the gates than after the
+            // ends and the columns read as unevenly spaced. Wide enough that a wire
+            // which has to pass a node passes between the columns rather than
+            // behind it.
+            float gap = 90f;
+            float left = 24f;
             for (int column = 0; column < columns.Count; column++)
             {
-                // Wide columns: a wire that has to pass a node passes between the
-                // columns rather than behind it.
+                float span = 0f;
+                for (int i = 0; i < columns[column].Count; i++)
+                {
+                    float mine = Row(columns[column][i]) != null ? GateWidth
+                                                                 : NodeWidth;
+                    if (mine > span)
+                    {
+                        span = mine;
+                    }
+                }
                 float top = centre - (columns[column].Count - 1) * pitch * 0.5f;
                 for (int i = 0; i < columns[column].Count; i++)
                 {
+                    // Middled in the column, for the column that holds both sorts.
+                    float mine = Row(columns[column][i]) != null ? GateWidth
+                                                                 : NodeWidth;
                     Move(columns[column][i],
-                         new Vector2(24f + column * (NodeWidth + 90f),
-                                     top + i * pitch));
+                         new Vector2(left + (span - mine) * 0.5f, top + i * pitch));
                 }
+                left += span + gap;
             }
             if (quiet)
             {

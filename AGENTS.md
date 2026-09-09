@@ -123,7 +123,12 @@ What depends on what:
   alone, and past four the newest gives way. **There is no graph stored anywhere** -- a gate node is a row,
   and a wire is a row's input bound to the variable another row's answer goes out
   under, so the board is derived from the table on every redraw and an edit on
-  either side is an edit to the same thing. `Wiring` holds only what the table has
+  either side is an edit to the same thing. A gate's answer is a **generated name**
+  (`ne01_04`) given to it the moment the row exists; nothing on the board types it
+  and nothing shows it. Keys and variables belong to the two ends -- which is why a
+  wire out of an *input* end carries that end's own binding rather than a name of
+  its own: nothing on a machine raises a variable except a block emulating a key,
+  and an end is not a block. `Wiring` holds only what the table has
   nowhere to put: where each row sits, and the input and output nodes, saved as
   text in the block's `LayoutKey`. That text is the whole of the layout format, so
   the value of a line is everything to the end of it -- a name with a space in it
@@ -134,10 +139,11 @@ What depends on what:
   kept for the multiplayer path only -- it files a step per control, and a gesture
   here touches several. `BlockInfo.FromBlockBehaviour` hands back the block's last
   saved state, so `OnSave` runs before each snapshot or the pair is stale. The
-  editor's hotkeys are declared in `Mod.xml` under `<Keys>` and read through
+  The board's two hotkeys -- copy and paste, and nothing else: undo is Besiege's
+  own -- are declared in `Mod.xml` under `<Keys>` and read through
   `Modding.ModKeys`, which is what puts them in Besiege's own controls screen;
-  their modifier is the 1 key, because the game's own copy, paste, undo and redo
-  are on Control and it hears the keyboard at the same time this does.
+  their modifier is the 1 key, because the game's own copy and paste are on
+  Control and it hears the keyboard at the same time this does.
   The gate names and their order are Besiege's own: `LogicGate.Awake` builds its
   menu from twelve translation ids and casts the menu's value straight to
   `GateType`, so index *is* the enum, and `Gates.Names` looks those ids up through

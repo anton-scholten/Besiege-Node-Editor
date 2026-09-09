@@ -2526,12 +2526,26 @@ namespace TimerPlusMod
             {
                 if (logic.Count <= 1)
                 {
-                    Flash(plusLabel, "A BLOCK KEEPS ONE ROW", UIF.Hot);
+                    Flash(plusLabel, "MUST KEEP AT LEAST ONE GATE", UIF.Hot);
                     return;
                 }
                 List<MapperType> gateTouched = new List<MapperType>();
-                LogicTable.Remove(logic, index, gateTouched);
-                Commit(gateTouched);
+                // The whole block as it stands, so that one press of undo puts the
+                // row back where it was in the list, with its wires, and with its
+                // place on the board -- rather than a field of it per press, which
+                // is what a control-at-a-time edit costs.
+                BlockInfo before = LogicTable.Marked(logic);
+                LogicTable.Erase(logic, index, gateTouched);
+                Shifted(index, gateTouched);
+                if (before != null)
+                {
+                    Applied(gateTouched);
+                    LogicTable.Filed(logic, before);
+                }
+                else
+                {
+                    Commit(gateTouched);
+                }
                 Rebuild();
                 return;
             }
@@ -2548,6 +2562,49 @@ namespace TimerPlusMod
             Table.Remove(served, index, touched);
             Commit(touched);
             Rebuild();
+        }
+
+        /// <summary>
+        /// The board's layout follows the rows: a row taken out of the list takes
+        /// its place on the board with it, and everything after it moves up one.
+        ///
+        /// Without this the node editor's positions stay where they were while the
+        /// rows under them shift, and every gate after the one deleted is drawn
+        /// where its neighbour used to sit.
+        /// </summary>
+        private void Shifted(int index, List<MapperType> touched)
+        {
+            if (logic == null || logic.LayoutControl == null)
+            {
+                return;
+            }
+            Wiring board = Wiring.Load(logic.LayoutControl.Value);
+            board.Forget(index);
+            logic.LayoutControl.Value = board.Save();
+            touched.Add(logic.LayoutControl);
+        }
+
+        /// <summary>
+        /// Writes the changed controls without filing anything: for an edit whose
+        /// undo step is filed as a whole by the caller. `Commit` files one step per
+        /// control through `BlockMapper.OnEditField`, and an edit filed twice comes
+        /// back in pieces.
+        /// </summary>
+        private static void Applied(List<MapperType> changed)
+        {
+            if (changed == null)
+            {
+                return;
+            }
+            for (int i = 0; i < changed.Count; i++)
+            {
+                if (changed[i] == null)
+                {
+                    continue;
+                }
+                try { changed[i].ApplyValue(); }
+                catch (Exception) { }
+            }
         }
 
         private void DoConvert()

@@ -16,12 +16,32 @@ namespace TimerPlusMod
     /// taken from the pointer rather than from whichever control it landed on --
     /// those have their own ideas about a click.
     /// </summary>
-    public class Hover : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
+    public class Hover : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler,
+                         IPointerClickHandler
     {
         /// <summary>Which node this is, and whether the pointer is on it.</summary>
         public Action<int, bool> Over;
 
+        /// <summary>
+        /// The node's body was clicked, which is how a node is picked out.
+        ///
+        /// A click that lands on a port, a switch or a text field never arrives
+        /// here: uGUI gives a click to the first handler at or above whatever was
+        /// hit, and each of those carries its own. That is the whole of the rule
+        /// that says clicking a node's key cell edits the key rather than picking
+        /// the node out.
+        /// </summary>
+        public Action<int> Chose;
+
         public int Node;
+
+        public void OnPointerClick(PointerEventData click)
+        {
+            if (Chose != null && click.button == PointerEventData.InputButton.Left)
+            {
+                Chose(Node);
+            }
+        }
 
         public void OnPointerEnter(PointerEventData pointer) { Say(true); }
 

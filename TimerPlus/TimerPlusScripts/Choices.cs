@@ -354,6 +354,33 @@ namespace TimerPlusMod
                 label.text = name;
             }
 
+            // Lit under the pointer. A dozen names with nothing saying which one a
+            // click would take is a list that has to be aimed at twice: once to
+            // see where the pointer is, once to press. Its own plate rather than
+            // the button's colours, because the button came with a skin and this
+            // is a wash over it.
+            GameObject lit = new GameObject("Lit");
+            lit.transform.SetParent(go.transform, false);
+            RectTransform glow = lit.AddComponent<RectTransform>();
+            glow.anchorMin = Vector2.zero;
+            glow.anchorMax = Vector2.one;
+            glow.offsetMin = Vector2.zero;
+            glow.offsetMax = Vector2.zero;
+            Image wash = lit.AddComponent<Image>();
+            wash.color = new Color(1f, 1f, 1f, 0.16f);
+            wash.raycastTarget = false;
+            lit.transform.SetAsFirstSibling();
+            lit.SetActive(false);
+            GameObject shown = lit;
+            Hover watch = go.AddComponent<Hover>();
+            watch.Over = delegate(int who, bool on)
+            {
+                if (shown != null)
+                {
+                    shown.SetActive(on);
+                }
+            };
+
             string picked = name;
             Button click = go.GetComponent<Button>();
             if (click != null)

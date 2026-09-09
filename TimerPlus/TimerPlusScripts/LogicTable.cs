@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -86,6 +87,194 @@ namespace TimerPlusMod
             {
                 Bindings.Bind(key, code);
             }
+        }
+
+        /// <summary>
+        /// Takes a row off the block and takes its wires with it.
+        ///
+        /// A wire is a name: a row's input bound to whatever another row's answer
+        /// goes out under. Take the row away and nothing answers that name any
+        /// more, and every input still bound to it is a wire hanging from nothing
+        /// -- which the board reads as a key arriving from the machine and draws an
+        /// input node for. So the loose ends are cleared here, in the same edit as
+        /// the removal, and only the loose ones: a name some other row still
+        /// presses is a wire that still works and is left alone.
+        /// </summary>
+        public static void Erase(LogicGatePlusBehaviour block, int index,
+                                 List<MapperType> touched)
+        {
+            if (block == null || block.Count <= 1
+                || index < 0 || index >= block.Count)
+            {
+                return;
+            }
+            // What the row answered to, read before it is gone.
+            List<string> names = new List<string>();
+            KeyCode code = KeyCode.None;
+            LogicRow going = index < block.Rows.Count ? block.Rows[index] : null;
+            if (going != null && going.Ready)
+            {
+                if (Bindings.IsVariable(going.Emulate))
+                {
+                    Spread(Bindings.Variable(going.Emulate), names);
+                }
+                else
+                {
+                    code = Bindings.Code(going.Emulate);
+                }
+            }
+            Remove(block, index, touched);
+            for (int i = 0; i < block.Count && i < block.Rows.Count; i++)
+            {
+                LogicRow row = block.Rows[i];
+                if (row == null || !row.Ready)
+                {
+                    continue;
+                }
+                for (int port = 0; port < 2; port++)
+                {
+                    MKey input = port == 0 ? row.InputA : row.InputB;
+                    string had = Bindings.IsVariable(input)
+                        ? Bindings.Variable(input) : null;
+                    bool mine = had != null
+                        ? Any(had, names)
+                        : (code != KeyCode.None && Bindings.Code(input) == code);
+                    if (!mine || Answered(block, had, had == null ? code
+                                                                 : KeyCode.None))
+                    {
+                        continue;
+                    }
+                    Bindings.Clear(input);
+                    Note(touched, input);
+                }
+            }
+        }
+
+        /// <summary>Whether any row still answers to this binding.</summary>
+        private static bool Answered(LogicGatePlusBehaviour block, string variable,
+                                     KeyCode code)
+        {
+            for (int i = 0; i < block.Count && i < block.Rows.Count; i++)
+            {
+                LogicRow row = block.Rows[i];
+                if (row == null || !row.Ready)
+                {
+                    continue;
+                }
+                if (variable != null)
+                {
+                    if (Bindings.IsVariable(row.Emulate)
+                        && Held(Bindings.Variable(row.Emulate), variable))
+                    {
+                        return true;
+                    }
+                    continue;
+                }
+                if (code != KeyCode.None && !Bindings.IsVariable(row.Emulate)
+                    && Bindings.Code(row.Emulate) == code)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>A key answers to a `;`-joined list of names; these are the two
+        /// questions worth asking of one.</summary>
+        private static void Spread(string list, List<string> into)
+        {
+            string[] said = (list == null ? "" : list).Split(';');
+            for (int i = 0; i < said.Length; i++)
+            {
+                string one = said[i].Trim();
+                if (one.Length > 0 && !into.Contains(one))
+                {
+                    into.Add(one);
+                }
+            }
+        }
+
+        private static bool Held(string list, string want)
+        {
+            List<string> said = new List<string>();
+            Spread(list, said);
+            return said.Contains(want);
+        }
+
+        private static bool Any(string list, List<string> wanted)
+        {
+            List<string> said = new List<string>();
+            Spread(list, said);
+            for (int i = 0; i < said.Count; i++)
+            {
+                if (wanted.Contains(said[i]))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// The block as it stands, for an edit about to change several of its
+        /// controls at once -- a row removed shifts every row after it, and one
+        /// undo should put all of that back rather than a field of it.
+        ///
+        /// Null when somebody else's game is listening: there the edit goes out
+        /// through Besiege's own handler, which files its own steps.
+        /// </summary>
+        public static BlockInfo Marked(LogicGatePlusBehaviour block)
+        {
+            try
+            {
+                if (EditFieldHandler.Instance != null)
+                {
+                    return null;
+                }
+                return Snap(block);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>Files what has happened since that snapshot as one step of
+        /// Besiege's undo.</summary>
+        public static void Filed(LogicGatePlusBehaviour block, BlockInfo before)
+        {
+            if (before == null)
+            {
+                return;
+            }
+            try
+            {
+                Machine machine = Machine.Active();
+                BlockInfo after = Snap(block);
+                if (machine == null || machine.UndoSystem == null || after == null)
+                {
+                    return;
+                }
+                machine.UndoSystem.EditBlock(after, before);
+            }
+            catch (Exception e)
+            {
+                Log.Warn("could not file the edit for undo: " + e.Message);
+            }
+        }
+
+        private static BlockInfo Snap(LogicGatePlusBehaviour block)
+        {
+            BlockBehaviour body = block == null ? null : block.BlockBehaviour;
+            if (body == null)
+            {
+                return null;
+            }
+            // `BlockInfo.FromBlockBehaviour` hands back the block's last saved
+            // state rather than what its controls hold now, so the block is asked
+            // to save first or the snapshot is a frame stale.
+            body.OnSave(new XDataHolder());
+            return BlockInfo.FromBlockBehaviour(body);
         }
 
         private static void Note(List<MapperType> into, MapperType one)

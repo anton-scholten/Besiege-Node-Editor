@@ -207,39 +207,61 @@ variable into the table and the wire appears on the board.
 | Node | What it is |
 | --- | --- |
 | **INPUT** | A key or a variable coming in. Wire it to as many gates as you like |
-| a gate | One row: its symbol, its switch where the gate has one, and what its answer goes out on — a key or a variable, switched the same way the two ends are |
+| a gate | One row: its symbol and its switch where the gate has one, drawn narrow because it holds nothing else. What its answer goes out under is a name the board makes up (`ne01_04`) and nobody has to read |
 | **OUTPUT** | A key or a variable the answer also goes out on |
-| a comment | A note on the board, wired to nothing. Click in it and type; it grows as you type to fit what you write — the same small margin on all four sides — newlines included |
+| a comment | A note on the board, wired to nothing. Click the writing and the caret goes in it; drag the writing and the note moves. It grows as you type to fit what you write — the same small margin on all four sides — newlines included |
 
 Along the top is a row of icons: an input, an output, a comment, and the twelve
 gates in Besiege's own order, each drawn as the shape it is and named on hover. Click one to
 place it, drag one onto the board to put it where you let go, or right-click the
-board and pick from the same list — the node lands where you clicked.
+board and pick from the same list — the node lands where you clicked. A gate is a
+row of the block, so thirty-two of them is full: the board says **REACHED 32 GATES
+LIMIT** rather than quietly doing nothing, and the last gate on a block cannot go
+either — **MUST KEEP AT LEAST ONE GATE**.
 
-The board pans by dragging its empty parts — or with the middle button anywhere,
+The board is about two zoomed-all-the-way-out views across and two down, and that
+is as far as it goes: nodes stop at its edge and so does the view, because a board
+you can pan into for ever is a board with nodes on it nobody can find. It pans by
+dragging its empty parts — or with the middle button anywhere,
 node or no node — and zooms with the wheel, over a grid so
 you can see where you are, and the window resizes by its corners — the pointer says
 so when it is over one. The title bar carries the wire-style button (straight, curved, square), **TIDY**,
 and the box for what generated wire names start with. TIDY lays the board out —
 inputs down the left, outputs down the right, gates in columns by how far they are
 from an input, each ordered to keep the wires from crossing, the columns evenly
-spaced across and every one of them centred on the same line so a column of three and one of five read as one board. It
+spaced — the same clear board between every pair of them, whether the columns are
+gates or ends — and every one of them centred on the same line so a column of three and one of five read as one board. It
 moves things and removes nothing: an end with no wires on it is one you are about
 to wire, and the red cross is how a node goes. A board opened for the first time
 arrives laid out the same way.
 
+A gate holds no key and no name of its own. It answers to a hidden name the board
+mints for it the moment it exists, and every wire out of it carries that name — so
+a gate is wired by drawing wires and by nothing else. Keys and variables live on
+the two ends: what comes in from the machine on an input, and what the machine
+gets back on an output. An output takes as many wires as you like, and any one of
+them raising its own hidden name raises the key or variable on the output.
+
 Retyping what an input or output stands for takes its wires with it: every gate on
 the other end of one follows to the new key or variable, so renaming an end is a
-rename and not a disconnection. Two exceptions. A name another end of the same kind
-already carries is refused outright — it says **ALREADY ASSIGNED!** and puts the
-cell back, because two ends on one name are one end drawn twice and every wire
-either appears to have is the same wire. And a name a *gate* already answers to is
-taken, but the wires stay where they are: moving them would land them on that gate
-as well, which is a wire nobody drew.
+rename and not a disconnection. Two exceptions. A name another end already carries
+is refused outright — it says **ALREADY ASSIGNED!** and puts the cell back. Either
+kind of end: two inputs on one name are one input drawn twice, and an output on
+what an input stands for is worse than that, because the rows pressing the output
+really do drive everything reading the input, so the board would fill with wires
+nobody drew out of a rename. An input taking a *gate's* hidden name is refused for
+the same reason. And a name a gate answers to is a fair thing to type into an
+output — that is how that gate feeds it — but the output's own wires stay where
+they are rather than moving onto the gate as well.
 
 Removing an end takes its own wires with it and nobody else's: if the name it stood
 for is still read or pressed somewhere on the board, the binding stays and only the
-node goes.
+node goes. Removing a gate — from the board, or by deleting its row in the table —
+takes the wires out of it in the same edit, so nothing is left reading a name no
+gate answers to any more. Those wires and only those: a name some other gate still
+presses is a wire that still works. And the whole of it is one step of Besiege's
+undo, so one press puts the row back where it was in the list, in its place on the
+board, wired as it was.
 
 Ports are circles drawn on the board itself, with nothing behind them: empty until
 something is on them, filled once a wire lands. They answer to more of the board
@@ -247,15 +269,29 @@ than they draw, so a wire is something to grab rather than something to aim at. 
 direction, or click one then the other. A wire dragged out to empty board offers the same list a right-click does, and
 whatever you pick is made where you let go and wired to the port you came from.
 
+Wires run from an answer into an input, and only there. A wire from an input end
+straight into an output end says **CANNOT DIRECTLY CONNECT TO OUTPUT** — there is
+no row to carry it, since an output is a key some gate presses; put a gate between
+them. Letting an answer go over another answer, or an input over another input,
+says **HAS TO CONNECT TO AN INPUT**. Both leave the board as it was.
+
 A click on a port never takes a wire off — that is a drag, and the wire has to
 come at least its own width off the port before it lets go, so a click that wobbles
 changes nothing. A port that holds one wire hands it over when you drag it: the
 wire comes off there and then, its loose end follows the
 pointer in the live colour, and where you let go decides — on another port it goes
-there, on nothing it stays off. A port that feeds several is a different question,
-so dragging out of one only takes a wire with you while you follow that wire; stray
-off it and you are drawing a new one, and letting go of a new one over nothing
-leaves the board exactly as it was. An input takes one wire and an answer feeds as many as you like, which is
+there, on nothing it stays off.
+
+A port that feeds several is a different question, and it is answered a little way
+out rather than at once: every wire leaves the port at the same point, so within a
+few pixels of it they are all equally near and picking one would be a toss-up. Drag
+out and whichever wire you have followed by the time you are clear of the port is
+the one in your hand; stray far off it after that and it becomes a new wire being
+drawn, and it stays a new one — passing near another wire does not swap what you
+are holding. Letting go of a new one over nothing leaves the board exactly as it
+was, and a wire in hand that is let go anywhere near a port goes onto it — twice a
+port's width of forgiveness, so putting one back where it came from takes no aim.
+An input takes one wire and an answer feeds as many as you like, which is
 what a gate can mean.
 
 The box in the title bar is what generated wire names start with. A block takes its
@@ -281,13 +317,18 @@ board is held up while you work on the rest of the machine; click it white again
 with the menu already closed and the board goes too, since the pin was the only
 thing holding it.
 
-Hold control and a node under the pointer wears a faint dashed edge: that click
-picks it out, or puts it back if it was already picked. Nothing else on the node
-answers while control is down — not its key, not its switch, not its cross. Drag a
+Click a node and it is picked out — anywhere on it that is not one of its own
+controls, since its ports, its switch and its key cell answer a click themselves
+and that click is theirs. Hold control and a node under the pointer wears a faint
+dashed edge: that click picks it out as well, or puts it back if it was already
+picked, and nothing else on the node answers while control is down — not its key,
+not its switch, not its cross. Drag a
 box over the board to pick out everything it catches — plain to start again, shift
 to add to what is picked, control to turn each one over — and every node the box
 reaches wears the faint edge as you drag, so you can see what you are about to
-take. Picked nodes wear a dashed white edge and drag together — moving one moves
+take. A picked node wears a dashed white edge. The red cross that removes a node is on
+whichever node the pointer is on and nowhere else, so a board being read is a board
+of nodes rather than a row of little red crosses. Picked nodes drag together — moving one moves
 the set — and holding control during a drag runs it along one axis from where it
 started, whichever way it has gone furthest. Dragging one to the edge of the window
 brings the board along with it. **Delete** removes everything picked out, in one
@@ -301,14 +342,18 @@ board it is given one of its own, so the copy is a circuit of its own rather tha
 second set of wires on the original's ends. What was copied stays copied, so the
 same thing can be laid down more than once.
 
-**UNDO** and **REDO** in the title bar step Besiege's own undo, which every edit
-here is filed in — one step per edit, carrying the whole block, so an undo puts
-every gate back where it was with the wires it had.
+The two hotkeys — copy and paste — are declared in the mod's manifest, so they
+appear in Besiege's controls screen and can be rebound like any other. They default
+to 1+C and 1+V: the 1 key rather than Control, because Besiege's own copy and paste
+are on Ctrl and the game hears the keyboard at the same time this does.
 
-The four hotkeys are declared in the mod's manifest, so they appear in Besiege's
-controls screen and can be rebound like any other. They default to 1+C, 1+V, 1+Z
-and 1+Y — the 1 key rather than Control, because Besiege's own copy, paste, undo
-and redo are on Ctrl and the game hears the keyboard at the same time this does.
+Undo is Besiege's own — Ctrl+Z, or the arrows on the toolbar. Every edit made
+here is filed in it as one step carrying the whole block, so one press puts every
+gate back where it was with the wires it had. The board has no undo of its own:
+one history is the honest number, since an edit on the board and an edit in the
+table are the same edit. Note that Besiege closes the block's menu when it undoes,
+and an unpinned board is part of that menu — pin the board if you want it to stay
+up across an undo.
 
 ## Converting
 
