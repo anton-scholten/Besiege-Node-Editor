@@ -142,11 +142,18 @@ namespace TimerPlusMod
         /// stripped. Returns null and says why rather than throwing into a caller
         /// that is halfway through building a window.
         /// </summary>
+        /// <summary>How many prefabs have been spawned, for the one line this mod
+        /// logs about how long its first window took to build. A prefab is the
+        /// expensive part of building one, and knowing how many were made is what
+        /// says whether a stall is this mod's or the game's.</summary>
+        public static int Spawned;
+
         public static GameObject Spawn(string prefab, Transform parent)
         {
             try
             {
                 GameObject made = Besiege.UI.Make.Prefab(Package, prefab, parent);
+                Spawned++;
                 Untranslate(made);
                 return made;
             }
@@ -158,14 +165,19 @@ namespace TimerPlusMod
         }
 
         /// <summary>
-        /// Strips every Translator in a spawned prefab.
+        /// Switches off every Translator in a spawned prefab.
         ///
         /// One would put the prefab's own wording back at the next language
         /// change, and -- fatally -- its `Start` calls `Recaption`, which throws on
         /// a label with no localisation key. That is every label a mod writes, and
         /// it takes the whole panel build with it. The whole hierarchy including
         /// inactive objects, since a Translator is not always on the object
-        /// carrying the Text; immediate, or `Start` wins the race.
+        /// carrying the Text.
+        ///
+        /// Disabled rather than destroyed: Unity does not call `Start` on a
+        /// component that is off, which is the whole of what has to be prevented,
+        /// and `DestroyImmediate` on every label of every prefab is a real part of
+        /// what building a window costs.
         /// </summary>
         public static void Untranslate(GameObject spawned)
         {
@@ -181,7 +193,7 @@ namespace TimerPlusMod
                 {
                     if (all[i] != null)
                     {
-                        UnityEngine.Object.DestroyImmediate(all[i]);
+                        all[i].enabled = false;
                     }
                 }
             }
@@ -217,6 +229,78 @@ namespace TimerPlusMod
         /// Anchors a rect to its parent's top-left corner and puts it at x, y with
         /// y running downward, which is how the whole panel lays out.
         /// </summary>
+        /// <summary>
+        /// A control's own lettering, pinned to it and written.
+        ///
+        /// Every window in this mod wants the same four things of a prefab's label
+        /// and used to do them three times over: pin it to the control it belongs
+        /// to -- the prefab's caption is a fixed width, so on a narrower control it
+        /// overhangs its neighbour and takes the clicks meant for it -- stop it
+        /// answering the pointer, style it, and shrink it to fit.
+        /// </summary>
+        /// <param name="floor">The smallest the lettering may shrink to, or zero
+        /// to leave its size alone.</param>
+        /// <param name="make">Whether to build a label where the control has none.
+        /// A drawn plate has none; a UI Factory prefab always does.</param>
+        public static Text Label(GameObject control, string text, Color colour,
+                                 TextAnchor align, int floor, bool make)
+        {
+            if (control == null)
+            {
+                return null;
+            }
+            Text label = control.GetComponentInChildren<Text>(true);
+            if (label == null)
+            {
+                if (!make)
+                {
+                    return null;
+                }
+                GameObject go = new GameObject("Text");
+                go.transform.SetParent(control.transform, false);
+                go.AddComponent<RectTransform>();
+                label = go.AddComponent<Text>();
+            }
+            RectTransform rect = label.rectTransform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            label.raycastTarget = false;
+            Style(label, colour, align);
+            if (floor > 0)
+            {
+                Shrink(label, floor);
+            }
+            label.text = text;
+            return label;
+        }
+
+        /// <summary>
+        /// Grows a control's lettering while the pointer is on it, the way
+        /// Besiege's own buttons do.
+        ///
+        /// The lettering rather than the plate, so a row of controls keeps its
+        /// spacing. UI Factory's own version of this is taken off by
+        /// <see cref="NoSwell"/> -- it scales the whole control, and a control
+        /// scaled inside a table overlaps its neighbour.
+        /// </summary>
+        public static void Grow(GameObject control, Transform grows, float by)
+        {
+            if (control == null || grows == null)
+            {
+                return;
+            }
+            Swell swell = control.AddComponent<Swell>();
+            swell.grows = grows;
+            swell.grown = by;
+        }
+
+        public static void Grow(GameObject control, Transform grows)
+        {
+            Grow(control, grows, 1.12f);
+        }
+
         public static void Fit(RectTransform rect, float x, float y, float w, float h)
         {
             if (rect == null)

@@ -29,6 +29,11 @@ namespace TimerPlusMod
         /// commit per frame of a drag would be an undo entry per frame.</summary>
         public Action Dropped;
 
+        /// <summary>The drag began. Whatever is being moved wants to know where it
+        /// started from -- an axis-locked drag is measured from there, not from the
+        /// step before it.</summary>
+        public Action Held;
+
         /// <summary>What actually moves, when that is not this object -- the
         /// window, dragged by its title bar. The movement has to be measured in the
         /// space that thing is positioned in and which stands still while it moves:
@@ -51,7 +56,15 @@ namespace TimerPlusMod
 
         public void OnBeginDrag(PointerEventData move)
         {
-            holding = Carried == null && Local(move, out last);
+            // The left button moves things. The middle one pans the board -- see
+            // `Pan`, which sits beside this -- and the right one is for menus and
+            // moves nothing.
+            holding = move.button == PointerEventData.InputButton.Left
+                   && Carried == null && Local(move, out last);
+            if (holding && Held != null)
+            {
+                Held();
+            }
             if (Carried != null && Carrying != null)
             {
                 Carrying(move.position);

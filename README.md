@@ -168,6 +168,11 @@ The same table, for Besiege's logic gate. A row is a whole gate:
 | **M** | The gate's one switch: **I** for the edge detector's inverted, **T** for toggle mode, where a press flips an input rather than holding it. Barred and dead for the gates that have neither — random, both latches, the counter |
 | **OUTPUT** | The key or variable the row presses while its gate says yes |
 
+A block arrives holding three rows rather than one blank one: an AND on **J** and
+**I** answering to `var_1`, a XOR in toggle mode on **K** and **O** pressing **P**,
+and a counter on **L** and **M** answering to `var_2`. It is a circuit to read
+rather than a form to fill in, and the board opens on it.
+
 Besiege's own block has two switches and shows one at a time, which is why the
 table has one column for both. Sorting is on **GATE** alone. Only the **M** column carries a tip; the rest say
 what they are.
@@ -187,6 +192,13 @@ The same rows, seen as a circuit. **NODE EDITOR**, between PIN BLOCKS and the
 convert button, opens a window of its own — not docked to the mapper, so it stays
 up while you work on the machine.
 
+Inputs and outputs are worked out from the rows themselves: a key or a name a row
+reads that nothing on the board produces is an input, and one a row presses that
+nothing reads is an output. That happens when the board is opened and when the
+table changes underneath it — not while you are wiring. A key typed into a node on
+the board is you wiring by hand, and answering it with a node you did not ask for
+is the board arguing with you.
+
 A gate node *is* a row of the table, and a wire *is* a row's input carrying the
 name another row's answer goes out under. So the two are never out of step:
 wire two gates together on the board and the table shows the variable; type that
@@ -195,43 +207,84 @@ variable into the table and the wire appears on the board.
 | Node | What it is |
 | --- | --- |
 | **INPUT** | A key or a variable coming in. Wire it to as many gates as you like |
-| a gate | One row: its symbol, its switch where the gate has one, and the name its answer goes out under |
+| a gate | One row: its symbol, its switch where the gate has one, and what its answer goes out on — a key or a variable, switched the same way the two ends are |
 | **OUTPUT** | A key or a variable the answer also goes out on |
+| a comment | A note on the board, wired to nothing. Click in it and type; it grows as you type to fit what you write — the same small margin on all four sides — newlines included |
 
-Along the top is a row of icons: an input, an output, and the twelve gates in
-Besiege's own order, each drawn as the shape it is and named on hover. Click one to
+Along the top is a row of icons: an input, an output, a comment, and the twelve
+gates in Besiege's own order, each drawn as the shape it is and named on hover. Click one to
 place it, drag one onto the board to put it where you let go, or right-click the
 board and pick from the same list — the node lands where you clicked.
 
-The board pans by dragging its empty parts and zooms with the wheel, over a grid so
+The board pans by dragging its empty parts — or with the middle button anywhere,
+node or no node — and zooms with the wheel, over a grid so
 you can see where you are, and the window resizes by its corners — the pointer says
 so when it is over one. The title bar carries the wire-style button (straight, curved, square), **TIDY**,
 and the box for what generated wire names start with. TIDY lays the board out —
 inputs down the left, outputs down the right, gates in columns by how far they are
-from an input, each ordered to keep the wires from crossing — and folds ends that
-stand for the same key or variable into one.
+from an input, each ordered to keep the wires from crossing, the columns evenly
+spaced across and every one of them centred on the same line so a column of three and one of five read as one board. It
+moves things and removes nothing: an end with no wires on it is one you are about
+to wire, and the red cross is how a node goes. A board opened for the first time
+arrives laid out the same way.
 
-Ports are circles: empty until something is on them, filled once a wire lands.
-Pull a wire from one port to another, either direction, or click one then the
-other. Pull a wire off a port and drop it on nothing to take it off; where several
-wires meet a port, the newest comes off first. An input takes one wire and an
-answer feeds as many as you like, which is what a gate can mean.
+Retyping what an input or output stands for takes its wires with it: every gate on
+the other end of one follows to the new key or variable, so renaming an end is a
+rename and not a disconnection. With one exception — if the name you type is one
+something else on the board already answers to, the wires stay where they are.
+Moving them would land them on that node as well as this one, which is a wire
+nobody drew.
 
-The box in the title bar is what generated wire names start with: type `door_` and
-new wires become `door_0`, `door_1`. Names already given are left alone — a wire
-name is machine-wide, and something else may be reading it.
+Ports are circles drawn on the board itself, with nothing behind them: empty until
+something is on them, filled once a wire lands. They answer to more of the board
+than they draw, so a wire is something to grab rather than something to aim at. Pull a wire from one port to another, either
+direction, or click one then the other. A click on a port never takes a wire off — that is a drag, and the wire has to
+come at least its own width off the port before it lets go, so a click that wobbles
+changes nothing. A port that holds one wire hands it over when you drag it: the
+wire comes off there and then, its loose end follows the
+pointer in the live colour, and where you let go decides — on another port it goes
+there, on nothing it stays off. A port that feeds several is a different question,
+so dragging out of one only takes a wire with you while you follow that wire; stray
+off it and you are drawing a new one, and letting go of a new one over nothing
+leaves the board exactly as it was. An input takes one wire and an answer feeds as many as you like, which is
+what a gate can mean.
 
+The box in the title bar is what generated wire names start with. A block takes its
+own number the first time it is opened — `ne01_` for the first Logic Gate Plus on
+the machine, `ne02_` for the next — so its wires are `ne01_01`, `ne01_02`, and two
+blocks never generate the same name. Type over it and new wires start with whatever
+you typed. Names already given are left alone: a wire name is machine-wide, and
+something else may be reading it.
+
+The editor opens with the block: selecting a Logic Gate Plus brings up its table
+and its board together, because they are the same circuit written two ways.
 **NODE EDITOR** on the table stays lit while the editor is up, and closes it when
-clicked again. So do the editor's own cross, Escape, Tab, and opening any of the
-game's own menus.
+clicked again. So do Escape, Tab, and opening any of the game's own menus.
 
-Ctrl-click a node to pick it out, or hold shift and drag a box over several; picked
-nodes wear a dashed white edge. Copy them and they follow the pointer as ghosts
-until you paste them down — wires between copied gates are reproduced under fresh
-names, and wires that came from outside the copy keep the names they had. What was
-copied stays copied, so the same thing can be laid down more than once. A copied
-input or output is not pasted twice: an end stands for a binding, and the pasted
-gates wire to the one already on the board.
+The pin in the title bar decides what happens when the block's menu closes. White
+— out — and the board belongs to that menu and goes with it. Click it red and the
+board is held up while you work on the rest of the machine; click it white again
+with the menu already closed and the board goes too, since the pin was the only
+thing holding it.
+
+Hold control and a node under the pointer wears a faint dashed edge: that click
+picks it out, or puts it back if it was already picked. Nothing else on the node
+answers while control is down — not its key, not its switch, not its cross. Shift
+and drag a box to pick out everything it catches — each node wears the faint edge
+as the box reaches it, so you can see what you are about to take; hold control as
+well and the box works on what is already picked, taking in what was out and
+putting out what was in. Picked nodes wear a dashed white edge and drag together — moving one moves the
+set — and holding control during a drag runs it along one axis from where it
+started, whichever way it has gone furthest. A click on the empty board puts the
+selection down. Copy them and they follow the pointer as ghosts
+until you paste them down, keeping the shape they had. A wire is copied when both
+of its ends were: wires between copied gates are reproduced under fresh names, and
+a wire to something left behind is not copied — the pasted gate arrives with that
+input free rather than quietly wired into the circuit it came from. A copied input
+or output comes with the copy; where its key or name is already answered to on the
+board it is given one of its own, so the copy is a circuit of its own rather than a
+second set of wires on the original's ends. What was copied stays copied, so the
+same thing can be laid down more than once.
 
 **UNDO** and **REDO** in the title bar step Besiege's own undo, which every edit
 here is filed in — one step per edit, carrying the whole block, so an undo puts

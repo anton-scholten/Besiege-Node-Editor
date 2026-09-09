@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace TimerPlusMod
@@ -57,6 +58,25 @@ namespace TimerPlusMod
         /// choice; the text only says which variable.
         /// </summary>
         private bool variable;
+
+        /// <summary>Whether a click with a modifier held belongs to whatever this
+        /// cell sits on rather than to the cell. Set on the node editor's cells,
+        /// where a modifier picks the node out.</summary>
+        public bool ignoreCtrl
+        {
+            get { return aside; }
+            set
+            {
+                aside = value;
+                if (guard != null)
+                {
+                    guard.enabled = value;
+                }
+            }
+        }
+
+        private bool aside;
+        private Deaf guard;
 
         /// <summary>True while the mode button is doing the switching, so the box
         /// being deactivated underneath it cannot answer for the cell.</summary>
@@ -130,6 +150,9 @@ namespace TimerPlusMod
             KeyCell self = go.AddComponent<KeyCell>();
             self.bubble = bubble;
             self.Build(w, h);
+            self.guard = go.AddComponent<Deaf>();
+            self.guard.box = self.box;
+            self.guard.enabled = false;
             return self;
         }
 
@@ -227,28 +250,12 @@ namespace TimerPlusMod
 
         private static Text Caption(GameObject control, string text)
         {
-            Text label = control.GetComponentInChildren<Text>(true);
-            if (label == null)
+            Text label = UIF.Label(control, text, UIF.Ink, TextAnchor.MiddleCenter,
+                                   8, false);
+            if (label != null)
             {
-                return null;
+                UIF.Grow(control, label.transform);
             }
-            // The prefab's caption is a fixed width and is the last child, so on a
-            // control narrower than that it overhangs its neighbour and wins the
-            // clicks meant for it. Pinned to its own control, and deaf: the plate
-            // behind it is what the click is for.
-            RectTransform rect = label.rectTransform;
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-            label.raycastTarget = false;
-            UIF.Style(label, UIF.Ink, TextAnchor.MiddleCenter);
-            UIF.Shrink(label, 8);
-            label.text = text;
-
-            Swell swell = control.AddComponent<Swell>();
-            swell.grows = label.transform;
-            swell.grown = 1.12f;
             return label;
         }
 
@@ -331,8 +338,25 @@ namespace TimerPlusMod
 
         // ---- editing ---------------------------------------------------------
 
+        /// <summary>
+        /// Whether this click belongs to whatever the cell is sitting on rather
+        /// than to the cell.
+        ///
+        /// The node editor picks nodes out with control held, and a cell that took
+        /// that click for itself started listening for a key at the same time --
+        /// two things from one click, one of them unasked for.
+        /// </summary>
+        private bool Aside()
+        {
+            return ignoreCtrl && Deaf.Aside();
+        }
+
         private void SwapMode()
         {
+            if (Aside())
+            {
+                return;
+            }
             Give();
             Hold(false);
             listening = false;
@@ -358,7 +382,7 @@ namespace TimerPlusMod
 
         private void Listen()
         {
-            if (variable)
+            if (variable || Aside())
             {
                 return;
             }
@@ -404,6 +428,20 @@ namespace TimerPlusMod
         {
             if (!variable)
             {
+                return;
+            }
+            if (Aside())
+            {
+                // The click was for the node under this, and the field has already
+                // taken the focus off it: hand it back.
+                if (box != null)
+                {
+                    box.DeactivateInputField();
+                }
+                if (EventSystem.current != null)
+                {
+                    EventSystem.current.SetSelectedGameObject(null);
+                }
                 return;
             }
             Choices.Open(transform as RectTransform, Variables.Known(), Picked);

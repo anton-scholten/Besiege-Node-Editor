@@ -44,12 +44,20 @@ namespace TimerPlusMod
         /// lettering instead.</summary>
         public static bool Ready { get { Look(); return found; } }
 
+        /// <summary>When the next look is allowed. `FindObjectsOfTypeAll` walks
+        /// every loaded object of the type, and every cell on screen asks this
+        /// every frame until it answers -- so a look that comes back
+        /// empty-handed costs one scan a second rather than one a cell a frame.
+        /// </summary>
+        private static float next;
+
         private static void Look()
         {
-            if (found)
+            if (found || Time.realtimeSinceStartup < next)
             {
                 return;
             }
+            next = Time.realtimeSinceStartup + 1f;
             try
             {
                 // FindObjectsOfTypeAll rather than FindObjectsOfType: the mapper's

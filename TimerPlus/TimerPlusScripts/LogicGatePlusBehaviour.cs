@@ -77,11 +77,7 @@ namespace TimerPlusMod
             get
             {
                 string typed = prefix == null ? "" : prefix.Value;
-                if (!string.IsNullOrEmpty(typed))
-                {
-                    return typed;
-                }
-                return "gate" + (Mathf.Abs(GetInstanceID()) % 1000) + "_";
+                return string.IsNullOrEmpty(typed) ? Numbered() : typed;
             }
             set
             {
@@ -90,6 +86,73 @@ namespace TimerPlusMod
                     prefix.Value = value == null ? "" : value.Trim();
                 }
             }
+        }
+
+        /// <summary>
+        /// What this block's generated names start with when nobody has typed
+        /// anything: `ne` and the block's own number on the machine, two digits and
+        /// an underscore -- `ne01_` for the first one placed.
+        ///
+        /// The number is the lowest nothing else is using, so a second block gets
+        /// `ne02_` and a third that fills a gap left by a deleted one takes the
+        /// gap. Names are machine-wide, and two blocks generating `gate3_0` between
+        /// them is two circuits quietly driving each other.
+        /// </summary>
+        private string Numbered()
+        {
+            for (int n = 1; n < 100; n++)
+            {
+                string wanted = "ne" + n.ToString("00") + "_";
+                if (!Elsewhere(wanted))
+                {
+                    return wanted;
+                }
+            }
+            return "ne00_";
+        }
+
+        /// <summary>Whether another Logic Gate Plus block on the machine is already
+        /// using this prefix.</summary>
+        private bool Elsewhere(string wanted)
+        {
+            LogicGatePlusBehaviour[] all =
+                FindObjectsOfType<LogicGatePlusBehaviour>();
+            for (int i = 0; i < all.Length; i++)
+            {
+                if (all[i] == null || all[i] == this || all[i].prefix == null)
+                {
+                    continue;
+                }
+                if (all[i].prefix.Value == wanted)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// Writes the block's number into its prefix, so it stays that number.
+        ///
+        /// Called when the block is opened. Until it is written the prefix is
+        /// worked out afresh every time it is asked for, which means a block whose
+        /// neighbour is deleted quietly changes what its next name will be -- and a
+        /// block copied from another arrives with the same prefix, which is two
+        /// blocks generating the same names.
+        /// </summary>
+        public MText Claim()
+        {
+            if (prefix == null)
+            {
+                return null;
+            }
+            string mine = prefix.Value;
+            if (!string.IsNullOrEmpty(mine) && !Elsewhere(mine))
+            {
+                return null;                // typed or claimed, and nobody else's
+            }
+            prefix.Value = Numbered();
+            return prefix;
         }
 
         public bool Pins { get { return pinBlocks != null && pinBlocks.IsActive; } }
@@ -151,28 +214,60 @@ namespace TimerPlusMod
             ShowStock(true);
         }
 
+        /// <summary>
+        /// What the three rows a fresh block starts with are set to.
+        ///
+        /// A block that arrives holding a circuit says what it is for in one look
+        /// -- two gates and a counter, each on its own keys, one answering on a
+        /// name and one on a key. Row four onwards is the game's own default for a
+        /// logic gate: U and I in, C out, and the gate its menu opens on.
+        /// </summary>
+        private static readonly KeyCode[] FirstA =
+            { KeyCode.J, KeyCode.K, KeyCode.L };
+        private static readonly KeyCode[] FirstB =
+            { KeyCode.I, KeyCode.O, KeyCode.M };
+        private static readonly int[] FirstGate =
+            { Gates.And, Gates.Xor, Gates.Counter };
+        private static readonly bool[] FirstMode = { false, true, false };
+        private static readonly KeyCode[] FirstOut =
+            { KeyCode.C, KeyCode.P, KeyCode.C };
+
+        /// <summary>And the ones answering on a name rather than a key. Set after
+        /// the key is made rather than being its default: a Besiege key's default
+        /// is a keycode, and a name is a value it is put to.</summary>
+        private static readonly string[] FirstNamed = { "var_1", null, "var_2" };
+
         private LogicRow Build(int index)
         {
             string n = index.ToString();
+            bool first = index < FirstA.Length;
             LogicRow row = new LogicRow();
 
-            // The game's own defaults for a logic gate: U and I in, C out.
-            row.InputA = AddKey("Input A " + (index + 1), "A" + n, KeyCode.U);
-            row.InputB = AddKey("Input B " + (index + 1), "B" + n, KeyCode.I);
+            row.InputA = AddKey("Input A " + (index + 1), "A" + n,
+                                first ? FirstA[index] : KeyCode.U);
+            row.InputB = AddKey("Input B " + (index + 1), "B" + n,
+                                first ? FirstB[index] : KeyCode.I);
 
             List<string> gates = new List<string>();
             for (int g = 0; g < Gates.Count; g++)
             {
                 gates.Add(Gates.Names[g]);
             }
-            row.Kind = BlockBehaviour.AddMenu("Gate" + n, 0, gates);
+            row.Kind = BlockBehaviour.AddMenu("Gate" + n,
+                                              first ? FirstGate[index] : Gates.Not,
+                                              gates);
 
             // One switch where Besiege has two. Which of the two it is depends on
             // the gate -- see LogicRow.Mode -- and the game shows one at a time
             // for the same reason.
-            row.Mode = AddToggle("Mode " + (index + 1), "Mode" + n, false);
+            row.Mode = AddToggle("Mode " + (index + 1), "Mode" + n,
+                                 first && FirstMode[index]);
             row.Emulate = AddEmulatorKey("Emulate " + (index + 1), "Out" + n,
-                                         KeyCode.C);
+                                         first ? FirstOut[index] : KeyCode.C);
+            if (first && FirstNamed[index] != null)
+            {
+                Bindings.BindVariable(row.Emulate, FirstNamed[index]);
+            }
 
             row.ReadA = new KeyReader(row.InputA);
             row.ReadB = new KeyReader(row.InputB);

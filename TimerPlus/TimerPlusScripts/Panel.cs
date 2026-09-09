@@ -175,6 +175,10 @@ namespace TimerPlusMod
 
         private static Panel only;
 
+        /// <summary>Whether the first open has been reported. See
+        /// <see cref="MapperOpened"/>.</summary>
+        private static bool timed;
+
         private void Refresh()
         {
             if (window == null || !window.activeSelf)
@@ -412,6 +416,8 @@ namespace TimerPlusMod
 
             try
             {
+                float began = Time.realtimeSinceStartup;
+                int spawned = UIF.Spawned;
                 if (gates != null)
                 {
                     Show(gates);
@@ -419,6 +425,19 @@ namespace TimerPlusMod
                 else
                 {
                     Show(block);
+                }
+                if (!timed)
+                {
+                    // Once a session, so a report of "opening a block hangs" can be
+                    // answered with how much of it was this mod rather than the
+                    // game's own mapper, which is built before this is called --
+                    // and with how much of that was building controls.
+                    timed = true;
+                    Log.Info("first open: "
+                             + Mathf.RoundToInt((Time.realtimeSinceStartup - began)
+                                                * 1000f)
+                             + " ms in the panel and the board, "
+                             + (UIF.Spawned - spawned) + " prefabs built");
                 }
             }
             catch (Exception e)
@@ -452,6 +471,15 @@ namespace TimerPlusMod
             logic = block;
             served = null;
 
+            // The block takes its number the first time it is opened, and keeps it:
+            // `ne01_`, `ne02_`, whichever is free. Written through the mapper, so
+            // it is saved with the machine like anything else.
+            MText claimed = block.Claim();
+            if (claimed != null)
+            {
+                Commit(claimed);
+            }
+
             Rect frame;
             if (MapperFrame(out frame))
             {
@@ -482,10 +510,24 @@ namespace TimerPlusMod
             Canvas.ForceUpdateCanvases();
             Dock();
             Curtain(true);
+
+            // The board comes up with the table. A logic block *is* a circuit, and
+            // the table is the same circuit written down -- opening one and having
+            // to ask for the other made the board feel like an extra rather than
+            // the way the block is read. Last, so it claims the shared tooltip and
+            // list after this window has.
+            if (Editor.Available)
+            {
+                Editor.Open(logic);
+                // And the switch that says whether it is up follows it.
+                Watching();
+            }
         }
 
         private void Show(TimerPlusBehaviour block)
         {
+            // Another block's menu is this one's menu closing.
+            Editor.Dropped();
             bool other = served != block || logic != null;
             served = block;
             logic = null;
@@ -541,11 +583,12 @@ namespace TimerPlusMod
             }
             RectTransform home = canvas.GetComponent<RectTransform>();
             Tip.Tips.Home(home);
-            Choices.Home(home);
         }
 
         private void Hide()
         {
+            // The board is part of the block's menu unless it has been pinned up.
+            Editor.Dropped();
             if (window != null)
             {
                 window.SetActive(false);
@@ -586,7 +629,6 @@ namespace TimerPlusMod
                 // scrolling content would be clipped with the row it explains and
                 // drawn under whichever row came after it.
                 Tip.Tips.Home(canvas.GetComponent<RectTransform>());
-                Choices.Home(canvas.GetComponent<RectTransform>());
 
                 Fixed();
                 float height = Layout();
@@ -1383,12 +1425,15 @@ namespace TimerPlusMod
         }
 
         /// <summary>How much of the bottom row the pin switch takes, the convert
-        /// button having the rest.</summary>
-        private const float PinShare = 0.26f;
+        /// button having the rest. The convert button carries the longest caption
+        /// of the three and grows it on hover, so it is given the room to: at a
+        /// quarter each for the other two its lettering stayed inside the plate.
+        /// </summary>
+        private const float PinShare = 0.24f;
 
         /// <summary>And how much the button that opens the node editor takes. Only
         /// the logic table has one: a timer is not a circuit.</summary>
-        private const float BoardShare = 0.28f;
+        private const float BoardShare = 0.255f;
 
         private float Footer(float y)
         {
@@ -1535,21 +1580,8 @@ namespace TimerPlusMod
         /// </summary>
         private static Text Pin(GameObject control, string text, Color colour)
         {
-            Text label = control.GetComponentInChildren<Text>(true);
-            if (label == null)
-            {
-                return null;
-            }
-            RectTransform rect = label.rectTransform;
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = Vector2.zero;
-            rect.offsetMax = Vector2.zero;
-            label.raycastTarget = false;
-            UIF.Style(label, colour, TextAnchor.MiddleCenter);
-            UIF.Shrink(label, 8);
-            label.text = text;
-            return label;
+            return UIF.Label(control, text, colour, TextAnchor.MiddleCenter, 8,
+                             false);
         }
 
         /// <summary>
@@ -1561,13 +1593,7 @@ namespace TimerPlusMod
         /// </summary>
         private static void Grow(GameObject control, Text label)
         {
-            if (control == null || label == null)
-            {
-                return;
-            }
-            Swell swell = control.AddComponent<Swell>();
-            swell.grows = label.transform;
-            swell.grown = 1.12f;
+            UIF.Grow(control, label == null ? null : label.transform);
         }
 
         private Toggle Box(Transform host, float x, float w, int index)
@@ -2711,8 +2737,20 @@ namespace TimerPlusMod
 
         // ---- every frame -----------------------------------------------------
 
+        /// <summary>Whether the board's window has been built ahead of time. The
+        /// biggest single thing this mod builds, and nothing is waiting on it while
+        /// the game is still in its menus.</summary>
+        private bool warmedBoard;
+
         private void Update()
         {
+            if (!warmedBoard && UIF.Available)
+            {
+                // Last of the warming: the board's window, which is the biggest
+                // single thing this mod builds.
+                warmedBoard = true;
+                Editor.Warm();
+            }
             if (!ready)
             {
                 // UI Factory loads its bundle a moment after the mod does, so "not

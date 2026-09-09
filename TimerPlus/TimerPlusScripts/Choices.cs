@@ -9,11 +9,13 @@ namespace TimerPlusMod
     /// <summary>
     /// The list of variable names a cell offers when it is switched to a variable.
     ///
-    /// One list, on the canvas, moved to whatever opened it -- the same
-    /// arrangement as <see cref="Tip"/> and for the same reason: the cell that
+    /// One list, on a canvas of its own, above every window this mod draws -- the
+    /// same arrangement as <see cref="Tip"/> and for the same reason: the cell that
     /// opens it lives inside a scrolling view that clips its rows, and a list
     /// parented into a row would be cut off at the edge of the frame and drawn
-    /// under whichever row came after it.
+    /// under whichever row came after it. Its own canvas rather than whichever
+    /// window opened it, because two of those windows are up at once and a list
+    /// drawn on the lower one disappears behind the higher.
     ///
     /// A variable is only a name typed into a key, so the box is still there to
     /// type into. This is the list of names already in use on the machine, which
@@ -39,28 +41,51 @@ namespace TimerPlusMod
         private static readonly Color RailInk = new Color(1f, 1f, 1f, 0.10f);
         private static readonly Color GripInk = new Color(1f, 1f, 1f, 0.45f);
 
+        /// <summary>Over the board editor and the docked table, under the
+        /// tooltip -- a list is a thing to point at and a tip explains what is
+        /// under the pointer.</summary>
+        private const int CanvasOrder = 2800;
+
         private static RectTransform canvas;
         private static GameObject sheet;      // the catcher behind the list
         private static GameObject list;
         private static Action<string> chosen;
 
-        /// <summary>The canvas the list is drawn on. Set by the panel that builds
-        /// it, like the tooltip's.</summary>
-        public static void Home(RectTransform on)
+        /// <summary>The list's own canvas, built once and kept.</summary>
+        private static bool Homed()
         {
-            if (canvas == on)
+            if (canvas != null)
             {
-                return;
+                return true;
             }
-            Close();
-            canvas = on;
+            try
+            {
+                GameObject host = new GameObject("TimerPlusChoices");
+                UnityEngine.Object.DontDestroyOnLoad(host);
+                Canvas drawn = host.AddComponent<Canvas>();
+                drawn.renderMode = RenderMode.ScreenSpaceOverlay;
+                drawn.sortingOrder = CanvasOrder;
+                CanvasScaler scaler = host.AddComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920f, 1080f);
+                scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+                scaler.matchWidthOrHeight = 1f;
+                host.AddComponent<GraphicRaycaster>();
+                canvas = host.GetComponent<RectTransform>();
+                return true;
+            }
+            catch (Exception e)
+            {
+                Log.Warn("the variable list has nowhere to draw: " + e.Message);
+                return false;
+            }
         }
 
         public static bool Open(RectTransform under, List<string> names,
                                 Action<string> pick)
         {
             Close();
-            if (canvas == null || under == null || names == null || names.Count == 0
+            if (!Homed() || under == null || names == null || names.Count == 0
                 || !UIF.Available)
             {
                 return false;
@@ -119,7 +144,7 @@ namespace TimerPlusMod
                                   Action<string> pick)
         {
             Close();
-            if (canvas == null || names == null || names.Count == 0 || !UIF.Available)
+            if (!Homed() || names == null || names.Count == 0 || !UIF.Available)
             {
                 return false;
             }
@@ -154,6 +179,12 @@ namespace TimerPlusMod
             blank.color = new Color(0f, 0f, 0f, 0f);
             Shut shut = sheet.AddComponent<Shut>();
             shut.enabled = true;
+            // A list is over everything while it is open, so it is over whatever
+            // was holding the game's camera off -- and the wheel went back to
+            // zooming the machine the moment one was opened. It holds the camera
+            // itself instead, for as long as it is up.
+            ZoomGuard guard = sheet.AddComponent<ZoomGuard>();
+            guard.menu = true;
 
             list = new GameObject("Choices");
             list.transform.SetParent(canvas, false);
@@ -217,10 +248,13 @@ namespace TimerPlusMod
                 // ScrollRect.
                 scroll.verticalScrollbarVisibility =
                     ScrollRect.ScrollbarVisibility.Permanent;
-                // The wheel over the list scrolls it and zooms the camera at the
-                // same time until Besiege is told otherwise.
-                list.AddComponent<ZoomGuard>();
             }
+            // The wheel over the list scrolls it and zooms the camera at the same
+            // time until Besiege is told otherwise -- and the list is over the
+            // sheet, so the sheet's own hold is let go of the moment the pointer
+            // reaches the names.
+            ZoomGuard held = list.AddComponent<ZoomGuard>();
+            held.menu = true;
 
             if (atPoint)
             {

@@ -25,6 +25,10 @@ namespace TimerPlusMod
         /// <summary>Right-clicked, with where.</summary>
         public Action<Vector2> Asked;
 
+        /// <summary>Clicked on the empty board, which is what says "none of
+        /// them": a selection is a thing to put down as well as to make.</summary>
+        public Action Emptied;
+
         /// <summary>Dragged with shift held: a rectangle from where the press was
         /// to where the pointer is, and then the same again when it is let go.
         /// </summary>
@@ -95,6 +99,11 @@ namespace TimerPlusMod
             if (click.button == PointerEventData.InputButton.Right && Asked != null)
             {
                 Asked(click.position);
+                return;
+            }
+            if (click.button == PointerEventData.InputButton.Left && Emptied != null)
+            {
+                Emptied();
             }
         }
 

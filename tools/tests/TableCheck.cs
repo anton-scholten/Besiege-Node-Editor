@@ -264,23 +264,24 @@ static class TableCheck
         Same("a name with a space survives a save",
              "door open", Wiring.Load(spaced.Save()).Places[0].Variable);
 
+        // A comment is a line of the layout like anything else, and what it says
+        // may run over several lines of its own.
+        Wiring noted = new Wiring();
+        Place note = new Place();
+        note.Kind = Place.Note;
+        note.X = 12f;
+        note.Y = 34f;
+        note.Words = "two lines\nand a \\ in one";
+        noted.Places.Add(note);
+        Place read = Wiring.Load(noted.Save()).Places[0];
+        Same("a comment comes back whole", "two lines\nand a \\ in one", read.Words);
+        Same("and knows what kind it is", Place.Note.ToString(),
+             read.Kind.ToString());
+        Same("an empty comment is still a comment", "",
+             Wiring.Load(Wiring.Load("n 1 2 w -").Save()).Places[0].Words);
+
         // A row nobody has placed still has somewhere to be drawn.
         Same("an unplaced row is placed", true, back.Spot(7).y > 0f);
-
-        // Two ends standing for the same thing are one end drawn twice.
-        Wiring twice = new Wiring();
-        twice.Places.Add(End(Place.Input, "door", KeyCode.None));
-        twice.Places.Add(End(Place.Input, "door", KeyCode.None));
-        twice.Places.Add(End(Place.Input, null, KeyCode.U));
-        twice.Places.Add(End(Place.Input, null, KeyCode.U));
-        twice.Places.Add(End(Place.Output, "door", KeyCode.None));
-        twice.Places.Add(End(Place.Input, null, KeyCode.None));
-        twice.Places.Add(End(Place.Input, null, KeyCode.None));
-        twice.Places.Add(End(Place.Input, " door ", KeyCode.None));
-        Same("two of each fold into one", "3", twice.Fold().ToString());
-        Same("and the rest stay", "5", twice.Places.Count.ToString());
-        Same("a name with a space round it is the same name", true,
-             End(Place.Input, "door", KeyCode.None).Same(" door", KeyCode.None));
     }
 
     static Place End(int kind, string variable, KeyCode key)

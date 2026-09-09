@@ -62,6 +62,39 @@
 		<Texture name="TimerPlus_hold" path="Hold.png" />
 		<Texture name="TimerPlus_stop" path="Stop.png" />
 		<Texture name="TimerPlus_loop" path="Loop.png" />
+
+		<!-- The node editor's own two: the comment node's picture in its palette,
+		     and the pin that holds the board open once the block's menu has gone.
+		     Same pipeline as the three above. -->
+		<Texture name="TimerPlus_bubble" path="Bubble.png" />
+		<Texture name="TimerPlus_pin" path="Pin.png" />
+
+		<!-- The node editor's drawn glyphs. Every one of them used to be drawn a
+		     pixel at a time when the game first asked for it, which was a stall on
+		     the first block opened; they are made by tools/make-glyphs.py now and
+		     loaded by name in Glyphs.cs. -->
+		<Texture name="TimerPlus_gate_not" path="glyph-not.png" />
+		<Texture name="TimerPlus_gate_and" path="glyph-and.png" />
+		<Texture name="TimerPlus_gate_or" path="glyph-or.png" />
+		<Texture name="TimerPlus_gate_nor" path="glyph-nor.png" />
+		<Texture name="TimerPlus_gate_nand" path="glyph-nand.png" />
+		<Texture name="TimerPlus_gate_xor" path="glyph-xor.png" />
+		<Texture name="TimerPlus_gate_xnor" path="glyph-xnor.png" />
+		<Texture name="TimerPlus_gate_random" path="glyph-random.png" />
+		<Texture name="TimerPlus_gate_srlatch" path="glyph-srlatch.png" />
+		<Texture name="TimerPlus_gate_dlatch" path="glyph-dlatch.png" />
+		<Texture name="TimerPlus_gate_counter" path="glyph-counter.png" />
+		<Texture name="TimerPlus_gate_edge" path="glyph-edge.png" />
+		<Texture name="TimerPlus_ring" path="glyph-ring.png" />
+		<Texture name="TimerPlus_dot" path="glyph-dot.png" />
+		<Texture name="TimerPlus_plate" path="glyph-plate.png" />
+		<Texture name="TimerPlus_arrow" path="glyph-arrow.png" />
+		<Texture name="TimerPlus_resize" path="glyph-resize.png" />
+		<Texture name="TimerPlus_resize2" path="glyph-resize2.png" />
+		<Texture name="TimerPlus_grid" path="glyph-grid.png" />
+		<Texture name="TimerPlus_dash" path="glyph-dash.png" />
+		<Texture name="TimerPlus_dashdown" path="glyph-dashdown.png" />
+		<Texture name="TimerPlus_bars" path="glyph-bars.png" />
 	</Resources>
 
 <!-- This value is automatically generated. Do not change it or you may break machine&level save files. -->

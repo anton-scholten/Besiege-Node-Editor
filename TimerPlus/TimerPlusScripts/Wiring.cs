@@ -19,6 +19,11 @@ namespace TimerPlusMod
         public const int Input = 0;
         public const int Output = 1;
 
+        /// <summary>A comment: a note on the board, wired to nothing. It stands for
+        /// no binding at all, which is why everything that walks the graph passes
+        /// over it.</summary>
+        public const int Note = 2;
+
         public int Kind;
         public float X;
         public float Y;
@@ -27,6 +32,9 @@ namespace TimerPlusMod
         /// <see cref="Variable"/> is null.</summary>
         public string Variable;
         public KeyCode Key = KeyCode.None;
+
+        /// <summary>What a comment says. Empty on everything else.</summary>
+        public string Words;
 
         public bool Bound
         {
@@ -109,41 +117,6 @@ namespace TimerPlusMod
             }
         }
 
-        /// <summary>
-        /// Folds ends that stand for the same thing into one, and says how many
-        /// went.
-        ///
-        /// Two input nodes both bound to `door` are one input drawn twice: they are
-        /// the same variable, and the wires either appeared to have are the same
-        /// binding on the same rows, so removing one leaves every wire where it
-        /// was. Ends with nothing bound are left alone -- two blanks are not two of
-        /// the same thing.
-        /// </summary>
-        public int Fold()
-        {
-            int gone = 0;
-            for (int i = Places.Count - 1; i > 0; i--)
-            {
-                Place mine = Places[i];
-                if (!mine.Bound)
-                {
-                    continue;
-                }
-                for (int j = 0; j < i; j++)
-                {
-                    Place other = Places[j];
-                    if (other.Kind == mine.Kind
-                        && other.Same(mine.Variable, mine.Key))
-                    {
-                        Places.RemoveAt(i);
-                        gone++;
-                        break;
-                    }
-                }
-            }
-            return gone;
-        }
-
         public string Save()
         {
             System.Text.StringBuilder text = new System.Text.StringBuilder();
@@ -156,6 +129,16 @@ namespace TimerPlusMod
             for (int i = 0; i < Places.Count; i++)
             {
                 Place place = Places[i];
+                if (place.Kind == Place.Note)
+                {
+                    // A comment is a line like the rest, with what it says at the
+                    // end of it -- newlines and all, written as `\n` so one comment
+                    // stays one line of the layout.
+                    text.Append("n ").Append(Whole(place.X)).Append(' ')
+                        .Append(Whole(place.Y)).Append(" w ")
+                        .Append(Folded(place.Words)).Append('\n');
+                    continue;
+                }
                 text.Append(place.Kind == Place.Input ? "i " : "o ")
                     .Append(Whole(place.X)).Append(' ')
                     .Append(Whole(place.Y)).Append(' ')
@@ -205,6 +188,15 @@ namespace TimerPlusMod
                     made.Spots[row] = new Vector2(Number(parts[2], 0),
                                                   Number(parts[3], 0));
                 }
+                else if (parts[0] == "n" && parts.Length >= 5)
+                {
+                    Place note = new Place();
+                    note.Kind = Place.Note;
+                    note.X = Number(parts[1], 0);
+                    note.Y = Number(parts[2], 0);
+                    note.Words = Unfolded(Rest(parts, 4));
+                    made.Places.Add(note);
+                }
                 else if ((parts[0] == "i" || parts[0] == "o") && parts.Length >= 5)
                 {
                     Place place = new Place();
@@ -232,6 +224,38 @@ namespace TimerPlusMod
                 }
             }
             return made;
+        }
+
+        /// <summary>A comment as one line: its own backslashes doubled, its
+        /// newlines written as `\n`, and an empty one written as a single dash so
+        /// the line still has a field there to read.</summary>
+        private static string Folded(string words)
+        {
+            if (string.IsNullOrEmpty(words))
+            {
+                return "-";
+            }
+            return words.Replace("\\", "\\\\").Replace("\n", "\\n").Replace("\r", "");
+        }
+
+        private static string Unfolded(string line)
+        {
+            if (string.IsNullOrEmpty(line) || line == "-")
+            {
+                return "";
+            }
+            System.Text.StringBuilder said = new System.Text.StringBuilder();
+            for (int i = 0; i < line.Length; i++)
+            {
+                if (line[i] == '\\' && i + 1 < line.Length)
+                {
+                    i++;
+                    said.Append(line[i] == 'n' ? '\n' : line[i]);
+                    continue;
+                }
+                said.Append(line[i]);
+            }
+            return said.ToString();
         }
 
         /// <summary>Everything from one field to the end of the line, joined back

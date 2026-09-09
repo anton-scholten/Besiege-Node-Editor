@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The three switch-column headings, as textures the mod can load.
+"""The mod's shipped icons, as textures it can load.
 
 The table's H, S and L columns are a picture apiece rather than a letter. The
 artwork in tools/icons is 1000 square, white on transparency, and each glyph
@@ -16,8 +16,9 @@ zlib either way.
 
     python3 tools/make-ui-icons.py
 
-Writes TimerPlus/Resources/{Hold,Stop,Loop}.png, which Mod.xml declares and
-Glyphs.cs loads by name.
+Writes TimerPlus/Resources/{Hold,Stop,Loop,Bubble,Pin}.png, which Mod.xml
+declares and Glyphs.cs loads by name. The last two are the node editor's: the
+comment node's picture in the palette, and the pin that holds the board open.
 """
 
 import os
@@ -30,7 +31,7 @@ REPO = os.path.dirname(HERE)
 SRC = os.path.join(HERE, "icons")
 OUT = os.path.join(REPO, "TimerPlus", "Resources")
 
-NAMES = ("Hold", "Stop", "Loop")
+NAMES = ("Hold", "Stop", "Loop", "Bubble", "Pin")
 
 # What the game is given. Four times the ~20-pixel heading it is drawn in, so it
 # still looks like a picture rather than a smudge on a 4K display.
