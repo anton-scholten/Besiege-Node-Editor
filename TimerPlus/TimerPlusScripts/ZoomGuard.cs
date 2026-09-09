@@ -45,6 +45,38 @@ namespace TimerPlusMod
             }
         }
 
+        /// <summary>
+        /// Takes that hold for the length of a drag, wherever the pointer goes.
+        ///
+        /// A drag that began over this mod's own window carries on when the pointer
+        /// leaves it -- panning the board to its edge and carrying on is exactly
+        /// how -- and the guard above lets go the moment the pointer is outside,
+        /// whereupon Besiege's own camera picks the same drag up and swings the
+        /// view. `MouseOrbit.Update` reads `StatMaster.inMenu` once and skips its
+        /// whole pan-and-orbit block when it is set, so holding it for the drag is
+        /// all it takes.
+        ///
+        /// The caller keeps the flag and hands it back, so a hold cannot be taken
+        /// or given twice; call it from `OnDisable` as well, or a window torn down
+        /// mid-drag leaves the game believing a menu is open.
+        /// </summary>
+        public static bool Grip(bool want, bool have)
+        {
+            if (want == have)
+            {
+                return have;
+            }
+            try
+            {
+                Menu(want);
+            }
+            catch (Exception)
+            {
+                return have;
+            }
+            return want;
+        }
+
         public void OnPointerEnter(PointerEventData pointer) { Hold(true); }
         public void OnPointerExit(PointerEventData pointer) { Hold(false); }
 

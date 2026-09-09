@@ -27,10 +27,15 @@ namespace TimerPlusMod
         private Vector2 last;
         private bool waving;
 
+        /// <summary>Whether the game is being held off for this drag. See
+        /// <see cref="ZoomGuard.Grip"/>.</summary>
+        private bool grip;
+
         public void OnBeginDrag(PointerEventData move)
         {
             waving = move.button == PointerEventData.InputButton.Middle
                   && Panned != null && Where(move, out last);
+            grip = ZoomGuard.Grip(waving, grip);
         }
 
         public void OnDrag(PointerEventData move)
@@ -48,6 +53,13 @@ namespace TimerPlusMod
         public void OnEndDrag(PointerEventData move)
         {
             waving = false;
+            grip = ZoomGuard.Grip(false, grip);
+        }
+
+        private void OnDisable()
+        {
+            waving = false;
+            grip = ZoomGuard.Grip(false, grip);
         }
 
         private bool Where(PointerEventData move, out Vector2 local)

@@ -221,7 +221,9 @@ either — **MUST KEEP AT LEAST ONE GATE**.
 
 The board is about two zoomed-all-the-way-out views across and two down, and that
 is as far as it goes: nodes stop at its edge and so does the view, because a board
-you can pan into for ever is a board with nodes on it nobody can find. It pans by
+you can pan into for ever is a board with nodes on it nobody can find. A thin white
+line draws that edge, and the window opens in the middle of it — on the middle of
+what is drawn, where an older layout put the circuit somewhere else. It pans by
 dragging its empty parts — or with the middle button anywhere,
 node or no node — and zooms with the wheel, over a grid so
 you can see where you are, and the window resizes by its corners — the pointer says
@@ -230,14 +232,18 @@ and the box for what generated wire names start with. TIDY lays the board out �
 inputs down the left, outputs down the right, gates in columns by how far they are
 from an input, each ordered to keep the wires from crossing, the columns evenly
 spaced — the same clear board between every pair of them, whether the columns are
-gates or ends — and every one of them centred on the same line so a column of three and one of five read as one board. It
+gates or ends — every one of them centred on the same line so a column of three and one of five read as one board, and the
+whole of it put in the middle of the board, which is where the window opens. It
 moves things and removes nothing: an end with no wires on it is one you are about
 to wire, and the red cross is how a node goes. A board opened for the first time
 arrives laid out the same way.
 
 A gate holds no key and no name of its own. It answers to a hidden name the board
-mints for it the moment it exists, and every wire out of it carries that name — so
-a gate is wired by drawing wires and by nothing else. Keys and variables live on
+mints for it — when you put it on the board, or, for a row added in the table with
+nothing in it, the moment you draw the first wire out of it — and every wire out of
+it carries that name, so a gate is wired by drawing wires and by nothing else. A
+gate nothing is wired to answers to nothing at all, which is the honest state for
+it and the one an undo puts it back to. Keys and variables live on
 the two ends: what comes in from the machine on an input, and what the machine
 gets back on an output. An output takes as many wires as you like, and any one of
 them raising its own hidden name raises the key or variable on the output.
@@ -277,20 +283,33 @@ says **HAS TO CONNECT TO AN INPUT**. Both leave the board as it was.
 
 A click on a port never takes a wire off — that is a drag, and the wire has to
 come at least its own width off the port before it lets go, so a click that wobbles
-changes nothing. A port that holds one wire hands it over when you drag it: the
-wire comes off there and then, its loose end follows the
-pointer in the live colour, and where you let go decides — on another port it goes
-there, on nothing it stays off.
+changes nothing. A port that holds one wire hands it over when you drag it: its
+loose end follows the pointer in the live colour, and where you let go decides — on
+another port it goes there, on nothing it comes off, and back on the port it came
+from it stays exactly as it was. Nothing is written until you let go, so a drag you
+think better of costs nothing and leaves no step on the undo.
 
-A port that feeds several is a different question, and it is answered a little way
-out rather than at once: every wire leaves the port at the same point, so within a
-few pixels of it they are all equally near and picking one would be a toss-up. Drag
-out and whichever wire you have followed by the time you are clear of the port is
-the one in your hand; stray far off it after that and it becomes a new wire being
-drawn, and it stays a new one — passing near another wire does not swap what you
-are holding. Letting go of a new one over nothing leaves the board exactly as it
-was, and a wire in hand that is let go anywhere near a port goes onto it — twice a
-port's width of forgiveness, so putting one back where it came from takes no aim.
+A port that holds several is a different question, and it is asked again every
+frame of the drag: whichever of that port's wires the pointer is near is the one
+drawn in your hand, and if it is near none of them a new wire is drawn instead.
+Both ends work that way — an answer feeding four gates, and an output end that four
+gates press, which is the same handful of wires seen from the other side.
+Leave one wire for another and the board says so while you are still dragging. The
+only pause is at the port itself — every wire leaves it at the same point, so
+within a few pixels they are all equally near and nothing is picked up until you
+are clear of it. Letting go of a new wire over nothing leaves the board exactly as
+it was, and a wire in hand that is let go anywhere near a port goes onto it — twice
+a port's width of forgiveness, so putting one back where it came from takes no aim.
+Every one of those distances is measured as the hand sees it, not as the board
+does, so zooming out does not shrink them.
+
+Where you let go decides, and the wire in your hand is the only one it can touch.
+Let go on a free port and that wire goes there; on nothing, it comes off; on the
+port it came from — either end of it — nothing happens at all, which is how a drag
+you think better of costs nothing. A drop never cuts a wire you were not holding.
+So one wire is picked out of a handful by taking hold of it and dragging it off,
+and while you are dragging, bringing the pointer back onto the far end of one of
+that port's wires takes hold of *that* one, whatever the lines nearby say.
 An input takes one wire and an answer feeds as many as you like, which is
 what a gate can mean.
 

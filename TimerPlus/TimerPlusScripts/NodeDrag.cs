@@ -69,6 +69,19 @@ namespace TimerPlusMod
             {
                 Carrying(move.position);
             }
+            // The game is held off for the length of the drag, wherever the pointer
+            // wanders: a node dragged to the edge of the window takes the board with
+            // it, and the pointer is outside by then.
+            grip = ZoomGuard.Grip(holding || Carried != null, grip);
+        }
+
+        /// <summary>Whether the game is being held off for this drag.</summary>
+        private bool grip;
+
+        private void OnDisable()
+        {
+            holding = false;
+            grip = ZoomGuard.Grip(false, grip);
         }
 
         public void OnDrag(PointerEventData move)
@@ -97,6 +110,7 @@ namespace TimerPlusMod
         public void OnEndDrag(PointerEventData move)
         {
             holding = false;
+            grip = ZoomGuard.Grip(false, grip);
             if (Carried != null)
             {
                 Carried(move.position);

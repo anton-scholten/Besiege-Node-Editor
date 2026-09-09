@@ -53,7 +53,14 @@ namespace TimerPlusMod
                 Local(move, out last);
             }
             pressed = last;
+            // For as long as the drag lasts, whether or not the pointer stays over
+            // the window: a marquee or a pan carried past the edge is still this
+            // window's drag, and the game would otherwise take it up as its own.
+            grip = ZoomGuard.Grip(boxing || holding, grip);
         }
+
+        /// <summary>Whether the game is being held off for this drag.</summary>
+        private bool grip;
 
         public void OnDrag(PointerEventData move)
         {
@@ -91,6 +98,14 @@ namespace TimerPlusMod
             }
             boxing = false;
             holding = false;
+            grip = ZoomGuard.Grip(false, grip);
+        }
+
+        private void OnDisable()
+        {
+            boxing = false;
+            holding = false;
+            grip = ZoomGuard.Grip(false, grip);
         }
 
         public void OnScroll(PointerEventData move)
