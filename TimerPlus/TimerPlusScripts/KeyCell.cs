@@ -269,6 +269,25 @@ namespace TimerPlusMod
             Paint();
         }
 
+        /// <summary>
+        /// Shows a binding that is not a mapper key at all.
+        ///
+        /// The node editor's ends of the board are a name or a keycode written into
+        /// the block's layout rather than into an `MKey`, and a cell is how anybody
+        /// would want to edit one.
+        /// </summary>
+        public void Load(string named, KeyCode code)
+        {
+            if (listening || (box != null && box.isFocused))
+            {
+                return;
+            }
+            variable = named != null;
+            Variable = named;
+            Code = named != null ? KeyCode.None : code;
+            Paint();
+        }
+
         public bool Listening { get { return listening; } }
 
         private void Paint()
@@ -423,6 +442,14 @@ namespace TimerPlusMod
 
         private void Update()
         {
+            // The mapper's own key selector has to have been built once for its
+            // artwork to exist, and a cell made before that keeps its lettering
+            // until something repaints it. Nothing does, in a window that is not
+            // the mapper -- so it is asked for again here until it turns up.
+            if (modeIcon == null && MapperArt.Ready)
+            {
+                Paint();
+            }
             if (swallow)
             {
                 bool down = Input.GetMouseButton(0) || Input.GetMouseButton(1)
@@ -487,6 +514,11 @@ namespace TimerPlusMod
         /// dropped exactly once -- including when the panel is torn down with a
         /// cell still listening, which is the usual way to leave the game believing
         /// a menu is open.
+        ///
+        /// Through <see cref="ZoomGuard.Menu"/> rather than straight to
+        /// `StatMaster`, so the count stays this mod's own: the node editor closes
+        /// when a menu that is not ours goes up, and a cell listening for a key is
+        /// ours.
         /// </summary>
         private void Hold(bool on)
         {
@@ -496,7 +528,7 @@ namespace TimerPlusMod
             }
             try
             {
-                StatMaster.SetInMenu(on);
+                ZoomGuard.Menu(on);
                 held = on;
             }
             catch (Exception)

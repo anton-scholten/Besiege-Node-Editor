@@ -36,13 +36,59 @@ namespace TimerPlusMod
 
         public const int Count = 12;
 
-        /// <summary>What each gate is called in the table. Besiege's own menu is
-        /// translated; these are the names the wiring diagrams use.</summary>
-        public static readonly string[] Names =
+        /// <summary>
+        /// What Besiege calls each gate, in the order its own menu lists them --
+        /// which is the order of `GateType`, because the block casts the menu's
+        /// value straight to the enum.
+        ///
+        /// The words are the game's, looked up by the same translation ids
+        /// `LogicGate.Awake` builds its menu from, so a table and the block it
+        /// stands in for say the same thing in the same language. The list below is
+        /// the fallback for when that lookup is not available.
+        /// </summary>
+        private static readonly int[] Ids =
+        {
+            3811, 3810, 3812, 3813, 3816, 3814, 3815, 4253, 4246, 4247, 4248, 4595
+        };
+
+        private static readonly string[] Spelled =
         {
             "NOT", "AND", "OR", "NOR", "NAND", "XOR", "XNOR",
             "RANDOM", "SR LATCH", "D LATCH", "COUNTER", "EDGE"
         };
+
+        private static string[] names;
+
+        public static string[] Names
+        {
+            get
+            {
+                if (names != null)
+                {
+                    return names;
+                }
+                names = new string[Ids.Length];
+                for (int i = 0; i < Ids.Length; i++)
+                {
+                    names[i] = Spelled[i];
+                    try
+                    {
+                        string said = Localisation.LocalisationManager
+                            .GetTranslation(Ids[i]);
+                        if (!string.IsNullOrEmpty(said))
+                        {
+                            names[i] = said.ToUpperInvariant();
+                        }
+                    }
+                    catch (System.Exception)
+                    {
+                        // The game's own words are a nicety; the list above is
+                        // what the gates are called either way.
+                    }
+                }
+                return names;
+            }
+        }
 
         /// <summary>
         /// Whether a gate reads its second input at all.

@@ -22,6 +22,20 @@
 	back to Besiege's own block mapper.
 	</Description>
 
+	<!-- The node editor's own hotkeys. Declared here so Besiege puts them in its
+	     controls screen and the player can rebind them like any other.
+
+	     The modifier is the 1 key rather than Control on purpose: Besiege's own
+	     copy, paste, undo and redo are Ctrl+C, V, Z and Y, the game gets the
+	     keyboard at the same time this does, and a board paste that also
+	     duplicated the block under it is not a paste anybody asked for. -->
+	<Keys>
+		<Key name="board-copy" defaultModifier="Alpha1" defaultTrigger="C" />
+		<Key name="board-paste" defaultModifier="Alpha1" defaultTrigger="V" />
+		<Key name="board-undo" defaultModifier="Alpha1" defaultTrigger="Z" />
+		<Key name="board-redo" defaultModifier="Alpha1" defaultTrigger="Y" />
+	</Keys>
+
 	<Icon name="TimerPlus_icon" />
 	<Debug>false</Debug>
 	<MultiplayerCompatible>true</MultiplayerCompatible>

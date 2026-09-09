@@ -158,6 +158,45 @@ namespace TimerPlusMod
         /// table, and until the panel can draw one the Logic Gate Plus block keeps
         /// its controls in the mapper where they can at least be reached.
         /// </summary>
+        /// <summary>
+        /// The table this panel is drawing changed shape somewhere else -- the node
+        /// editor added or deleted a row -- so it has to be built again.
+        ///
+        /// Static because the editor has no reference to the panel and there is
+        /// only ever one of it.
+        /// </summary>
+        public static void Restack()
+        {
+            if (only != null)
+            {
+                only.Refresh();
+            }
+        }
+
+        private static Panel only;
+
+        private void Refresh()
+        {
+            if (window == null || !window.activeSelf)
+            {
+                return;
+            }
+            Rebuild();
+        }
+
+        /// <summary>
+        /// The values changed somewhere else -- the node editor rebinding a key,
+        /// or an undo -- but the table is the same shape, so the cells only have to
+        /// be written again.
+        /// </summary>
+        public static void Refill()
+        {
+            if (only != null && only.window != null && only.window.activeSelf)
+            {
+                only.Fill();
+            }
+        }
+
         public static bool Serving(MonoBehaviour block)
         {
             return Usable;
@@ -283,6 +322,11 @@ namespace TimerPlusMod
         private bool sortAscending = true;
 
         // ---- lifecycle -------------------------------------------------------
+
+        private void Awake()
+        {
+            only = this;
+        }
 
         private void Start()
         {
@@ -430,6 +474,7 @@ namespace TimerPlusMod
             }
 
             Usable = true;
+            Claim();
             logic.ShowStock(false);
             window.SetActive(true);
             Unflash();
@@ -469,6 +514,7 @@ namespace TimerPlusMod
             }
 
             Usable = true;
+            Claim();
             served.ShowStock(false);
             window.SetActive(true);
             // Whatever the last visit was told is not news about this one.
@@ -479,12 +525,34 @@ namespace TimerPlusMod
             Curtain(true);
         }
 
+        /// <summary>
+        /// Takes the shared tooltip and the shared list, which belong to whichever
+        /// window was opened last.
+        ///
+        /// Claimed on opening rather than every frame: the board editor claims them
+        /// the same way, and two windows both claiming every frame would tear the
+        /// tooltip down and build it again for as long as both were up.
+        /// </summary>
+        private void Claim()
+        {
+            if (canvas == null)
+            {
+                return;
+            }
+            RectTransform home = canvas.GetComponent<RectTransform>();
+            Tip.Tips.Home(home);
+            Choices.Home(home);
+        }
+
         private void Hide()
         {
             if (window != null)
             {
                 window.SetActive(false);
             }
+            // A tip belongs to what it explains, and what it explained is gone.
+            Tip.Tips.Hide();
+            Choices.Close();
             CommitPending();
         }
 
@@ -776,6 +844,7 @@ namespace TimerPlusMod
             plusLabel = null;
             convertLabel = null;
             pinBox = null;
+            boardBox = null;
             flashing = null;
             for (int i = 0; i < marks.Length; i++)
             {
@@ -1315,12 +1384,17 @@ namespace TimerPlusMod
 
         /// <summary>How much of the bottom row the pin switch takes, the convert
         /// button having the rest.</summary>
-        private const float PinShare = 0.25f;
+        private const float PinShare = 0.26f;
+
+        /// <summary>And how much the button that opens the node editor takes. Only
+        /// the logic table has one: a timer is not a circuit.</summary>
+        private const float BoardShare = 0.28f;
 
         private float Footer(float y)
         {
             float tall = RowHeight + 4f;
             float pinWide = Wide * PinShare;
+            float boardWide = Gated ? Wide * BoardShare : 0f;
 
             // The switch first, on the left, because it is a thing the convert
             // button does rather than a thing of its own.
@@ -1339,11 +1413,30 @@ namespace TimerPlusMod
                 }
             }
 
+            if (Gated)
+            {
+                // A switch rather than a button: it says whether the editor is up,
+                // and it is the same click either way.
+                GameObject board = UIF.Spawn(UIF.TogglePrefab, fixedStrip);
+                if (board != null)
+                {
+                    UIF.Fit(board.GetComponent<RectTransform>(), Edge + pinWide, y,
+                            boardWide - ColGap, tall);
+                    UIF.NoSwell(board);
+                    Grow(board, Pin(board, "NODE EDITOR", UIF.Ink));
+                    boardBox = board.GetComponent<Toggle>();
+                    if (boardBox != null)
+                    {
+                        boardBox.onValueChanged.AddListener(OpenBoard);
+                    }
+                }
+            }
+
             GameObject go = UIF.Spawn(UIF.ButtonPrefab, fixedStrip);
             if (go != null)
             {
-                UIF.Fit(go.GetComponent<RectTransform>(), Edge + pinWide, y,
-                        Wide - pinWide, tall);
+                UIF.Fit(go.GetComponent<RectTransform>(), Edge + pinWide + boardWide,
+                        y, Wide - pinWide - boardWide, tall);
                 UIF.NoSwell(go);
                 convertLabel = Pin(go, Gated ? "CONVERT TO LOGIC GATES"
                                              : "CONVERT TO TIMER BLOCKS", UIF.Ink);
@@ -1359,6 +1452,40 @@ namespace TimerPlusMod
 
         /// <summary>The pin switch, and what it is set to now.</summary>
         private Toggle pinBox;
+
+        /// <summary>The switch that opens the node editor on the table being
+        /// drawn: the same rows, seen as a circuit.</summary>
+        private Toggle boardBox;
+
+        private void OpenBoard(bool on)
+        {
+            if (filling || logic == null)
+            {
+                return;
+            }
+            Editor.Toggle(logic);
+        }
+
+        /// <summary>
+        /// Keeps the switch showing whether the editor is actually up: it can be
+        /// closed by its own cross or by Escape, and a switch that said otherwise
+        /// would need clicking twice.
+        /// </summary>
+        private void Watching()
+        {
+            if (boardBox == null || logic == null)
+            {
+                return;
+            }
+            bool up = Editor.Showing(logic);
+            if (boardBox.isOn == up)
+            {
+                return;
+            }
+            filling = true;
+            boardBox.isOn = up;
+            filling = false;
+        }
 
         private void Pinning(bool on)
         {
@@ -2703,6 +2830,7 @@ namespace TimerPlusMod
             // the list is asked for.
             Reach();
             Keyboard();
+            Watching();
             Dock();
             Curtain(false);
         }

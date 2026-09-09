@@ -39,9 +39,9 @@
 	<Texture name="LogicGatePlus_texture" />
 
 	<Icon>
-		<Position x="0.0" y="0.0" z="-1.5" /> <!--right, up, front-->
-		<Rotation x="-83.0" y="-45.0" z="0.0" /> <!--the angle the block is seen at in the build area: standing upright, turned to show its left side, tipped a few degrees back, so it reclines rather than leans out of the tile. Measured against the block in the build area: same proportions of display to body, same side face, same lean. x is what leans the block in the tile, so it stays near -90. Drawn by tools/make-block-mesh.py-->
-		<Scale x="0.45" y="0.45" z="0.45" /> <!--the block is tall for its width, so three-quarters overflowed the toolbar tile-->
+		<Position x="0.05" y="0.0" z="-1.5" /> <!--right, up, front-->
+		<Rotation x="-100.0" y="-35.0" z="0.0" /> <!--the angle the block is seen at in the build area: standing upright, turned to show its left side, tipped a few degrees back, so it reclines rather than leans out of the tile. Measured against the block in the build area: same proportions of display to body, same side face, same lean. x is what leans the block in the tile, so it stays near -90. Drawn by tools/make-block-mesh.py-->
+		<Scale x="0.35" y="0.35" z="0.35" /> <!--the block is tall for its width, so three-quarters overflowed the toolbar tile-->
 	</Icon>
 
 	<FireInteraction burnDuration="5" igniteOnStart="false">

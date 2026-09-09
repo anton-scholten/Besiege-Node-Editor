@@ -42,6 +42,7 @@ static class TableCheck
         Counting();
         Edges();
         GateSorting();
+        Boards();
 
         if (bad > 0)
         {
@@ -219,6 +220,76 @@ static class TableCheck
         Same("gates sort by the game's own order", true,
              LogicTable.Compare(b, a, true) < 0);
         Same("and reverse", true, LogicTable.Compare(b, a, false) > 0);
+    }
+
+    /// <summary>
+    /// A board's layout saves and loads: where the rows sit, and the two ends that
+    /// are not rows. The wires themselves are not in it -- they are the rows' own
+    /// bindings -- which is the point of the format.
+    /// </summary>
+    static void Boards()
+    {
+        Wiring board = new Wiring();
+        board.Put(0, new UnityEngine.Vector2(40f, 60f));
+        board.Put(2, new UnityEngine.Vector2(300f, 20f));
+        Place input = new Place();
+        input.Kind = Place.Input;
+        input.X = 10f;
+        input.Y = 10f;
+        input.Variable = "door";
+        board.Places.Add(input);
+        Place output = new Place();
+        output.Kind = Place.Output;
+        output.X = 500f;
+        output.Y = 30f;
+        output.Key = KeyCode.M;
+        board.Places.Add(output);
+
+        Wiring back = Wiring.Load(board.Save());
+        Same("a row keeps its place", "40,60",
+             (int)back.Spot(0).x + "," + (int)back.Spot(0).y);
+        Same("and a row after a gap", "300,20",
+             (int)back.Spot(2).x + "," + (int)back.Spot(2).y);
+        Same("both ends come back", "2", back.Places.Count.ToString());
+        Same("a named end", "door", back.Places[0].Variable);
+        Same("and a keyed one", "M", back.Places[1].Key.ToString());
+        Same("an end knows what it stands for", true,
+             back.Places[0].Same("door", KeyCode.None));
+
+        // A name with a space in it is one name, not the first word of one: the
+        // derivation makes a fresh end for any binding it cannot find, so a name
+        // that came back short bred a duplicate on every load.
+        Wiring spaced = new Wiring();
+        spaced.Places.Add(End(Place.Input, "door open", KeyCode.None));
+        Same("a name with a space survives a save",
+             "door open", Wiring.Load(spaced.Save()).Places[0].Variable);
+
+        // A row nobody has placed still has somewhere to be drawn.
+        Same("an unplaced row is placed", true, back.Spot(7).y > 0f);
+
+        // Two ends standing for the same thing are one end drawn twice.
+        Wiring twice = new Wiring();
+        twice.Places.Add(End(Place.Input, "door", KeyCode.None));
+        twice.Places.Add(End(Place.Input, "door", KeyCode.None));
+        twice.Places.Add(End(Place.Input, null, KeyCode.U));
+        twice.Places.Add(End(Place.Input, null, KeyCode.U));
+        twice.Places.Add(End(Place.Output, "door", KeyCode.None));
+        twice.Places.Add(End(Place.Input, null, KeyCode.None));
+        twice.Places.Add(End(Place.Input, null, KeyCode.None));
+        twice.Places.Add(End(Place.Input, " door ", KeyCode.None));
+        Same("two of each fold into one", "3", twice.Fold().ToString());
+        Same("and the rest stay", "5", twice.Places.Count.ToString());
+        Same("a name with a space round it is the same name", true,
+             End(Place.Input, "door", KeyCode.None).Same(" door", KeyCode.None));
+    }
+
+    static Place End(int kind, string variable, KeyCode key)
+    {
+        Place place = new Place();
+        place.Kind = kind;
+        place.Variable = variable;
+        place.Key = key;
+        return place;
     }
 
     /// <summary>What a cell shows for a keycode. These are read at a glance in a

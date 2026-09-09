@@ -68,7 +68,7 @@ namespace TimerPlusMod
             try
             {
                 chosen = pick;
-                Build(under, names);
+                Build(under, names, Vector2.zero, false);
                 return true;
             }
             catch (Exception e)
@@ -113,7 +113,32 @@ namespace TimerPlusMod
             sheet = null;
         }
 
-        private static void Build(RectTransform under, List<string> names)
+        /// <summary>The same list, opened at a point rather than under a control:
+        /// a menu asked for by a right-click belongs where the click was.</summary>
+        public static bool OpenAt(Vector2 screen, List<string> names,
+                                  Action<string> pick)
+        {
+            Close();
+            if (canvas == null || names == null || names.Count == 0 || !UIF.Available)
+            {
+                return false;
+            }
+            try
+            {
+                chosen = pick;
+                Build(null, names, screen, true);
+                return true;
+            }
+            catch (Exception e)
+            {
+                Log.Warn("could not offer the list: " + e.Message);
+                Close();
+                return false;
+            }
+        }
+
+        private static void Build(RectTransform under, List<string> names,
+                                  Vector2 screen, bool atPoint)
         {
             // Anything clicked outside the list closes it. A sheet over the whole
             // canvas, under the list itself: uGUI raycasts the last sibling first,
@@ -144,7 +169,7 @@ namespace TimerPlusMod
             bool scrolls = names.Count > shown;
             // The bar is added to the width rather than taken out of it, so a list
             // that scrolls shows its names at the same width as one that does not.
-            float wide = Mathf.Max(MinWidth, under.rect.width)
+            float wide = Mathf.Max(MinWidth, atPoint ? MinWidth : under.rect.width)
                        + (scrolls ? BarWidth + Pad : 0f);
             float tall = shown * RowHeight + Pad * 2f;
             frame.sizeDelta = new Vector2(wide, tall);
@@ -197,7 +222,14 @@ namespace TimerPlusMod
                 list.AddComponent<ZoomGuard>();
             }
 
-            Place(frame, under, tall);
+            if (atPoint)
+            {
+                Point(frame, screen, tall);
+            }
+            else
+            {
+                Place(frame, under, tall);
+            }
         }
 
         /// <summary>
@@ -300,6 +332,26 @@ namespace TimerPlusMod
         /// Through screen space, because the cell is several parents deep inside a
         /// scrolling view and the canvas is not an ancestor worth walking to.
         /// </summary>
+        /// <summary>At the pointer, with its top-left corner on it, kept on
+        /// screen.</summary>
+        private static void Point(RectTransform frame, Vector2 screen, float tall)
+        {
+            Vector2 local;
+            if (!Local(screen, out local))
+            {
+                return;
+            }
+            Vector2 room = canvas.rect.size;
+            float wide = frame.sizeDelta.x;
+            float x = Mathf.Clamp(local.x + wide * 0.5f,
+                                  -room.x * 0.5f + wide * 0.5f,
+                                  room.x * 0.5f - wide * 0.5f);
+            float y = Mathf.Clamp(local.y - tall * 0.5f,
+                                  -room.y * 0.5f + tall * 0.5f,
+                                  room.y * 0.5f - tall * 0.5f);
+            frame.anchoredPosition = new Vector2(x, y);
+        }
+
         private static void Place(RectTransform frame, RectTransform under, float tall)
         {
             Vector3[] corners = new Vector3[4];
@@ -325,7 +377,12 @@ namespace TimerPlusMod
 
         private static bool Local(Vector3 world, out Vector2 local)
         {
-            Vector2 screen = RectTransformUtility.WorldToScreenPoint(null, world);
+            return Local(RectTransformUtility.WorldToScreenPoint(null, world),
+                         out local);
+        }
+
+        private static bool Local(Vector2 screen, out Vector2 local)
+        {
             return RectTransformUtility.ScreenPointToLocalPointInRectangle(
                 canvas, screen, null, out local);
         }

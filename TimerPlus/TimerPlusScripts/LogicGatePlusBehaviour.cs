@@ -38,6 +38,14 @@ namespace TimerPlusMod
         /// See <see cref="TimerPlusBehaviour.PinControl"/>.</summary>
         private MToggle pinBlocks;
 
+        /// <summary>Where the node editor puts things: the rows' places on the
+        /// board, and the input and output nodes, which are not rows. A control
+        /// like everything else, so a board is saved with the machine.</summary>
+        private MText layout;
+
+        /// <summary>What generated wire names start with.</summary>
+        private MText prefix;
+
         private readonly List<LogicRow> rows = new List<LogicRow>();
 
         /// <summary>Every input key this block owns, which is what Besiege is
@@ -51,6 +59,38 @@ namespace TimerPlusMod
         public MSlider CountControl { get { return rowCount; } }
 
         public MToggle PinControl { get { return pinBlocks; } }
+
+        public MText LayoutControl { get { return layout; } }
+
+        public MText PrefixControl { get { return prefix; } }
+
+        /// <summary>
+        /// What generated wire names start with: whatever was typed, or something
+        /// made from the block's own number.
+        ///
+        /// A wire name is a machine-wide thing -- anything on the machine can read
+        /// it -- so a name that says what the block is for beats one that says
+        /// which object it happens to be.
+        /// </summary>
+        public string Prefix
+        {
+            get
+            {
+                string typed = prefix == null ? "" : prefix.Value;
+                if (!string.IsNullOrEmpty(typed))
+                {
+                    return typed;
+                }
+                return "gate" + (Mathf.Abs(GetInstanceID()) % 1000) + "_";
+            }
+            set
+            {
+                if (prefix != null)
+                {
+                    prefix.Value = value == null ? "" : value.Trim();
+                }
+            }
+        }
 
         public bool Pins { get { return pinBlocks != null && pinBlocks.IsActive; } }
 
@@ -81,6 +121,13 @@ namespace TimerPlusMod
             Skins.Hide(BlockBehaviour);
 
             pinBlocks = AddToggle("Pin blocks", "PinKey", true);
+
+            // Both are edited in the node editor rather than the mapper: a board is
+            // not something to type into a text box.
+            layout = BlockBehaviour.AddText("Layout", "LayoutKey", "");
+            layout.DisplayInMapper = false;
+            prefix = BlockBehaviour.AddText("Prefix", "PrefixKey", "");
+            prefix.DisplayInMapper = false;
 
             int wanted = Module == null ? 3 : Module.Rows;
             rowCount = BlockBehaviour.AddSlider("Rows", "RowsKey",

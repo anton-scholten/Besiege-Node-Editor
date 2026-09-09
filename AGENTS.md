@@ -114,7 +114,34 @@ What depends on what:
 - **`Table`** lifts rows out of their controls as `RowData` so they can be sorted
   and deleted — a row *is* its controls, and reordering rows means moving values
   between them.
-- **`Panel`** serves *both* blocks: `served` or `logic` is set, never both, and
+- **`Editor`** and **`Wiring`** are the node editor: the logic table's own rows,
+  drawn as a circuit. **There is no graph stored anywhere** -- a gate node is a row,
+  and a wire is a row's input bound to the variable another row's answer goes out
+  under, so the board is derived from the table on every redraw and an edit on
+  either side is an edit to the same thing. `Wiring` holds only what the table has
+  nowhere to put: where each row sits, and the input and output nodes, saved as
+  text in the block's `LayoutKey`. That text is the whole of the layout format, so
+  the value of a line is everything to the end of it -- a name with a space in it
+  read as one word bred a duplicate end on every load. An edit is applied with
+  `MapperType.ApplyValue` and filed as **one** step of Besiege's undo with
+  `UndoSystem.EditBlock`, which carries the block's entire state either side: one
+  press puts every row, binding and position back. `BlockMapper.OnEditField` is
+  kept for the multiplayer path only -- it files a step per control, and a gesture
+  here touches several. `BlockInfo.FromBlockBehaviour` hands back the block's last
+  saved state, so `OnSave` runs before each snapshot or the pair is stale. The
+  editor's hotkeys are declared in `Mod.xml` under `<Keys>` and read through
+  `Modding.ModKeys`, which is what puts them in Besiege's own controls screen;
+  their modifier is the 1 key, because the game's own copy, paste, undo and redo
+  are on Control and it hears the keyboard at the same time this does.
+  The gate names and their order are Besiege's own: `LogicGate.Awake` builds its
+  menu from twelve translation ids and casts the menu's value straight to
+  `GateType`, so index *is* the enum, and `Gates.Names` looks those ids up through
+  `LocalisationManager.GetTranslation`. The gate symbols and the port circles are
+  drawn in `Glyphs`, like the arrow and the bars. The editor's window is laid out
+  by `Arrange` from one `size` field, so the corners can resize it; the nodes and
+  wires hang on a `content` rect that is panned and scaled, and the board itself
+  stays put and clips.
+- **`Panel`** serves *both* table blocks: `served` or `logic` is set, never both, and
   only the columns differ -- the window, docking, frame, strip, scrollbar, curtain
   and tooltips are shared. `StandOff` switches the panel's `GraphicRaycaster` off
   for the length of any drag that did not begin on the window: Besiege drags its

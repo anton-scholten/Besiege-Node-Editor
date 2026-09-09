@@ -116,6 +116,30 @@ namespace TimerPlusMod
         }
 
         /// <summary>
+        /// A keycode back from the name Unity gives it, or None.
+        ///
+        /// `Enum.Parse` is reflection and one mention of `System.Reflection` has
+        /// the loader refuse the whole assembly, so the list this mod already
+        /// builds for capture is walked instead. It holds every key a cell will
+        /// bind, which is every key this can be asked about.
+        /// </summary>
+        public static KeyCode Parse(string name)
+        {
+            if (string.IsNullOrEmpty(name))
+            {
+                return KeyCode.None;
+            }
+            for (int i = 0; i < Bindable.Length; i++)
+            {
+                if (Bindable[i].ToString() == name)
+                {
+                    return Bindable[i];
+                }
+            }
+            return KeyCode.None;
+        }
+
+        /// <summary>
         /// A keycode as a cell shows it: Unity's own name, shortened where its
         /// spelling is longer than the column. `Alpha4` is `4` and `LeftShift` is
         /// `LShift`, which is what a player calls them.

@@ -110,6 +110,16 @@ namespace TimerPlusMod
         /// over the right control.</summary>
         public static class Tips
         {
+            /// <summary>
+            /// The tooltip's own canvas, above every window this mod draws.
+            ///
+            /// It used to live on whichever window claimed it last, which put it
+            /// under any window drawn over that one -- a tip from the block panel
+            /// appearing behind the board editor. A canvas of its own, sorted above
+            /// both, cannot be behind anything of ours.
+            /// </summary>
+            private static Canvas own;
+
             private static RectTransform canvas;
             private static RectTransform panel;
             private static Text label;
@@ -124,26 +134,70 @@ namespace TimerPlusMod
             // The tooltip's own shape, taken from the sibling Clippy mod so the two
             // read as the same interface: sixteen point, capitals, air either side,
             // and a line that wraps rather than a panel that runs off the screen.
-            private const int FontSize = 16;
-            private const float Padding = 16f;
-            private const float MaxWidth = 380f;
+            private const int FontSize = 15;
+
+            /// <summary>Air either side of the words. Tight: a tooltip is read at a
+            /// glance and a wide one covers what it explains.</summary>
+            private const float Padding = 8f;
+            private const float MaxWidth = 340f;
 
             /// <summary>The canvas every tooltip is drawn on. Set once, by the
             /// panel that builds it.</summary>
+            /// <summary>
+            /// The canvas tooltips are drawn on. Made here rather than borrowed:
+            /// see <see cref="own"/>. The argument is kept for the caller that
+            /// wants its own home, and ignored while ours exists.
+            /// </summary>
             public static void Home(RectTransform on)
             {
+                Mine();
+                if (canvas != null)
+                {
+                    return;
+                }
                 if (canvas == on)
                 {
                     return;
                 }
                 canvas = on;
-                // Its home changed, so whatever was built for the old one is gone
-                // with it.
+                // Its home changed, so the panel built on the old one is taken
+                // down rather than dropped: the old canvas is still there, and a
+                // tooltip left showing on it stays on screen for good.
+                if (panel != null)
+                {
+                    panel.gameObject.SetActive(false);
+                    Destroy(panel.gameObject);
+                }
+                showing = null;
                 panel = null;
                 label = null;
                 triangle = null;
                 cap = null;
                 glide = null;
+            }
+
+            /// <summary>Over everything else of ours: the panel is 2400 and the
+            /// board editor 2500, and uGUI's own Dropdown canvas is 30000.</summary>
+            private const int Order = 2900;
+
+            private static void Mine()
+            {
+                if (own != null)
+                {
+                    return;
+                }
+                GameObject go = new GameObject("TipCanvas");
+                UnityEngine.Object.DontDestroyOnLoad(go);
+                own = go.AddComponent<Canvas>();
+                own.renderMode = RenderMode.ScreenSpaceOverlay;
+                own.sortingOrder = Order;
+                CanvasScaler scaler = go.AddComponent<CanvasScaler>();
+                scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+                scaler.referenceResolution = new Vector2(1920f, 1080f);
+                scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+                scaler.matchWidthOrHeight = 1f;
+                // Nothing on it answers the pointer, so it needs no raycaster.
+                canvas = go.GetComponent<RectTransform>();
             }
 
             public static void Hide()

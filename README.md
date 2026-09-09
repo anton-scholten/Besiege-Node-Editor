@@ -181,6 +181,67 @@ One deliberate difference: no burnout. Besiege can burn a gate out for pulsing t
 fast, because a gate is a thing on the machine that can be broken; a row of a table
 is not one.
 
+## The node editor
+
+The same rows, seen as a circuit. **NODE EDITOR**, between PIN BLOCKS and the
+convert button, opens a window of its own — not docked to the mapper, so it stays
+up while you work on the machine.
+
+A gate node *is* a row of the table, and a wire *is* a row's input carrying the
+name another row's answer goes out under. So the two are never out of step:
+wire two gates together on the board and the table shows the variable; type that
+variable into the table and the wire appears on the board.
+
+| Node | What it is |
+| --- | --- |
+| **INPUT** | A key or a variable coming in. Wire it to as many gates as you like |
+| a gate | One row: its symbol, its switch where the gate has one, and the name its answer goes out under |
+| **OUTPUT** | A key or a variable the answer also goes out on |
+
+Along the top is a row of icons: an input, an output, and the twelve gates in
+Besiege's own order, each drawn as the shape it is and named on hover. Click one to
+place it, drag one onto the board to put it where you let go, or right-click the
+board and pick from the same list — the node lands where you clicked.
+
+The board pans by dragging its empty parts and zooms with the wheel, over a grid so
+you can see where you are, and the window resizes by its corners — the pointer says
+so when it is over one. The title bar carries the wire-style button (straight, curved, square), **TIDY**,
+and the box for what generated wire names start with. TIDY lays the board out —
+inputs down the left, outputs down the right, gates in columns by how far they are
+from an input, each ordered to keep the wires from crossing — and folds ends that
+stand for the same key or variable into one.
+
+Ports are circles: empty until something is on them, filled once a wire lands.
+Pull a wire from one port to another, either direction, or click one then the
+other. Pull a wire off a port and drop it on nothing to take it off; where several
+wires meet a port, the newest comes off first. An input takes one wire and an
+answer feeds as many as you like, which is what a gate can mean.
+
+The box in the title bar is what generated wire names start with: type `door_` and
+new wires become `door_0`, `door_1`. Names already given are left alone — a wire
+name is machine-wide, and something else may be reading it.
+
+**NODE EDITOR** on the table stays lit while the editor is up, and closes it when
+clicked again. So do the editor's own cross, Escape, Tab, and opening any of the
+game's own menus.
+
+Ctrl-click a node to pick it out, or hold shift and drag a box over several; picked
+nodes wear a dashed white edge. Copy them and they follow the pointer as ghosts
+until you paste them down — wires between copied gates are reproduced under fresh
+names, and wires that came from outside the copy keep the names they had. What was
+copied stays copied, so the same thing can be laid down more than once. A copied
+input or output is not pasted twice: an end stands for a binding, and the pasted
+gates wire to the one already on the board.
+
+**UNDO** and **REDO** in the title bar step Besiege's own undo, which every edit
+here is filed in — one step per edit, carrying the whole block, so an undo puts
+every gate back where it was with the wires it had.
+
+The four hotkeys are declared in the mod's manifest, so they appear in Besiege's
+controls screen and can be rebound like any other. They default to 1+C, 1+V, 1+Z
+and 1+Y — the 1 key rather than Control, because Besiege's own copy, paste, undo
+and redo are on Ctrl and the game hears the keyboard at the same time this does.
+
 ## Converting
 
 **CONVERT TO TIMER BLOCKS** builds one of Besiege's own timer blocks per row, lays

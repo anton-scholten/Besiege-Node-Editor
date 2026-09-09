@@ -5,7 +5,8 @@ using UnityEngine;
 namespace TimerPlusMod
 {
     /// <summary>
-    /// Entry point. Two block modules, and the panel that draws their tables.
+    /// Entry point. Two block modules, the panel that draws their tables, and the
+    /// node editor the logic table opens.
     /// </summary>
     public class Mod : ModEntryPoint
     {
@@ -23,6 +24,14 @@ namespace TimerPlusMod
             GameObject host = new GameObject("TimerPlusPanel");
             Object.DontDestroyOnLoad(host);
             host.AddComponent<Panel>();
+
+            // The node editor is a window of its own rather than a panel docked
+            // under the mapper, so it lives on its own object and outlives the
+            // block being deselected. It draws the logic table's own rows as a
+            // circuit; the table's NODE EDITOR button opens it.
+            GameObject board = new GameObject("NodeEditor");
+            Object.DontDestroyOnLoad(board);
+            board.AddComponent<Editor>();
         }
     }
 }

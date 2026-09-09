@@ -66,6 +66,22 @@ First version. Two blocks, each holding a table of up to thirty-two rows:
   **T** or **I** for which of the two it is. Convert builds real logic gate
   blocks.
 
+- **A node editor** for the logic table, opened by a button between its pin switch
+  and its convert button. A gate node is a row and a wire is a row's input carrying
+  another row's answer name, so the board and the table are the same thing seen two
+  ways -- neither can be out of step with the other, and the block runs and converts
+  exactly as it did. Written rather than borrowed -- every node-editor library for Unity is an editor-time tool or wants
+  its own assembly, and this mod compiles with the game's compiler against the
+  game's assemblies. The palette is a row of drawn gate symbols, ports are circles
+  that fill when something lands on them, wires come off by being pulled away, and
+  a right-click on the board offers the same list where the pointer is. Nodes can
+  be picked out with a modifier-click or a dragged box and copied as a set; **TIDY**
+  lays the board out and folds ends standing for the same key or variable into one.
+  Every edit is one step of Besiege's own undo, carrying the whole block, so one
+  press puts every gate back where it was with the wires it had. Its four hotkeys
+  are in Besiege's controls screen and default to 1+C, 1+V, 1+Z and 1+Y -- the game
+  itself owns the Control versions of all four.
+
 **Known and deliberate**
 
 - **Thirty-two rows is a hard cap.** `MKey` is the only mapper type that carries a
