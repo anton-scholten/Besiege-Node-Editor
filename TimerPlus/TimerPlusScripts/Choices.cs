@@ -51,6 +51,13 @@ namespace TimerPlusMod
         private static GameObject list;
         private static Action<string> chosen;
 
+        /// <summary>Builds the canvas before anything needs it, so the first list
+        /// opened is placed against a canvas Unity has already laid out.</summary>
+        public static void Ready()
+        {
+            Homed();
+        }
+
         /// <summary>The list's own canvas, built once and kept.</summary>
         private static bool Homed()
         {
@@ -72,6 +79,10 @@ namespace TimerPlusMod
                 scaler.matchWidthOrHeight = 1f;
                 host.AddComponent<GraphicRaycaster>();
                 canvas = host.GetComponent<RectTransform>();
+                // A canvas made this frame has no size until Unity lays it out, and
+                // a list placed against a rect of nothing lands nowhere near what
+                // opened it -- which is what the first list of a session did.
+                Canvas.ForceUpdateCanvases();
                 return true;
             }
             catch (Exception e)
@@ -375,7 +386,7 @@ namespace TimerPlusMod
             {
                 return;
             }
-            Vector2 room = canvas.rect.size;
+            Vector2 room = Room();
             float wide = frame.sizeDelta.x;
             float x = Mathf.Clamp(local.x + wide * 0.5f,
                                   -room.x * 0.5f + wide * 0.5f,
@@ -395,7 +406,7 @@ namespace TimerPlusMod
             {
                 return;
             }
-            Vector2 room = canvas.rect.size;
+            Vector2 room = Room();
             float middle = (low.x + high.x) * 0.5f;
             float bottom = Mathf.Min(low.y, high.y);
             float top = Mathf.Max(low.y, high.y);
@@ -407,6 +418,22 @@ namespace TimerPlusMod
                                            room.x * 0.5f - wide * 0.5f);
             y = Mathf.Clamp(y, -room.y * 0.5f + tall * 0.5f, room.y * 0.5f - tall * 0.5f);
             frame.anchoredPosition = new Vector2(x, y);
+        }
+
+        /// <summary>How much room there is to place a list in. Taken from the
+        /// canvas where it has one and from the screen where it has not: a canvas
+        /// built this frame reports nothing.</summary>
+        private static Vector2 Room()
+        {
+            Vector2 room = canvas == null ? Vector2.zero : canvas.rect.size;
+            if (room.x > 1f && room.y > 1f)
+            {
+                return room;
+            }
+            Canvas drawn = canvas == null ? null : canvas.GetComponent<Canvas>();
+            float much = drawn == null || drawn.scaleFactor <= 0f
+                ? 1f : drawn.scaleFactor;
+            return new Vector2(Screen.width / much, Screen.height / much);
         }
 
         private static bool Local(Vector3 world, out Vector2 local)

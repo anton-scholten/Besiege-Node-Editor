@@ -32,7 +32,6 @@ SAMPLES = 4
 GATE_SIZE = 48
 PLATE_SIZE = 64
 ARROW_SIZE = 32
-CORNER_SIZE = 32
 GRID_SIZE = 32
 BAR_SIZE = 24
 DASH_STEP = 8
@@ -227,36 +226,6 @@ def arrow():
                     lambda u, v: abs(u - 0.5) <= (1.0 - v) * 0.5)
 
 
-def resizer(other):
-    """The pointer over a corner that can be dragged: a double-headed arrow
-    along the diagonal, with a dark edge so it shows on a pale machine."""
-    rows = []
-    for row in range(CORNER_SIZE):
-        y = CORNER_SIZE - 1 - row
-        line = []
-        for x in range(CORNER_SIZE):
-            u = (x + 0.5) / CORNER_SIZE
-            v = (y + 0.5) / CORNER_SIZE
-            if other:
-                u = 1.0 - u
-            shaft = abs(u - v) < 0.10 and 0.20 < u < 0.80
-            head = ((u + v < 0.42 and abs(u - v) < 0.22)
-                    or (u + v > 1.58 and abs(u - v) < 0.22))
-            on = shaft or head
-            edge = (not on
-                    and ((abs(u - v) < 0.16 and 0.14 < u < 0.86)
-                         or (u + v < 0.48 and abs(u - v) < 0.28)
-                         or (u + v > 1.52 and abs(u - v) < 0.28)))
-            if on:
-                line.append((255, 255, 255, 255))
-            elif edge:
-                line.append((0, 0, 0, 217))
-            else:
-                line.append((0, 0, 0, 0))
-        rows.append(line)
-    return rows
-
-
 def grid():
     """One square of the board's grid: two faint lines along two edges, so a
     sheet of them is a grid and not a set of boxes."""
@@ -313,8 +282,6 @@ def main():
     save("dot", circle(True))
     save("plate", plate())
     save("arrow", arrow())
-    save("resize", resizer(False))
-    save("resize2", resizer(True))
     save("grid", grid())
     save("dash", dashes(True))
     save("dashdown", dashes(False))

@@ -108,6 +108,20 @@ namespace TimerPlusMod
             }
         }
 
+        /// <summary>
+        /// The ground moved under the drag.
+        ///
+        /// The step handed on is the difference between where the pointer is and
+        /// where it was, both measured in the parent -- so when the parent itself
+        /// is moved, the pointer appears to have moved that far without anybody
+        /// touching it. Whoever moved it says so here, and the next step is the
+        /// hand's own movement again.
+        /// </summary>
+        public void Shifted(Vector2 by)
+        {
+            last += by;
+        }
+
         /// <summary>Where the pointer is, in the coordinates the thing being moved
         /// is positioned in. Null camera: the canvas is a screen-space overlay.
         /// </summary>

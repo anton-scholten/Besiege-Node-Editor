@@ -43,7 +43,7 @@ namespace TimerPlusMod
         private static Texture dash;
         private static Texture dashDown;
         private static Texture arrow;
-        private static readonly Texture[] corner = new Texture[2];
+        private static readonly Texture2D[] corner = new Texture2D[2];
         private static Sprite plate;
 
         private static bool looked;
@@ -103,8 +103,60 @@ namespace TimerPlusMod
         /// left the other.</param>
         public static Texture2D Resizer(bool other)
         {
-            Look();
-            return corner[other ? 1 : 0] as Texture2D;
+            int which = other ? 1 : 0;
+            if (corner[which] == null)
+            {
+                corner[which] = Arrows(other);
+            }
+            return corner[which] as Texture2D;
+        }
+
+        private const int CornerSize = 32;
+
+        /// <summary>
+        /// Drawn here rather than shipped like the rest of them, because it is not
+        /// drawn at all: it is handed to `Cursor.SetCursor`, and a hardware cursor
+        /// wants a texture of its own making -- readable, uncompressed, no
+        /// mipmaps. A pair of thirty-two-pixel squares is nothing to draw.
+        /// </summary>
+        private static Texture2D Arrows(bool other)
+        {
+            Texture2D made = new Texture2D(CornerSize, CornerSize,
+                                           TextureFormat.ARGB32, false);
+            made.wrapMode = TextureWrapMode.Clamp;
+            made.hideFlags = HideFlags.HideAndDontSave;
+            Color[] pixels = new Color[CornerSize * CornerSize];
+            for (int y = 0; y < CornerSize; y++)
+            {
+                for (int x = 0; x < CornerSize; x++)
+                {
+                    float u = (x + 0.5f) / CornerSize;
+                    float v = (y + 0.5f) / CornerSize;
+                    if (other)
+                    {
+                        // Mirrored, which is the same arrow turned a quarter turn.
+                        u = 1f - u;
+                    }
+                    // The shaft: a band along the leading diagonal. The heads: two
+                    // triangles, one at each end of it.
+                    bool shaft = Mathf.Abs(u - v) < 0.10f && u > 0.20f && u < 0.80f;
+                    bool head = (u + v < 0.42f && Mathf.Abs(u - v) < 0.22f)
+                             || (u + v > 1.58f && Mathf.Abs(u - v) < 0.22f);
+                    bool on = shaft || head;
+                    // A dark edge round it, or a white arrow is invisible on a
+                    // white machine.
+                    bool edge = !on
+                        && (Mathf.Abs(u - v) < 0.16f && u > 0.14f && u < 0.86f
+                            || u + v < 0.48f && Mathf.Abs(u - v) < 0.28f
+                            || u + v > 1.52f && Mathf.Abs(u - v) < 0.28f);
+                    pixels[y * CornerSize + x] = on ? Color.white
+                        : (edge ? new Color(0f, 0f, 0f, 0.85f)
+                                : new Color(0f, 0f, 0f, 0f));
+                }
+            }
+            made.SetPixels(pixels);
+            made.Apply();
+            return made;
         }
 
         public static Texture Gate(int gate)
@@ -172,8 +224,6 @@ namespace TimerPlusMod
             dot = Fetch("TimerPlus_dot");
             rounded = Fetch("TimerPlus_plate");
             arrow = Fetch("TimerPlus_arrow");
-            corner[0] = Fetch("TimerPlus_resize");
-            corner[1] = Fetch("TimerPlus_resize2");
             // The three that are laid end to end rather than drawn once. A texture
             // loaded from a file is clamped by default, and a clamped tile drawn
             // ten times over is one tile and nine smears of its last row.

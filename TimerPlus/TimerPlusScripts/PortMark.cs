@@ -27,8 +27,9 @@ namespace TimerPlusMod
         /// one started.</summary>
         public Action<PortMark, Vector2, bool> Pulling;
 
-        /// <summary>Let go: over another port, or over nothing.</summary>
-        public Action<PortMark, PortMark> Landed;
+        /// <summary>Let go: over another port, or over nothing, and where the
+        /// pointer was when it happened.</summary>
+        public Action<PortMark, PortMark, Vector2> Landed;
 
         /// <summary>Clicked rather than dragged from. The port draws itself and
         /// carries no button of its own -- a plate behind a circle is a second
@@ -83,7 +84,7 @@ namespace TimerPlusMod
             {
                 other = over.transform.parent.GetComponent<PortMark>();
             }
-            Landed(this, other);
+            Landed(this, other, move.position);
         }
     }
 }

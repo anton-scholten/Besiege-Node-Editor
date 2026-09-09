@@ -230,15 +230,24 @@ arrives laid out the same way.
 
 Retyping what an input or output stands for takes its wires with it: every gate on
 the other end of one follows to the new key or variable, so renaming an end is a
-rename and not a disconnection. With one exception — if the name you type is one
-something else on the board already answers to, the wires stay where they are.
-Moving them would land them on that node as well as this one, which is a wire
-nobody drew.
+rename and not a disconnection. Two exceptions. A name another end of the same kind
+already carries is refused outright — it says **ALREADY ASSIGNED!** and puts the
+cell back, because two ends on one name are one end drawn twice and every wire
+either appears to have is the same wire. And a name a *gate* already answers to is
+taken, but the wires stay where they are: moving them would land them on that gate
+as well, which is a wire nobody drew.
+
+Removing an end takes its own wires with it and nobody else's: if the name it stood
+for is still read or pressed somewhere on the board, the binding stays and only the
+node goes.
 
 Ports are circles drawn on the board itself, with nothing behind them: empty until
 something is on them, filled once a wire lands. They answer to more of the board
 than they draw, so a wire is something to grab rather than something to aim at. Pull a wire from one port to another, either
-direction, or click one then the other. A click on a port never takes a wire off — that is a drag, and the wire has to
+direction, or click one then the other. A wire dragged out to empty board offers the same list a right-click does, and
+whatever you pick is made where you let go and wired to the port you came from.
+
+A click on a port never takes a wire off — that is a drag, and the wire has to
 come at least its own width off the port before it lets go, so a click that wobbles
 changes nothing. A port that holds one wire hands it over when you drag it: the
 wire comes off there and then, its loose end follows the
@@ -257,11 +266,16 @@ you typed. Names already given are left alone: a wire name is machine-wide, and
 something else may be reading it.
 
 The editor opens with the block: selecting a Logic Gate Plus brings up its table
-and its board together, because they are the same circuit written two ways.
+and its board together, because they are the same circuit written two ways. An
+unpinned board follows the selection — open another block and it draws that one. A
+pinned board belongs to its block, so opening another gets a board of its own,
+offset a little from the last. Four is the limit; past that the newest gives way to
+the block being opened.
 **NODE EDITOR** on the table stays lit while the editor is up, and closes it when
 clicked again. So do Escape, Tab, and opening any of the game's own menus.
 
-The pin in the title bar decides what happens when the block's menu closes. White
+Each board has a pin in its title bar, and it decides both what happens when the
+block's menu closes and whether that board can be handed to another block. White
 — out — and the board belongs to that menu and goes with it. Click it red and the
 board is held up while you work on the rest of the machine; click it white again
 with the menu already closed and the board goes too, since the pin was the only
@@ -269,14 +283,15 @@ thing holding it.
 
 Hold control and a node under the pointer wears a faint dashed edge: that click
 picks it out, or puts it back if it was already picked. Nothing else on the node
-answers while control is down — not its key, not its switch, not its cross. Shift
-and drag a box to pick out everything it catches — each node wears the faint edge
-as the box reaches it, so you can see what you are about to take; hold control as
-well and the box works on what is already picked, taking in what was out and
-putting out what was in. Picked nodes wear a dashed white edge and drag together — moving one moves the
-set — and holding control during a drag runs it along one axis from where it
-started, whichever way it has gone furthest. A click on the empty board puts the
-selection down. Copy them and they follow the pointer as ghosts
+answers while control is down — not its key, not its switch, not its cross. Drag a
+box over the board to pick out everything it catches — plain to start again, shift
+to add to what is picked, control to turn each one over — and every node the box
+reaches wears the faint edge as you drag, so you can see what you are about to
+take. Picked nodes wear a dashed white edge and drag together — moving one moves
+the set — and holding control during a drag runs it along one axis from where it
+started, whichever way it has gone furthest. Dragging one to the edge of the window
+brings the board along with it. **Delete** removes everything picked out, in one
+step, and a click on the empty board puts the selection down. Copy them and they follow the pointer as ghosts
 until you paste them down, keeping the shape they had. A wire is copied when both
 of its ends were: wires between copied gates are reproduced under fresh names, and
 a wire to something left behind is not copied — the pasted gate arrives with that

@@ -115,7 +115,12 @@ What depends on what:
   and deleted — a row *is* its controls, and reordering rows means moving values
   between them.
 - **`Editor`** and **`Wiring`** are the node editor: the logic table's own rows,
-  drawn as a circuit. **There is no graph stored anywhere** -- a gate node is a row,
+  drawn as a circuit. There may be up to four `Editor` instances -- one is made at
+  load and the rest on demand, because a board somebody has pinned is theirs and
+  opening another block must not take it away. The statics that used to speak for
+  the single instance (`Open`, `Showing`, `Toggle`, `Dropped`) work over the list:
+  an unpinned board is lent to whichever block is opened, a pinned one is left
+  alone, and past four the newest gives way. **There is no graph stored anywhere** -- a gate node is a row,
   and a wire is a row's input bound to the variable another row's answer goes out
   under, so the board is derived from the table on every redraw and an edit on
   either side is an edit to the same thing. `Wiring` holds only what the table has

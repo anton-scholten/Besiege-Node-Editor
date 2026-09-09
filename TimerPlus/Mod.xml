@@ -89,8 +89,6 @@
 		<Texture name="TimerPlus_dot" path="glyph-dot.png" />
 		<Texture name="TimerPlus_plate" path="glyph-plate.png" />
 		<Texture name="TimerPlus_arrow" path="glyph-arrow.png" />
-		<Texture name="TimerPlus_resize" path="glyph-resize.png" />
-		<Texture name="TimerPlus_resize2" path="glyph-resize2.png" />
 		<Texture name="TimerPlus_grid" path="glyph-grid.png" />
 		<Texture name="TimerPlus_dash" path="glyph-dash.png" />
 		<Texture name="TimerPlus_dashdown" path="glyph-dashdown.png" />

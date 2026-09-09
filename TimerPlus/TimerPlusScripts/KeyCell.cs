@@ -156,6 +156,7 @@ namespace TimerPlusMod
             return self;
         }
 
+
         private void Build(float w, float h)
         {
             float rest = w - bubble - Gap;
@@ -186,29 +187,55 @@ namespace TimerPlusMod
                 }
             }
 
-            GameObject field = UIF.Spawn(UIF.InputPrefab, transform);
-            if (field != null)
+            wide = rest;
+            high = h;
+        }
+
+        private float wide;
+        private float high;
+
+        /// <summary>
+        /// The box a name is typed into, built the first time the cell is in
+        /// variable mode.
+        ///
+        /// Most cells are keys and never see it, and a text field is the most
+        /// expensive prefab of the three a cell can hold -- a board of a dozen
+        /// nodes was building a dozen of them to keep them switched off.
+        /// </summary>
+        private void Boxed()
+        {
+            if (box != null)
             {
-                UIF.Fit(field.GetComponent<RectTransform>(), bubble + Gap, 0f, rest, h);
-                box = field.GetComponent<InputField>();
-                if (box != null)
+                return;
+            }
+            GameObject field = UIF.Spawn(UIF.InputPrefab, transform);
+            if (field == null)
+            {
+                return;
+            }
+            UIF.Fit(field.GetComponent<RectTransform>(), bubble + Gap, 0f,
+                    wide, high);
+            box = field.GetComponent<InputField>();
+            if (box != null)
+            {
+                UIF.Style(box.textComponent, UIF.Ink, TextAnchor.MiddleLeft);
+                UIF.Style(box.placeholder as Text, UIF.Ink, TextAnchor.MiddleLeft);
+                Text ghost = box.placeholder as Text;
+                if (ghost != null)
                 {
-                    UIF.Style(box.textComponent, UIF.Ink, TextAnchor.MiddleLeft);
-                    UIF.Style(box.placeholder as Text, UIF.Ink, TextAnchor.MiddleLeft);
-                    Text ghost = box.placeholder as Text;
-                    if (ghost != null)
-                    {
-                        ghost.text = "name";
-                    }
-                    box.onEndEdit.AddListener(Typed);
+                    ghost.text = "name";
                 }
-                // Clicking the box offers the names already on the machine. On the
-                // field itself rather than a control beside it: the box is the
-                // whole cell in variable mode, and uGUI hands a click to every
-                // handler on an object, so the field goes on taking typing.
-                Choices.Opener opener = field.AddComponent<Choices.Opener>();
-                opener.Clicked = Offer;
-                field.SetActive(false);
+                box.onEndEdit.AddListener(Typed);
+            }
+            // Clicking the box offers the names already on the machine. On the
+            // field itself rather than a control beside it: the box is the whole
+            // cell in variable mode, and uGUI hands a click to every handler on an
+            // object, so the field goes on taking typing.
+            Choices.Opener opener = field.AddComponent<Choices.Opener>();
+            opener.Clicked = Offer;
+            if (guard != null)
+            {
+                guard.box = box;
             }
         }
 
@@ -316,6 +343,10 @@ namespace TimerPlusMod
             if (plate != null)
             {
                 plate.SetActive(!variable);
+            }
+            if (variable)
+            {
+                Boxed();
             }
             if (box != null)
             {

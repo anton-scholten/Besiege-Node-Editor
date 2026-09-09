@@ -29,9 +29,8 @@ namespace TimerPlusMod
         /// them": a selection is a thing to put down as well as to make.</summary>
         public Action Emptied;
 
-        /// <summary>Dragged with shift held: a rectangle from where the press was
-        /// to where the pointer is, and then the same again when it is let go.
-        /// </summary>
+        /// <summary>Dragged: a rectangle from where the press was to where the
+        /// pointer is, and then the same again when it is let go.</summary>
         public Action<Vector2, Vector2, bool> Boxed;
 
         private Vector2 pressed;
@@ -42,9 +41,17 @@ namespace TimerPlusMod
 
         public void OnBeginDrag(PointerEventData move)
         {
-            boxing = Input.GetKey(KeyCode.LeftShift)
-                  || Input.GetKey(KeyCode.RightShift);
-            holding = Local(move, out last) && !boxing;
+            // The left button draws a box over what it wants; the middle one moves
+            // the view. That is the way round every other editor has it, and the
+            // way round a hand expects: a marquee is the common gesture and a pan
+            // is the deliberate one.
+            boxing = move.button == PointerEventData.InputButton.Left;
+            holding = move.button == PointerEventData.InputButton.Middle
+                   && Local(move, out last);
+            if (boxing)
+            {
+                Local(move, out last);
+            }
             pressed = last;
         }
 

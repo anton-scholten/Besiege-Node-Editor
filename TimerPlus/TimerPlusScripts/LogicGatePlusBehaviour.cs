@@ -100,10 +100,15 @@ namespace TimerPlusMod
         /// </summary>
         private string Numbered()
         {
+            // One look at the machine, not one per number tried: finding every
+            // block of a kind walks everything loaded, and doing it a hundred times
+            // to answer one question is a hundred times too many.
+            LogicGatePlusBehaviour[] all =
+                FindObjectsOfType<LogicGatePlusBehaviour>();
             for (int n = 1; n < 100; n++)
             {
                 string wanted = "ne" + n.ToString("00") + "_";
-                if (!Elsewhere(wanted))
+                if (!Elsewhere(all, wanted))
                 {
                     return wanted;
                 }
@@ -113,10 +118,8 @@ namespace TimerPlusMod
 
         /// <summary>Whether another Logic Gate Plus block on the machine is already
         /// using this prefix.</summary>
-        private bool Elsewhere(string wanted)
+        private bool Elsewhere(LogicGatePlusBehaviour[] all, string wanted)
         {
-            LogicGatePlusBehaviour[] all =
-                FindObjectsOfType<LogicGatePlusBehaviour>();
             for (int i = 0; i < all.Length; i++)
             {
                 if (all[i] == null || all[i] == this || all[i].prefix == null)
@@ -147,7 +150,8 @@ namespace TimerPlusMod
                 return null;
             }
             string mine = prefix.Value;
-            if (!string.IsNullOrEmpty(mine) && !Elsewhere(mine))
+            if (!string.IsNullOrEmpty(mine)
+                && !Elsewhere(FindObjectsOfType<LogicGatePlusBehaviour>(), mine))
             {
                 return null;                // typed or claimed, and nobody else's
             }

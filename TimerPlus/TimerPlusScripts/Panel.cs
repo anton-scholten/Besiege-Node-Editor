@@ -477,7 +477,12 @@ namespace TimerPlusMod
             MText claimed = block.Claim();
             if (claimed != null)
             {
-                Commit(claimed);
+                // Applied rather than committed: this is the block numbering
+                // itself, not somebody editing it, and `OnEditField` reserialises
+                // every control on the block and files an undo step for a value
+                // nobody typed. The live value is what a save writes.
+                try { claimed.ApplyValue(); }
+                catch (Exception) { }
             }
 
             Rect frame;
@@ -2749,6 +2754,10 @@ namespace TimerPlusMod
                 // Last of the warming: the board's window, which is the biggest
                 // single thing this mod builds.
                 warmedBoard = true;
+                // The list's canvas as well: the first one opened in a session was
+                // placed against a canvas Unity had not laid out yet, and landed
+                // away from the box that opened it.
+                Choices.Ready();
                 Editor.Warm();
             }
             if (!ready)
