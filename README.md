@@ -287,7 +287,10 @@ it on the one press whose whole point is to fill it.
 
 A block holds thirty-two rows, so a machine with more logic gates than there is
 room for imports as many as fit and leaves the rest standing: the message says how
-many stayed, and a second Logic Gate Plus can import those.
+many stayed, and a second Logic Gate Plus can import those. News about the board as a
+whole shows in the board's top-left corner — an import for six seconds, anything
+else, such as a block with no rows left, for four; a refusal shows over what refused
+it for two.
 
 A gate holds no key and no name of its own. It answers to a hidden name the board
 mints for it — when you put it on the board, or, for a row added in the table with
@@ -332,27 +335,35 @@ no row to carry it, since an output is a key some gate presses; put a gate betwe
 them. Letting an answer go over another answer, or an input over another input,
 says **HAS TO CONNECT TO AN INPUT**. Both leave the board as it was.
 
-A click on a port never takes a wire off; nothing is written until you let go. A
-port that holds one wire hands it over when you drag it — the loose end follows the
+A click on a port never takes a wire off; nothing is written until you let go. An
+input that holds one wire hands it over when you drag it — the loose end follows the
 pointer in the live colour — and **where you let go decides, on the wire in your
-hand and on nothing else**: a free port and it goes there, another answer and that
-one feeds it now, nothing at all and it comes off, and either end of the port it
-came from and nothing whatever happens. A drop never cuts a wire you were not
+hand and on nothing else**: a free input and it goes there, another answer and that
+one feeds it now, nothing at all or the answer at its other end and it comes off,
+and the port it came from and nothing whatever happens. A drop never cuts a wire you were not
 holding, and a drag you think better of costs nothing and leaves no step on the
 undo.
 
-Which wire is in your hand, on a port that holds several, is asked again every
-frame: whichever of them the pointer is nearest is the one drawn as yours, and if
-it is near none of them you are drawing a new one. Both ends work that way — an
-answer feeding four gates, and an output end that four gates press, the same
-handful of wires seen from the other side. Leave one for another and the board says
-so while you are still dragging; bring the pointer onto the far end of one of them
-and that one is yours, whatever lines pass nearby. The only pause is at the port
-itself, where every wire leaves from the same point and they are all equally near,
-so nothing is picked up until you are clear of it. A wire let go anywhere near a
-port goes onto it — twice a port's width of forgiveness, so putting one back takes
-no aim — and every one of those distances is measured as the hand sees it, not as
-the board does, so zooming out does not shrink them.
+Which wire is in your hand, on a port that holds several — or an answer, which
+always could — is asked again every frame: whichever of them the pointer is nearest
+is the one drawn as yours, and if it is near none of them you are drawing a new one.
+Both ends work that way — an answer feeding four gates, and an output end that four
+gates press, the same handful of wires seen from the other side. Leave one for
+another and the board says so while you are still dragging. The only pause is at the
+port itself, where every wire leaves from the same point and they are all equally
+near, so nothing is picked up until you are clear of it. Let one of those go over
+empty board and it comes off.
+
+**Let go on a port and that port alone decides.** Ports reach twice their own width
+— putting a wire back takes no aim — and where two reaches overlap the nearer port
+is the one you let go on; nothing else the pointer passed is asked. The port you
+dragged from puts everything back as it was. The other end of a wire already on
+that port takes that wire off — gathered up onto the end that never moved. Any
+other port gets a new wire, and every wire already there stays. So drawing
+a second wire from an answer into the input right beside the one it already feeds
+adds that wire; it does not move the first one over. Every one of those distances is
+measured as the hand sees it, not as the board does, so zooming out does not shrink
+them.
 
 **An input takes as many wires as an answer does.** Wire four gates into input A
 and the gate reads all four, held while any one of them is up — that is Besiege's

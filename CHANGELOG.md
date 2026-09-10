@@ -73,7 +73,10 @@ First version. Two blocks, each holding a table of up to thirty-two rows:
   exactly as it did. Written rather than borrowed -- every node-editor library for Unity is an editor-time tool or wants
   its own assembly, and this mod compiles with the game's compiler against the
   game's assemblies. The palette is a row of drawn gate symbols, ports are circles
-  that fill when something lands on them, wires come off by being pulled away, and
+  that fill when something lands on them, wires come off by being pulled away -- a
+  wire let go on a port is asked of that one port alone, so a second wire drawn into
+  the input beside a wire's far end is added rather than moving the first, a wire
+  let go on its own far end comes off, and only the port it left puts it back -- and
   a right-click on the board offers the same list where the pointer is. Nodes can
   be picked out by a click, a modifier-click or a dragged box, moved as a set and
   copied as one; **TIDY** lays the board out and folds ends standing for the same
@@ -92,7 +95,9 @@ First version. Two blocks, each holding a table of up to thirty-two rows:
   used, a wire that would put a key and a name on one
   input, and one that would fill an input past the game's own three keys or hundred
   names -- an input takes as many wires as an answer does and Besiege ORs them, so a
-  gate reading four answers is held while any of the four is up. A cell wired to
+  gate reading four answers is held while any of the four is up. News about the
+  board as a whole, an import or a full block, sits in the board's top-left corner
+  instead, for four seconds or six for an import. A cell wired to
   several shows the count in the live colour and takes no typing; the board is where
   those wires are. **IMPORT** runs the conversion backwards: every
   one of Besiege's own logic gates on the machine is read into the block as a row

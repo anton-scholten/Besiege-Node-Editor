@@ -3472,6 +3472,16 @@ namespace TimerPlusMod
         /// </summary>
         private int carried = -1;
 
+        /// <summary>
+        /// Whether <see cref="carried"/> was handed over rather than picked out: the
+        /// port held that one wire and no other, so there was nothing to choose
+        /// between. Only a wire handed over is moved by being let go on another
+        /// port; one picked out of several by where the pointer went is a guess,
+        /// and a guess does not get to take a wire off a port the hand let go
+        /// somewhere else.
+        /// </summary>
+        private bool handed;
+
         private int held = -1;
         private int heldPort = -1;
 
@@ -3525,6 +3535,7 @@ namespace TimerPlusMod
             if (began)
             {
                 carried = -1;
+                handed = false;
                 held = -1;
                 heldPort = -1;
             }
@@ -3605,6 +3616,7 @@ namespace TimerPlusMod
                     best = off;
                 }
             }
+            handed = count == 1;
             if (count == 0)
             {
                 carried = -1;               // nothing on it: a new wire is drawn
@@ -3613,6 +3625,18 @@ namespace TimerPlusMod
             if (count == 1)
             {
                 carried = only;             // one wire, and it is the one in hand
+                return;
+            }
+            PortMark aimed = Aimed(from, true);
+            if (aimed != null)
+            {
+                // On a port, which alone says what is in hand -- see `Along`.
+                if (aimed.Output)
+                {
+                    bool feeds = ended ? aimed.Node < Rows && Presses(aimed.Node, end)
+                                       : strands.Contains(aimed.Node);
+                    carried = feeds ? aimed.Node : -1;
+                }
                 return;
             }
             if (carried < 0 && (pullTo - start).magnitude < Near(Decide))
@@ -3648,13 +3672,26 @@ namespace TimerPlusMod
                 return;
             }
             Vector2 start = Middle(answer);
+            PortMark aimed = Aimed(from, false);
+            if (aimed != null)
+            {
+                // The pointer is on a port, and that port says what is in hand
+                // whatever the lines say: the far end of one of these wires is
+                // that wire, pulled back onto the end that never moved and about
+                // to come off, and any other port is a new wire being drawn to
+                // it. Asked of the one port it is on and no other -- a port beside
+                // the far end of a wire is not that wire, which is how drawing a
+                // second wire into a gate took the first one off.
+                if (!aimed.Output)
+                {
+                    held = Wired(from.Node, aimed.Node, aimed.Port) ? aimed.Node : -1;
+                    heldPort = held >= 0 ? aimed.Port : -1;
+                }
+                return;                     // or back on its own port: as it was
+            }
             int nearest = -1;
             int port = -1;
             float best = 0f;
-            // The far end the pointer is actually on, if it is on one.
-            int home = -1;
-            int homePort = -1;
-            float homeOff = 0f;
             for (int node = 0; node < Nodes; node++)
             {
                 Place end = Placed(node);
@@ -3676,22 +3713,12 @@ namespace TimerPlusMod
                     {
                         continue;
                     }
-                    Vector2 landing = Middle(sink);
-                    float off = Aside(pullTo, start, landing);
+                    float off = Aside(pullTo, start, Middle(sink));
                     if (nearest < 0 || off < best)
                     {
                         nearest = node;
                         port = i;
                         best = off;
-                    }
-                    // And whether the pointer is on that wire's own far end, which
-                    // is a stronger claim than being near its line.
-                    float back = (landing - pullTo).magnitude;
-                    if (back <= Near(Home) && (home < 0 || back < homeOff))
-                    {
-                        home = node;
-                        homePort = i;
-                        homeOff = back;
                     }
                 }
             }
@@ -3699,17 +3726,6 @@ namespace TimerPlusMod
             {
                 held = -1;                  // nothing on this port to have hold of
                 heldPort = -1;
-                return;
-            }
-            if (home >= 0)
-            {
-                // The pointer is on the far end of one of these wires, near enough
-                // to land on it. That wire is the one in hand whatever the lines
-                // say: a hand that has brought a wire back to where it came from is
-                // reconnecting it, and letting another wire that happens to pass
-                // close by take its place is how the wrong one came off.
-                held = home;
-                heldPort = homePort;
                 return;
             }
             if (held < 0 && (pullTo - start).magnitude < Near(Decide))
@@ -3771,30 +3787,53 @@ namespace TimerPlusMod
             // A wire in hand is put back on a port it is let go anywhere near: it
             // was taken off one, and a hand that changed its mind should not have
             // to aim to undo that.
-            // Which kind of port the loose end is looking for: the opposite of
-            // whatever is holding the other end of it. A wire lifted off an input
-            // and one moved off an answer are both looking for an input -- and
-            // without this the search took in the answer they are still attached
-            // to, which sits nearer the pointer than the port they came off as soon
-            // as the hand starts back towards it, so the wire landed on the end
-            // that had not moved and came off instead of going back on.
-            bool wants = carried < 0 && held < 0 && !from.Output;
-            to = Nearest(to, Near(Home), wants);
+            Vector2 local;
+            if (content != null && RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    content, screen, null, out local))
+            {
+                pullTo = local;
+            }
+            // Which kind of port the loose end is looking for. A wire handed over
+            // off an input is its input end moving, so another input, or the
+            // answer at its other end, which takes it off. Anything else is a
+            // wire out of this port, looking for the other sort.
+            bool sure = carried >= 0 && handed;
+            PortMark aimed = sure ? Aimed(from, false, Held(carried * 3))
+                                  : Aimed(from, !from.Output);
+            if (aimed != null)
+            {
+                to = aimed;
+            }
             if (served == null)
             {
+                carried = -1;
+                held = -1;
+                heldPort = -1;
                 Strings();
                 return;
             }
-            if (carried >= 0)
+            if (sure)
             {
                 Landing(from, to);
                 return;
             }
-            if (from.Output && held >= 0)
+            if (to == null && (carried >= 0 || held >= 0))
             {
-                Moving(from, to);
+                // One of several wires, picked out on the way and let go over
+                // nothing: that one comes off.
+                Dropping(from);
                 return;
             }
+            // Let go on a port, and from here that port is the whole of the
+            // question: the other end of a wire already on this one takes that
+            // wire off, a free one gets a new wire, and nothing the pointer passed
+            // on its way is touched. A drag along one wire and on to the port
+            // beside its far end is a second wire being drawn, and it looked
+            // exactly like the first one being moved. Only the port the drag began
+            // on puts a wire back, and that is the port the pointer left.
+            carried = -1;
+            held = -1;
+            heldPort = -1;
             if (to != null && from.Node != to.Node && from.Output != to.Output)
             {
                 // Either way round: pulled from the answer to the input, or from
@@ -3803,11 +3842,15 @@ namespace TimerPlusMod
                 PortMark sink = from.Output ? to : from;
                 if (Wired(source, sink.Node, sink.Port))
                 {
-                    // The two are wired together already and this drag has hold of
-                    // nothing, so there is nothing to do: taking the wire off here
-                    // would be cutting one the hand never picked up, which is how
-                    // a wire came off while somebody was putting another one back.
-                    Strings();
+                    // The two are wired together already: the wire between them
+                    // was dragged off this end and let go on the end that never
+                    // moved, and a wire gathered up onto one end is a wire off. It
+                    // is that port's own wire and no neighbour's, so this cannot
+                    // cut something the hand was not on.
+                    List<MapperType> touched = new List<MapperType>();
+                    Unwire(source, sink.Node, sink.Port, touched);
+                    Commit(touched);
+                    Redraw();
                     return;
                 }
                 // Join redraws: a port is empty or full, and which it is has just
@@ -3956,24 +3999,37 @@ namespace TimerPlusMod
         }
 
         /// <summary>
-        /// The port the pointer actually let go over: the nearest one to it within
-        /// a port's own reach, or what the raycast found if none is near.
+        /// The one port the pointer is on: the nearest to it within a port's
+        /// forgiving reach, or null where there is none.
         ///
         /// Two ports that overlap are two answers to "what is under the pointer",
         /// and the raycast gives the one drawn last. Distance gives the one
-        /// somebody aimed at.
+        /// somebody aimed at -- and it gives one port, so what happens next is
+        /// asked of that port alone and never of a neighbour almost as near.
         /// </summary>
+        /// <param name="from">The port the drag began on, which counts whatever
+        /// sort it is: a hand back where it started has changed its mind.</param>
         /// <param name="answers">Whether what is wanted is a node's answer rather
         /// than one of its inputs. A port of the other sort is no use to the wire in
         /// hand, and one of them is always nearer than it looks.</param>
-        private PortMark Nearest(PortMark found, float reach, bool answers)
+        private PortMark Aimed(PortMark from, bool answers)
         {
+            return Aimed(from, answers, null);
+        }
+
+        /// <param name="also">One more port that counts whatever sort it is: the
+        /// far end of a wire handed over, where letting go takes it off.</param>
+        private PortMark Aimed(PortMark from, bool answers, RectTransform also)
+        {
+            RectTransform own = from == null ? null
+                : Held(from.Output ? from.Node * 3 : from.Node * 3 + 1 + from.Port);
             RectTransform closest = null;
             float best = 0f;
             for (int i = 0; i < ports.Count; i++)
             {
                 // Three ports to a node, the answer first.
-                if (ports[i] == null || (i % 3 == 0) != answers)
+                if (ports[i] == null || ((i % 3 == 0) != answers && ports[i] != own
+                                         && ports[i] != also))
                 {
                     continue;
                 }
@@ -3984,12 +4040,11 @@ namespace TimerPlusMod
                     best = off;
                 }
             }
-            if (closest == null || best > reach)
+            if (closest == null || best > Near(Home))
             {
-                return found;
+                return null;
             }
-            PortMark mark = closest.GetComponent<PortMark>();
-            return mark != null ? mark : found;
+            return closest.GetComponent<PortMark>();
         }
 
         /// <summary>
@@ -4026,10 +4081,11 @@ namespace TimerPlusMod
                 Join(source, to.Node, to.Port, touched);
                 return;
             }
-            if (to != null && to.Output && to.Node != from.Node)
+            if (to != null && to.Output && to.Node != from.Node && to.Node != source)
             {
                 // Onto another answer: this port reads that one now, which is the
-                // same move seen from the other end of the wire.
+                // same move seen from the other end of the wire. Onto the answer
+                // it already came from, it falls through and comes off.
                 Join(to.Node, from.Node, from.Port, touched);
                 return;
             }
@@ -4038,50 +4094,23 @@ namespace TimerPlusMod
         }
 
         /// <summary>
-        /// One of an answer's wires, dragged along itself and let go of: onto
-        /// another answer, which is where it comes from now, or onto nothing, which
-        /// takes it off.
+        /// One of a port's several wires, picked out by the drag and let go of over
+        /// nothing: it comes off, and it is the only wire this can touch.
         /// </summary>
-        private void Moving(PortMark from, PortMark to)
+        private void Dropping(PortMark from)
         {
-            int node = held;
-            int port = heldPort;
+            List<MapperType> touched = new List<MapperType>();
+            if (carried >= 0)
+            {
+                Unwire(carried, from.Node, from.Port, touched);
+            }
+            else if (held >= 0)
+            {
+                Unwire(from.Node, held, heldPort, touched);
+            }
+            carried = -1;
             held = -1;
             heldPort = -1;
-            if (node < 0)
-            {
-                Strings();
-                return;
-            }
-            if (to != null && to.Node == node && to.Port == port)
-            {
-                // Put back on the port it came off. Nothing was ever taken off --
-                // the wire is cut at the drop, not at the press -- so there is
-                // nothing to do but draw it where it always was.
-                Strings();
-                return;
-            }
-            if (to != null && to.Output && to.Node == from.Node)
-            {
-                Strings();
-                return;                     // back on the answer it came out of
-            }
-            // From here the wire in hand comes off, and it is the only wire this
-            // drag can touch: a drop is never allowed to cut something the hand was
-            // not holding.
-            List<MapperType> touched = new List<MapperType>();
-            Unwire(from.Node, node, port, touched);
-            if (to != null && !to.Output && to.Node != from.Node
-                && !Wired(from.Node, to.Node, to.Port))
-            {
-                Join(from.Node, to.Node, to.Port, touched);
-                return;                     // moved onto another input
-            }
-            if (to != null && to.Output && to.Node != from.Node)
-            {
-                Join(to.Node, node, port, touched);
-                return;                     // and answered by another gate
-            }
             Commit(touched);
             Redraw();
         }
@@ -5353,6 +5382,13 @@ namespace TimerPlusMod
         /// gesture refused, the live colour for one that worked.</summary>
         private void Warned(RectTransform over, string words, Color ink)
         {
+            Warned(over, words, ink, 0f);
+        }
+
+        /// <param name="lasting">Seconds on screen, or 0 for the usual: two over a
+        /// control, four in the corner.</param>
+        private void Warned(RectTransform over, string words, Color ink, float lasting)
+        {
             if (canvas == null || over == null)
             {
                 return;
@@ -5383,31 +5419,63 @@ namespace TimerPlusMod
                     lines++;
                 }
             }
-            float wide = Mathf.Max(90f, warningLabel.preferredWidth + 18f);
-            float tall = 22f + (lines - 1) * 15f;
-
-            // Over the control that refused it, in the canvas's own coordinates.
-            RectTransform home = canvas.GetComponent<RectTransform>();
-            Vector3[] corners = new Vector3[4];
-            over.GetWorldCorners(corners);
-            Vector2 middle;
-            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                    home, RectTransformUtility.WorldToScreenPoint(
-                        null, (corners[0] + corners[2]) * 0.5f),
-                    null, out middle))
+            warnWide = Mathf.Max(90f, warningLabel.preferredWidth + 18f);
+            warnTall = 22f + (lines - 1) * 15f;
+            warnOver = over;
+            // News about the board as a whole -- an import, a full block -- has no
+            // control to sit over, and put over the middle of the board it covered
+            // the nodes it was about. It goes in the board's top-left corner and
+            // stays twice as long, since nothing drew the eye to it.
+            cornered = over == sheet;
+            warning.SetActive(true);
+            if (!Placing())
             {
+                warning.SetActive(false);
                 return;
             }
-            Vector2 room = home.rect.size;
-            float x = Mathf.Clamp(middle.x + room.x * 0.5f - wide * 0.5f, 2f,
-                                  room.x - wide - 2f);
-            float y = Mathf.Clamp(room.y * 0.5f - middle.y - tall - 18f, 2f,
-                                  room.y - tall - 2f);
-            UIF.Fit(warning.GetComponent<RectTransform>(), x, y, wide, tall);
             warning.transform.SetAsLastSibling();
-            warning.SetActive(true);
             warningFade.alpha = 1f;
-            warnAt = Time.unscaledTime + 2f;
+            warnAt = Time.unscaledTime
+                + (lasting > 0f ? lasting : (cornered ? 4f : 2f));
+        }
+
+        private RectTransform warnOver;
+        private float warnWide;
+        private float warnTall;
+        private bool cornered;
+
+        /// <summary>
+        /// Puts the message where it belongs: just above the control that refused
+        /// it, or tucked into the board's top-left corner. Asked again every frame
+        /// for the corner, which moves when the window is dragged.
+        /// </summary>
+        private bool Placing()
+        {
+            if (canvas == null || warnOver == null)
+            {
+                return false;
+            }
+            RectTransform home = canvas.GetComponent<RectTransform>();
+            Vector3[] corners = new Vector3[4];
+            warnOver.GetWorldCorners(corners);
+            // Corner 1 is the top left; 0 and 2 across the diagonal are the middle.
+            Vector3 world = cornered ? corners[1] : (corners[0] + corners[2]) * 0.5f;
+            Vector2 point;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    home, RectTransformUtility.WorldToScreenPoint(null, world),
+                    null, out point))
+            {
+                return false;
+            }
+            Vector2 room = home.rect.size;
+            float x = cornered ? point.x + room.x * 0.5f + 8f
+                               : point.x + room.x * 0.5f - warnWide * 0.5f;
+            float y = cornered ? room.y * 0.5f - point.y + 8f
+                               : room.y * 0.5f - point.y - warnTall - 18f;
+            x = Mathf.Clamp(x, 2f, room.x - warnWide - 2f);
+            y = Mathf.Clamp(y, 2f, room.y - warnTall - 2f);
+            UIF.Fit(warning.GetComponent<RectTransform>(), x, y, warnWide, warnTall);
+            return true;
         }
 
         /// <summary>Takes the message away again, fading it out at the end so it
@@ -5423,6 +5491,10 @@ namespace TimerPlusMod
             {
                 warning.SetActive(false);
                 return;
+            }
+            if (cornered)
+            {
+                Placing();
             }
             if (warningFade != null)
             {
@@ -6075,7 +6147,7 @@ namespace TimerPlusMod
                 Ours();
                 Warned(sheet, took + (took == 1 ? " gate imported" : " gates imported")
                        + (left > 0 ? "\n" + left + " left on the machine" : ""),
-                       UIF.Live);
+                       UIF.Live, 6f);       // longer: a count worth reading twice
             }
             catch (Exception e)
             {
