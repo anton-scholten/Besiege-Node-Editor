@@ -324,7 +324,10 @@ The editor opens with the block: selecting a Logic Gate Plus brings up its table
 and its board together, because they are the same circuit written two ways. An
 unpinned board follows the selection — open another block and it draws that one. A
 pinned board belongs to its block, so opening another gets a board of its own,
-offset a little from the last. Four is the limit; past that the newest gives way to
+offset a little from the last. Pull that pin out and the board goes back to
+belonging to the menu: the moment the menu is on another block, a board still
+drawing an older one closes. Only the pin keeps a board on a block nobody is
+looking at. Four is the limit; past that the newest gives way to
 the block being opened.
 **NODE EDITOR** on the table stays lit while the editor is up, and closes it when
 clicked again. So do Escape, Tab, and opening any of the game's own menus.

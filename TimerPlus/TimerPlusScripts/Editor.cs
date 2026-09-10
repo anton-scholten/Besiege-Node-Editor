@@ -243,6 +243,7 @@ namespace TimerPlusMod
                 on.shown = ++showings;
                 on.Claim();
                 Stack();
+                Swept(block);
                 return;
             }
             on = Lending() ?? Another() ?? Newest();
@@ -252,6 +253,7 @@ namespace TimerPlusMod
             }
             on.Show(block);
             Stack();
+            Swept(block);
         }
 
         /// <summary>
@@ -276,22 +278,51 @@ namespace TimerPlusMod
             }
             followed = Time.frameCount;
             LogicGatePlusBehaviour block = Menu();
-            if (block == null || Serving(block) != null)
+            if (block == null)
             {
                 return;
             }
-            for (int i = 0; i < all.Count; i++)
+            if (Serving(block) == null)
             {
-                if (all[i] != null && Up(all[i]) && !all[i].pinned)
+                bool given = false;
+                for (int i = 0; i < all.Count && !given; i++)
                 {
-                    all[i].Show(block);
-                    Stack();
-                    return;
+                    if (all[i] != null && Up(all[i]) && !all[i].pinned)
+                    {
+                        all[i].Show(block);
+                        Stack();
+                        given = true;
+                    }
+                }
+                if (!given)
+                {
+                    // Every board that is up is pinned, so this block gets another
+                    // one -- or the newest, once there are four.
+                    Open(block);
                 }
             }
-            // Every board that is up is pinned, so this block gets another one --
-            // or the newest, once there are four.
-            Open(block);
+            Swept(block);
+        }
+
+        /// <summary>
+        /// Takes down every board left behind by the block that is being edited.
+        ///
+        /// A board that is not pinned belongs to the menu, and the menu is on one
+        /// block: a board still drawing another one is a board somebody walked away
+        /// from. It stays only while the pin holds it -- including a board that was
+        /// pinned and has since been let go of, which is the case that used to sit
+        /// there showing a circuit nobody had asked about since.
+        /// </summary>
+        private static void Swept(LogicGatePlusBehaviour block)
+        {
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (all[i] != null && Up(all[i]) && !all[i].pinned
+                    && all[i].served != block)
+                {
+                    all[i].Close();
+                }
+            }
         }
 
         private static int followed;
@@ -349,14 +380,21 @@ namespace TimerPlusMod
                     return all[i];
                 }
             }
+            // The one used most recently, rather than the first ever made: with two
+            // boards down, the window that comes back should be the one that was
+            // being worked in a moment ago and not whichever happens to be first in
+            // the list -- which is how a window somebody had finished with came
+            // back up in front of the one they had not.
+            Editor last = null;
             for (int i = 0; i < all.Count; i++)
             {
-                if (all[i] != null && !Up(all[i]))
+                if (all[i] != null && !Up(all[i])
+                    && (last == null || all[i].shown > last.shown))
                 {
-                    return all[i];
+                    last = all[i];
                 }
             }
-            return null;
+            return last;
         }
 
         /// <summary>Another board, while there is room for one.</summary>
@@ -636,6 +674,18 @@ namespace TimerPlusMod
             // that is what this is for.
             bool ours = own;
             own = false;
+            if (!ours && Rows != counted)
+            {
+                // A row has arrived or gone from somewhere else -- the table's own
+                // list, an undo, another player. The rows are numbered before the
+                // ends, so every number the board is holding on to now means a
+                // different node. Which of them meant what cannot be worked out
+                // from here, so the selection is put down rather than moved to
+                // whatever has taken its place.
+                picked.Clear();
+                naming.Clear();
+                pending = -1;
+            }
             if (!ours)
             {
                 Adopt();
@@ -1423,6 +1473,9 @@ namespace TimerPlusMod
         }
 
         private Wiring board;
+
+        /// <summary>How many rows the board was last drawn with.</summary>
+        private int counted;
 
         /// <summary>
         /// Writes where everything sits into the control that holds it.
@@ -2230,6 +2283,10 @@ namespace TimerPlusMod
         /// </summary>
         private void Redraw()
         {
+            // How many rows what is about to be drawn has, so that a row arriving
+            // or leaving from somewhere else can be noticed for what it does to the
+            // numbering. See `Ticking`.
+            counted = Rows;
             Cut();
             for (int i = 0; i < parts.Count; i++)
             {
@@ -3529,10 +3586,20 @@ namespace TimerPlusMod
                     Told(source, 0, "cannot directly\nconnect to output");
                     return;
                 }
+                // The rows are numbered first and the ends after them, so making
+                // a gate moves every end along one -- and the port this wire came
+                // out of may be one of those. Without this, a wire drawn out of an
+                // input end and finished off with a new gate landed on whichever
+                // end had taken over its number.
+                int was = Rows;
                 int born = Made(which, at);
                 if (born < 0)
                 {
                     return;
+                }
+                if (source >= was)
+                {
+                    source += Rows - was;
                 }
                 if (answering)
                 {
@@ -4075,6 +4142,7 @@ namespace TimerPlusMod
                                   + (Nodes / 5) * (NodeHeight + 20f)));
             if (gate >= 0)
             {
+                int was = Rows;
                 List<MapperType> touched = new List<MapperType>();
                 int row = LogicTable.Add(served, touched);
                 if (row < 0)
@@ -4102,6 +4170,7 @@ namespace TimerPlusMod
                     touched.Add(made.Emulate);
                 }
                 Board.Put(row, at);
+                Shifted(was);
                 Commit(touched);
                 Rebuilt();
                 return row;
@@ -4134,6 +4203,41 @@ namespace TimerPlusMod
         }
 
         /// <summary>
+        /// The selection after a row has been added.
+        ///
+        /// The rows are numbered first and the ends after them, so a row arriving
+        /// moves every end along one and a number that stood for an end now stands
+        /// for its neighbour. The same arithmetic as `Shuffled` below, the other
+        /// way up.
+        /// </summary>
+        private void Shifted(int was)
+        {
+            int by = Rows - was;
+            if (by == 0)
+            {
+                return;
+            }
+            for (int i = 0; i < picked.Count; i++)
+            {
+                if (picked[i] >= was)
+                {
+                    picked[i] = picked[i] + by;
+                }
+            }
+            if (pending >= was)
+            {
+                pending += by;
+            }
+            for (int i = 0; i < naming.Count; i++)
+            {
+                if (naming[i] >= was)
+                {
+                    naming[i] = naming[i] + by;
+                }
+            }
+        }
+
+        /// <summary>
         /// The selection after one node has been taken off the board.
         ///
         /// A node is known by its number, and the numbers close up over the gap:
@@ -4153,6 +4257,28 @@ namespace TimerPlusMod
                 else if (picked[i] > gone)
                 {
                     picked[i] = picked[i] - 1;
+                }
+            }
+            // And the answer waiting for somewhere to go, which is a number of the
+            // same kind: armed, then a node removed, and the wire it was going to
+            // draw would have come out of whatever took its place.
+            if (pending == gone)
+            {
+                pending = -1;
+            }
+            else if (pending > gone)
+            {
+                pending--;
+            }
+            for (int i = naming.Count - 1; i >= 0; i--)
+            {
+                if (naming[i] == gone)
+                {
+                    naming.RemoveAt(i);
+                }
+                else if (naming[i] > gone)
+                {
+                    naming[i] = naming[i] - 1;
                 }
             }
         }
@@ -4960,6 +5086,9 @@ namespace TimerPlusMod
             List<int> going = new List<int>(picked);
             going.Sort();
             picked.Clear();
+            // Whatever was armed is armed no longer: the numbers are about to move
+            // under it.
+            pending = -1;
             List<MapperType> touched = new List<MapperType>();
             for (int i = going.Count - 1; i >= 0; i--)
             {
