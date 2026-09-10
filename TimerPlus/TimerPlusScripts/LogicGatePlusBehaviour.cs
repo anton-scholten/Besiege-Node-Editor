@@ -31,7 +31,10 @@ namespace TimerPlusMod
         /// saved with those rows loses them silently.</summary>
         public const int MaxRows = 32;
 
-        /// <summary>How many rows are in use, 1..<see cref="MaxRows"/>.</summary>
+        /// <summary>How many rows are in use, 0..<see cref="MaxRows"/>. A block
+        /// with none is a block whose gates have all been taken off it -- there is
+        /// nothing a row has to be kept for, and one kept back is a gate somebody
+        /// has to notice and delete somewhere else.</summary>
         private MSlider rowCount;
 
         /// <summary>Whether converting also drops a pin inside each gate it makes.
@@ -48,11 +51,23 @@ namespace TimerPlusMod
 
         private readonly List<LogicRow> rows = new List<LogicRow>();
 
-        /// <summary>Every input key this block owns, which is what Besiege is
-        /// handed to stop a row pressing a key that drives this same block. Built
-        /// once: <c>KeyInputController.EmulateEntry</c> compares by reference, and
-        /// the references do not change.</summary>
-        private MKey[] ownKeys;
+        /// <summary>
+        /// Each row's own two input keys, which is what Besiege is handed when that
+        /// row presses its answer.
+        ///
+        /// <c>KeyInputController.Emulate</c> skips every key in this array --
+        /// <c>EmulateEntry</c> returns false for anything it finds by reference --
+        /// so it is what stops a gate driving itself. Besiege's own gate passes its
+        /// own two and nothing else, and so must a row: handing over *every* row's
+        /// inputs, which is what this block used to do, told the game to skip them
+        /// all, and a row could not drive another row in the same block. Every wire
+        /// the board drew between two of its own gates was dead the moment the
+        /// machine ran.
+        ///
+        /// Built once and kept: the comparison is by reference, and the references
+        /// do not change.
+        /// </summary>
+        private MKey[][] ownKeys;
 
         public IList<LogicRow> Rows { get { return rows; } }
 
@@ -81,10 +96,20 @@ namespace TimerPlusMod
             }
             set
             {
-                if (prefix != null)
+                if (prefix == null)
                 {
-                    prefix.Value = value == null ? "" : value.Trim();
+                    return;
                 }
+                string typed = value == null ? "" : value.Trim();
+                // Room for the two digits a generated name ends with, inside
+                // Besiege's own limit on the length of one: a name the game cannot
+                // spell is a name its own mapper cannot edit.
+                int room = Bindings.NameLimit - 2;
+                if (typed.Length > room)
+                {
+                    typed = typed.Substring(0, room);
+                }
+                prefix.Value = typed;
             }
         }
 
@@ -169,13 +194,13 @@ namespace TimerPlusMod
                 {
                     return 0;
                 }
-                return Mathf.Clamp(Mathf.RoundToInt(rowCount.Value), 1, MaxRows);
+                return Mathf.Clamp(Mathf.RoundToInt(rowCount.Value), 0, MaxRows);
             }
             set
             {
                 if (rowCount != null)
                 {
-                    rowCount.Value = Mathf.Clamp(value, 1, MaxRows);
+                    rowCount.Value = Mathf.Clamp(value, 0, MaxRows);
                 }
             }
         }
@@ -198,7 +223,7 @@ namespace TimerPlusMod
 
             int wanted = Module == null ? 3 : Module.Rows;
             rowCount = BlockBehaviour.AddSlider("Rows", "RowsKey",
-                Mathf.Clamp(wanted, 1, MaxRows), 1f, MaxRows, "", "");
+                Mathf.Clamp(wanted, 0, MaxRows), 0f, MaxRows, "", "");
 
             rows.Clear();
             for (int i = 0; i < MaxRows; i++)
@@ -206,13 +231,13 @@ namespace TimerPlusMod
                 rows.Add(Build(i));
             }
 
-            // Every input on the block, so no row can press a key that drives it.
-            // Besiege's own gate passes its two for the same reason.
-            ownKeys = new MKey[MaxRows * 2];
+            // A row's own two inputs, so that row cannot press a key that drives
+            // itself -- and every other row can be driven by it, which is what a
+            // wire between two gates on the board is.
+            ownKeys = new MKey[MaxRows][];
             for (int i = 0; i < MaxRows; i++)
             {
-                ownKeys[i * 2] = rows[i].InputA;
-                ownKeys[i * 2 + 1] = rows[i].InputB;
+                ownKeys[i] = new MKey[] { rows[i].InputA, rows[i].InputB };
             }
 
             ShowStock(true);
@@ -353,11 +378,20 @@ namespace TimerPlusMod
                 {
                     continue;
                 }
-                Gates.Advance(row, row.Gate, row.Switch,
-                              row.ReadA.RealPressed, row.ReadB.RealPressed,
-                              row.ReadA.RealHeld || row.ReadA.EmulatedHeld,
-                              row.ReadB.RealHeld || row.ReadB.EmulatedHeld,
-                              row.ReadA.RealReleased);
+                // The game's own `UpdateBlock`, argument for argument:
+                // `aHeld = aPressed || aKey.IsHeld`, then `|| emuAHeld` where it
+                // is handed to the state machine -- and the release only where
+                // the key is not held at all, which is what keeps a key bound to
+                // two codes from reporting a release while the other is down.
+                bool pressedA = row.ReadA.RealPressed;
+                bool pressedB = row.ReadB.RealPressed;
+                Gates.Advance(row, row.Gate, row.Switch, pressedA, pressedB,
+                              Gates.Holding(pressedA, row.ReadA.RealHeld,
+                                            row.ReadA.EmulatedHeld),
+                              Gates.Holding(pressedB, row.ReadB.RealHeld,
+                                            row.ReadB.EmulatedHeld),
+                              Gates.Letting(pressedA, row.ReadA.RealHeld,
+                                            row.ReadA.RealReleased));
             }
         }
 
@@ -412,11 +446,18 @@ namespace TimerPlusMod
                 {
                     continue;
                 }
+                // And the game's own `EmulationUpdateBlock`: the emulated edges,
+                // with the keyboard's held state ORed in and no filter on the
+                // release -- the block does not apply one on this pass.
                 Gates.Advance(row, row.Gate, row.Switch, pressedA, pressedB,
-                              row.ReadA.RealHeld || row.ReadA.EmulatedHeld,
-                              row.ReadB.RealHeld || row.ReadB.EmulatedHeld,
+                              Gates.Holding(row.ReadA.RealPressed,
+                                            row.ReadA.RealHeld,
+                                            row.ReadA.EmulatedHeld),
+                              Gates.Holding(row.ReadB.RealPressed,
+                                            row.ReadB.RealHeld,
+                                            row.ReadB.EmulatedHeld),
                               releasedA);
-                Hold(row, Gates.Answer(row, row.Gate));
+                Hold(row, i, Gates.Answer(row, row.Gate));
             }
         }
 
@@ -425,14 +466,15 @@ namespace TimerPlusMod
         /// <summary>Holds or lets go of a row's emulated key. The one place that
         /// touches a key, so a press cannot be raised twice or dropped once.
         /// </summary>
-        private void Hold(LogicRow row, bool down)
+        private void Hold(LogicRow row, int index, bool down)
         {
-            if (row.Held == down || row.Emulate == null || ownKeys == null)
+            if (row.Held == down || row.Emulate == null || ownKeys == null
+                || index < 0 || index >= ownKeys.Length)
             {
                 return;
             }
             row.Held = down;
-            EmulateKeys(ownKeys, row.Emulate, down);
+            EmulateKeys(ownKeys[index], row.Emulate, down);
         }
 
         /// <summary>Lets go of anything still held, and forgets what every gate
@@ -443,7 +485,7 @@ namespace TimerPlusMod
             for (int i = 0; i < rows.Count; i++)
             {
                 LogicRow row = rows[i];
-                Hold(row, false);
+                Hold(row, i, false);
                 row.A = false;
                 row.B = false;
                 row.AToggled = false;

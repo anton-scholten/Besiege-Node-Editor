@@ -88,8 +88,9 @@ names in words. Nothing else carries a tip: a table whose every cell explains
 itself is a table you cannot read across.
 
 **+** adds a row. It copies the one above and pushes the wait on by the same gap
-as the last two, so a sequence being typed in carries on. A block keeps at least
-one row, so the last one will not delete.
+as the last two, so a sequence being typed in carries on. The last row deletes like
+any other: a block with no rows is one whose timers have all been taken off it, and
+keeping one back would be a row somebody has to find and delete later.
 
 Ten rows are shown at once; past that the table scrolls, and adding or deleting a
 row leaves the view where it was. **+** and **CONVERT TO TIMER BLOCKS** do not
@@ -138,10 +139,22 @@ clicking takes it back.
 In key mode, click the plate and press the key you want — a mouse button counts as
 a key — or `Escape` to unbind it.
 
+A cell whose key is wired to several things at once shows **how many** — `5 INPUTS`,
+in the game's live green — instead of a key or a name, and does not take typing.
+There is nothing useful to write in a cell that stands for five wires, and the board
+is where a wire is added or taken off.
+
 In variable mode the cell offers every variable name already in use anywhere on the
 machine, eight at a time with a scrollbar past that, so wiring one block to another
 is picking the name rather than spelling it. A name nobody has used yet is typed
-straight into the box. Several names separated by `;` all work.
+straight into the box.
+
+Names follow Besiege's own rules, so anything typed here can still be edited in the
+stock mapper afterwards: **a semicolon or a comma separates one name from the
+next** — the two the game's own tag editor splits on — and **a name is cut to 32
+characters**, which is the game's limit. Repeats are dropped. A key holds either
+keys or names, never both, and several names on one input mean *any of them*: the
+game holds the key while any one is raised, so several inputs are OR-ed together.
 
 ## Sorting
 
@@ -163,7 +176,6 @@ The same table, for Besiege's logic gate. A row is a whole gate:
 | (the number) | Which row this is. Point anywhere on the row and it turns into a red **X**: click to delete it |
 | **INPUT A** | The gate's first input, a key or a variable |
 | **INPUT B** | Its second. Barred with diagonal stripes for a gate that reads only one — the key is still there and still saved, so a gate switched back finds what it was given |
-
 | **GATE** | Which of the twelve: NOT, AND, OR, NOR, NAND, XOR, XNOR, RANDOM, SR LATCH, D LATCH, COUNTER, EDGE |
 | **M** | The gate's one switch: **I** for the edge detector's inverted, **T** for toggle mode, where a press flips an input rather than holding it. Barred and dead for the gates that have neither — random, both latches, the counter |
 | **OUTPUT** | The key or variable the row presses while its gate says yes |
@@ -182,6 +194,13 @@ the two latches, the counter that divides by four, the random gate and the edge
 detector that answers for exactly one tick. **CONVERT TO LOGIC GATES** builds one
 of the game's logic gate blocks per row, pinned the same way.
 
+A row runs the gate rather than standing in for one: the state machine is the
+game's own, read out of `LogicGate` and held to its truth tables by the build's own
+check, it runs the same two passes a gate does each tick — the keyboard's edges in
+the frame update, the emulated ones on the emulation tick — and a signal takes the
+same one fixed step to cross it. So a chain of rows settles exactly as a row of
+blocks would, and a machine converted either way behaves the same.
+
 One deliberate difference: no burnout. Besiege can burn a gate out for pulsing too
 fast, because a gate is a thing on the machine that can be broken; a row of a table
 is not one.
@@ -194,7 +213,9 @@ up while you work on the machine.
 
 Inputs and outputs are worked out from the rows themselves: a key or a name a row
 reads that nothing on the board produces is an input, and one a row presses that
-nothing reads is an output. That happens when the board is opened and when the
+nothing reads is an output. Never one of the board's own made-up names, though —
+those belong to gates, so a wire whose gate has gone is a loose end rather than a
+node nobody asked for. That happens when the board is opened and when the
 table changes underneath it — not while you are wiring. A key typed into a node on
 the board is you wiring by hand, and answering it with a node you did not ask for
 is the board arguing with you.
@@ -207,7 +228,7 @@ variable into the table and the wire appears on the board.
 | Node | What it is |
 | --- | --- |
 | **INPUT** | A key or a variable coming in. Wire it to as many gates as you like |
-| a gate | One row: its symbol and its switch where the gate has one, drawn narrow because it holds nothing else. What its answer goes out under is a name the board makes up (`ne01_04`) and nobody has to read |
+| a gate | One row: its symbol and its switch where the gate has one, drawn narrow because it holds nothing else. What its answer goes out under is a name the board makes up (`ne01_04`) and nobody has to read. Both its inputs take as many wires as you like, OR-ed |
 | **OUTPUT** | A key or a variable the answer also goes out on |
 | a comment | A note on the board, wired to nothing. Click the writing and the caret goes in it; drag the writing and the note moves. It grows as you type to fit what you write — the same small margin on all four sides — newlines included |
 
@@ -216,8 +237,9 @@ gates in Besiege's own order, each drawn as the shape it is and named on hover. 
 place it, drag one onto the board to put it where you let go, or right-click the
 board and pick from the same list — the node lands where you clicked. A gate is a
 row of the block, so thirty-two of them is full: the board says **REACHED 32 GATES
-LIMIT** rather than quietly doing nothing, and the last gate on a block cannot go
-either — **MUST KEEP AT LEAST ONE GATE**.
+LIMIT** rather than quietly doing nothing. The last gate can go like any other: a
+block with no gates is a block whose circuit has been taken off it, and keeping one
+back would be a gate somebody has to find and delete somewhere else.
 
 The board is about two zoomed-all-the-way-out views across and two down, and that
 is as far as it goes: nodes stop at its edge and so does the view, because a board
@@ -227,8 +249,19 @@ what is drawn, where an older layout put the circuit somewhere else. It pans by
 dragging its empty parts — or with the middle button anywhere,
 node or no node — and zooms with the wheel, over a grid so
 you can see where you are, and the window resizes by its corners — the pointer says
-so when it is over one. The title bar carries the wire-style button (straight, curved, square), **TIDY**,
-and the box for what generated wire names start with. TIDY lays the board out —
+so when it is over one. The title bar carries the wire-style button (straight, curved, square), **GRID**, **TIDY**,
+**ZOOM FIT**, **IMPORT**, and the box for what generated wire names start with.
+
+**GRID** is on to start with and lights while it is, and while it is on every node
+sits on the grid's intersections — dragged, dropped, pasted, adopted or laid out.
+The nodes are drawn in whole squares for it: an end is four across and two down, a
+gate three across and one down, so a board on the grid fills cells rather than
+straddling them. TIDY lays out in whole squares too, so what it makes is even
+before it lands rather than shoved into line afterwards. Turning the grid on takes
+what is already on the board with it; turning it off leaves everything where it is
+and lets the next thing land anywhere.
+
+TIDY lays the board out —
 inputs down the left, outputs down the right, gates in columns by how far they are
 from an input, each ordered to keep the wires from crossing, the columns evenly
 spaced — the same clear board between every pair of them, whether the columns are
@@ -237,6 +270,24 @@ whole of it put in the middle of the board, which is where the window opens. It
 moves things and removes nothing: an end with no wires on it is one you are about
 to wire, and the red cross is how a node goes. A board opened for the first time
 arrives laid out the same way.
+
+**IMPORT** is CONVERT run backwards: it takes every one of Besiege's own logic
+gates off the machine and reads them into this block as rows. Nothing is
+translated, because there is nothing to translate — a gate's settings are the six
+things a row holds, and a wire between two gates is the two of them agreeing on a
+key, so copying both halves of that agreement copies the wire. The board that comes
+up is the circuit that was on the machine, with an input node for every key the
+gates were listening for and an output node for every key they press that nothing
+on the board answers, laid out and fitted to the window. The blocks are taken off
+the machine as they are imported, through the game's own deletion, and the whole
+of it — the rows, the nodes, the blocks leaving — is one press of undo. The board
+stays up while it happens: deleting blocks is the game's own gesture and the game
+answers it by closing the block's menu, which would otherwise take the window with
+it on the one press whose whole point is to fill it.
+
+A block holds thirty-two rows, so a machine with more logic gates than there is
+room for imports as many as fit and leaves the rest standing: the message says how
+many stayed, and a second Logic Gate Plus can import those.
 
 A gate holds no key and no name of its own. It answers to a hidden name the board
 mints for it — when you put it on the board, or, for a row added in the table with
@@ -281,37 +332,36 @@ no row to carry it, since an output is a key some gate presses; put a gate betwe
 them. Letting an answer go over another answer, or an input over another input,
 says **HAS TO CONNECT TO AN INPUT**. Both leave the board as it was.
 
-A click on a port never takes a wire off — that is a drag, and the wire has to
-come at least its own width off the port before it lets go, so a click that wobbles
-changes nothing. A port that holds one wire hands it over when you drag it: its
-loose end follows the pointer in the live colour, and where you let go decides — on
-another port it goes there, on nothing it comes off, and back on the port it came
-from it stays exactly as it was. Nothing is written until you let go, so a drag you
-think better of costs nothing and leaves no step on the undo.
+A click on a port never takes a wire off; nothing is written until you let go. A
+port that holds one wire hands it over when you drag it — the loose end follows the
+pointer in the live colour — and **where you let go decides, on the wire in your
+hand and on nothing else**: a free port and it goes there, another answer and that
+one feeds it now, nothing at all and it comes off, and either end of the port it
+came from and nothing whatever happens. A drop never cuts a wire you were not
+holding, and a drag you think better of costs nothing and leaves no step on the
+undo.
 
-A port that holds several is a different question, and it is asked again every
-frame of the drag: whichever of that port's wires the pointer is near is the one
-drawn in your hand, and if it is near none of them a new wire is drawn instead.
-Both ends work that way — an answer feeding four gates, and an output end that four
-gates press, which is the same handful of wires seen from the other side.
-Leave one wire for another and the board says so while you are still dragging. The
-only pause is at the port itself — every wire leaves it at the same point, so
-within a few pixels they are all equally near and nothing is picked up until you
-are clear of it. Letting go of a new wire over nothing leaves the board exactly as
-it was, and a wire in hand that is let go anywhere near a port goes onto it — twice
-a port's width of forgiveness, so putting one back where it came from takes no aim.
-Every one of those distances is measured as the hand sees it, not as the board
-does, so zooming out does not shrink them.
+Which wire is in your hand, on a port that holds several, is asked again every
+frame: whichever of them the pointer is nearest is the one drawn as yours, and if
+it is near none of them you are drawing a new one. Both ends work that way — an
+answer feeding four gates, and an output end that four gates press, the same
+handful of wires seen from the other side. Leave one for another and the board says
+so while you are still dragging; bring the pointer onto the far end of one of them
+and that one is yours, whatever lines pass nearby. The only pause is at the port
+itself, where every wire leaves from the same point and they are all equally near,
+so nothing is picked up until you are clear of it. A wire let go anywhere near a
+port goes onto it — twice a port's width of forgiveness, so putting one back takes
+no aim — and every one of those distances is measured as the hand sees it, not as
+the board does, so zooming out does not shrink them.
 
-Where you let go decides, and the wire in your hand is the only one it can touch.
-Let go on a free port and that wire goes there; on nothing, it comes off; on the
-port it came from — either end of it — nothing happens at all, which is how a drag
-you think better of costs nothing. A drop never cuts a wire you were not holding.
-So one wire is picked out of a handful by taking hold of it and dragging it off,
-and while you are dragging, bringing the pointer back onto the far end of one of
-that port's wires takes hold of *that* one, whatever the lines nearby say.
-An input takes one wire and an answer feeds as many as you like, which is
-what a gate can mean.
+**An input takes as many wires as an answer does.** Wire four gates into input A
+and the gate reads all four, held while any one of them is up — that is Besiege's
+own OR, done by the key rather than by a gate, and it is why the board can draw it
+at all. The game's limits apply, because they are the game's: **three keys or a
+hundred names on one input**, and never a mix of the two, since a Besiege key
+answers the keyboard or its names and not both. A wire that would break either rule
+is refused where you drop it — **A KEY AND A NAME CANNOT SHARE**, or **THAT INPUT IS
+FULL**.
 
 The box in the title bar is what generated wire names start with. A block takes its
 own number the first time it is opened — `ne01_` for the first Logic Gate Plus on
@@ -378,6 +428,9 @@ and an unpinned board is part of that menu — pin the board if you want it to s
 up across an undo.
 
 ## Converting
+
+The board's **IMPORT** button goes the other way — machine to block — and is
+described with the node editor above.
 
 **CONVERT TO TIMER BLOCKS** builds one of Besiege's own timer blocks per row, lays
 them out on a horizontal plane beside this block, and hands them over as a

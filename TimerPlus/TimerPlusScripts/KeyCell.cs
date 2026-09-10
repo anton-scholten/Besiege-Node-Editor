@@ -157,9 +157,13 @@ namespace TimerPlusMod
         }
 
 
+        /// <summary>Where the plate and the box begin.</summary>
+        private float plateAt;
+
         private void Build(float w, float h)
         {
             float rest = w - bubble - Gap;
+            plateAt = bubble + Gap;
 
             mode = UIF.Spawn(UIF.ButtonPrefab, transform);
             if (mode != null)
@@ -177,7 +181,7 @@ namespace TimerPlusMod
             plate = UIF.Spawn(UIF.ButtonPrefab, transform);
             if (plate != null)
             {
-                UIF.Fit(plate.GetComponent<RectTransform>(), bubble + Gap, 0f, rest, h);
+                UIF.Fit(plate.GetComponent<RectTransform>(), plateAt, 0f, rest, h);
                 UIF.NoSwell(plate);
                 plateLabel = Caption(plate, blank);
                 Button click = plate.GetComponent<Button>();
@@ -213,8 +217,7 @@ namespace TimerPlusMod
             {
                 return;
             }
-            UIF.Fit(field.GetComponent<RectTransform>(), bubble + Gap, 0f,
-                    wide, high);
+            UIF.Fit(field.GetComponent<RectTransform>(), plateAt, 0f, wide, high);
             box = field.GetComponent<InputField>();
             if (box != null)
             {
@@ -297,6 +300,10 @@ namespace TimerPlusMod
             {
                 return;
             }
+            // A key wired to several things at once is not a cell to type in: what
+            // it answers to is a list, the board is where a list is edited, and the
+            // one thing worth saying here is how many. See `several`.
+            several = Bindings.Count(key);
             variable = Bindings.IsVariable(key);
             Variable = variable ? Bindings.Variable(key) : null;
             Code = variable ? KeyCode.None : Bindings.Code(key);
@@ -316,6 +323,7 @@ namespace TimerPlusMod
             {
                 return;
             }
+            several = 0;                    // an end of the board stands for one
             variable = named != null;
             Variable = named;
             Code = named != null ? KeyCode.None : code;
@@ -324,8 +332,44 @@ namespace TimerPlusMod
 
         public bool Listening { get { return listening; } }
 
+        /// <summary>
+        /// How many things this cell's key answers to, when that is more than one.
+        ///
+        /// Besiege ORs them -- the key is held while any of them is raised -- so a
+        /// gate's input wired to five answers is one input reading five names.
+        /// There is nothing useful to show in a cell that wide and nothing safe to
+        /// type into it: the count is what it says, in the game's own live colour,
+        /// and the board is where the wires are.
+        /// </summary>
+        private int several;
+
         private void Paint()
         {
+            if (several > 1)
+            {
+                if (mode != null)
+                {
+                    mode.SetActive(false);
+                }
+                if (box != null)
+                {
+                    box.gameObject.SetActive(false);
+                }
+                if (plate != null)
+                {
+                    plate.SetActive(true);
+                }
+                if (plateLabel != null)
+                {
+                    plateLabel.text = several + " inputs";
+                    plateLabel.color = UIF.Live;
+                }
+                return;
+            }
+            if (mode != null && !mode.activeSelf)
+            {
+                mode.SetActive(true);
+            }
             // The bubble says which way the cell will go if it is clicked, which
             // is the way round Besiege's own selector uses them: three dots while
             // the key is on the keyboard, a cross while a variable holds it.
@@ -384,7 +428,7 @@ namespace TimerPlusMod
 
         private void SwapMode()
         {
-            if (Aside())
+            if (Aside() || several > 1)
             {
                 return;
             }
@@ -413,7 +457,7 @@ namespace TimerPlusMod
 
         private void Listen()
         {
-            if (variable || Aside())
+            if (variable || Aside() || several > 1)
             {
                 return;
             }
@@ -484,10 +528,10 @@ namespace TimerPlusMod
             {
                 return;
             }
-            Variable = name;
+            Variable = Bindings.Tidied(name);
             if (box != null)
             {
-                box.text = name;
+                box.text = Variable == null ? "" : Variable;
             }
             Paint();
             Raise();
@@ -501,10 +545,17 @@ namespace TimerPlusMod
             {
                 return;
             }
-            string wanted = text == null ? "" : text.Trim();
+            // Held to Besiege's own rules for a name as it is taken in: cut to
+            // its character limit, and split where the game's tag editor splits.
+            // A name this could not spell is a name the stock mapper could not
+            // edit afterwards.
             // An empty box stays variable mode with nothing bound. Falling back to
             // key mode here is what made the button impossible to click back.
-            Variable = wanted.Length == 0 ? null : wanted;
+            Variable = Bindings.Tidied(text);
+            if (box != null && !box.isFocused)
+            {
+                box.text = Variable == null ? "" : Variable;
+            }
             Paint();
             Raise();
         }

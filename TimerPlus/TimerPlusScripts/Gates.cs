@@ -134,6 +134,28 @@ namespace TimerPlusMod
         }
 
         /// <summary>
+        /// What the game hands its state machine as "held": a key that has just
+        /// gone down counts as held, and whatever the emulation says is ORed in on
+        /// both passes -- `aHeld = aPressed || aKey.IsHeld` in `UpdateBlock`, then
+        /// `aHeld || emuAHeld` at the call.
+        /// </summary>
+        public static bool Holding(bool pressed, bool held, bool emulated)
+        {
+            return pressed || held || emulated;
+        }
+
+        /// <summary>
+        /// And what it hands over as "released", on the keyboard pass: only where
+        /// the key is not held at all. A key bound to two codes reports a release
+        /// while the other is still down, and an edge detector that answered that
+        /// would fire while its input was still on.
+        /// </summary>
+        public static bool Letting(bool pressed, bool held, bool released)
+        {
+            return released && !pressed && !held;
+        }
+
+        /// <summary>
         /// One pass of the game's `UpdateState`, which is where a gate's memory
         /// lives: the latches, the counter and the toggled inputs.
         ///

@@ -107,10 +107,34 @@ What depends on what:
   toggled inputs) and `Answer` is its `EvaluateEmulation`. Both take the gate and
   the row's switch as arguments rather than reading the mapper, so the build can
   check them without a live block -- `tools/tests/TableCheck.cs` holds every gate
-  to the game's own truth table. The block has no activation key: a gate has
+  to the game's own truth table, and to the arguments the game hands it
+  (`Gates.Holding`, `Gates.Letting`). The block has no activation key: a gate has
   inputs, not a start.
-  A row has no activation of its own: the block's key starts every row, and the
-  mapper above the table is where it is set.
+  **Each row emulates against its own two input keys and no others.**
+  `KeyInputController.Emulate` skips every key handed to `EmulateKeys` -- that is
+  how the game stops a gate driving itself -- so passing the whole block's inputs
+  told it to skip them all, and no row could drive another row in the same block:
+  every wire the board drew between two of its own gates was dead in a simulation
+  and nowhere else. See `ownKeys` in `LogicGatePlusBehaviour`, and
+  notes/03-keys-and-automation.md.
+- **A port holds a list, not a wire.** A gate's input answers to as many names (or
+  keycodes) as are wired to it and Besiege ORs them -- `MKey.IsHeld` returns on the
+  first code held, and the names share the key's emulation count -- so `Asked` reads
+  what a port answers to, `Feeds` turns that into the nodes behind it, and `Feeding`
+  is only "the first of them, if any". Adding a wire is `Bindings.Added` and taking
+  one off is `Bindings.Dropped`; nothing rebinds a whole input any more, or the
+  other wires on it would go with it. The game's caps are `Bindings.MostKeys` (3)
+  and `Bindings.MostNames` (100), and a key answers to codes or to names and never
+  both -- both refusals are said over the port they were dropped on.
+- **The board's graph is derived, and indexed for the length of one operation.**
+  `Feeding` answers "what feeds this port" by asking every node what it answers to
+  and comparing `;`-joined name lists -- a string joined and split per comparison.
+  Fine once; TIDY does it for every node against every other, four times over, so
+  it was cubic and allocated in the millions on a full table. `Sourced`/`Unsourced`
+  put a name-to-node index up for the length of `Wired` and of a tidy, and
+  `Feeding`/`Presses` consult it when it is up. Nothing between those two calls
+  writes a binding, so it cannot go stale, and anything asking outside them takes
+  the original loop -- which is still there, and is the definition of the answer.
 - **`Table`** lifts rows out of their controls as `RowData` so they can be sorted
   and deleted — a row *is* its controls, and reordering rows means moving values
   between them.
@@ -190,6 +214,19 @@ What depends on what:
   switch on, each one gets a `BlockType.Pin` at the same position, `bmt-hide-visual`
   true and `bmt-unpin` bound to nothing -- Besiege rebuilds joints from where blocks
   are, so a pin at the block's own position is a pin inside it.
+- **`Conversion.From`** is the same thing backwards, for the board's IMPORT button:
+  the machine's own logic gates read into rows and then taken off the machine. A
+  gate's settings are read off its **live mapper controls** -- `LogicGate`'s own
+  fields are private, but `SaveableDataHolder.MapperTypes` is public and every
+  control in it carries the name its block registered, which is the way in that
+  needs no reflection. Mind that a live `MapperType.Key` is the **bare** name
+  (`activate-A`): `bmt-` is `MapperType.XDATA_PREFIX` and goes on only in a save,
+  so `Conversion.Control` matches either spelling -- asking with the save's alone
+  matched nothing and read every gate on the machine as unreadable. The blocks go through `BlockSelectionTool.RemoveBlocks`,
+  which hands its undo actions back rather than filing them, so the removal and the
+  block's own edit (`LogicTable.Edited`) are filed together as one step. Wiring
+  needs no work: a wire is two blocks bound to one key, and copying both blocks
+  copies the wire.
 - **`Variables`** lists the names in use on the machine by walking
   `Machine.BuildingBlocks` and reading every `MKey.message`. Not
   `KeyInputController.usedMessages`: that is filled by `Machine.InitSimBlock` at

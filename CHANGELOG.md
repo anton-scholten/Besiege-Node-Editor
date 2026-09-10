@@ -77,8 +77,11 @@ First version. Two blocks, each holding a table of up to thirty-two rows:
   a right-click on the board offers the same list where the pointer is. Nodes can
   be picked out by a click, a modifier-click or a dragged box, moved as a set and
   copied as one; **TIDY** lays the board out and folds ends standing for the same
-  key or variable into one. The board is two zoomed-out views across and two down,
-  and nodes and the view both stop at its edge.
+  key or variable into one, and **GRID** -- on by default -- sits every node on the
+  grid's intersections. The nodes are whole numbers of squares for it: an end is
+  four cells across and two down, a gate three by one, and TIDY lays out in cells
+  as well, so a board on the grid fills them rather than straddling them. The board is two zoomed-out views across and two down, and nodes and the
+  view both stop at its edge.
   Every edit is one step of Besiege's own undo, carrying the whole block, so one
   press puts every gate back where it was with the wires it had -- the game's undo
   and no other, since an edit on the board and an edit in the table are the same
@@ -86,7 +89,17 @@ First version. Two blocks, each holding a table of up to thirty-two rows:
   back with them on that one press. A gesture the board cannot carry out says so in
   a word over the thing refused: a wire from an end straight into an output, a name
   a second end already stands for, a gate on a block whose thirty-two rows are
-  used, the last gate being deleted. Its two hotkeys are in Besiege's controls
+  used, a wire that would put a key and a name on one
+  input, and one that would fill an input past the game's own three keys or hundred
+  names -- an input takes as many wires as an answer does and Besiege ORs them, so a
+  gate reading four answers is held while any of the four is up. A cell wired to
+  several shows the count in the live colour and takes no typing; the board is where
+  those wires are. **IMPORT** runs the conversion backwards: every
+  one of Besiege's own logic gates on the machine is read into the block as a row
+  and taken off the machine, wiring and all -- a wire is two gates agreeing on a
+  key, so copying the gates copies the circuit -- up to the block's thirty-two
+  rows, with anything over left on the machine for another block to take. One press
+  of undo puts the blocks back and the rows away. Its two hotkeys are in Besiege's controls
   screen and default to 1+C and 1+V -- the game itself owns the Control versions
   of both.
 
@@ -99,8 +112,10 @@ First version. Two blocks, each holding a table of up to thirty-two rows:
   reference-counts an emulated key; this is the game's behaviour and a real pair of
   timer blocks does the same.
 - **Logic Gate Plus does not burn out.** Besiege can burn a gate out for pulsing
-  too fast; a row of a table is not a thing on the machine that can be broken, and
-  thirty-two rows sharing one block's burnout would be a rule nobody could see the
-  shape of.
-- The stock mapper's row-count slider reads `1.00`–`32.00`. It is a slider because
+  too fast -- five changes of output on consecutive ticks, and only for a gate
+  whose answer can reach its own inputs -- and a row does not. Everything else
+  about a row is the game's own gate, argument for argument: the state machine,
+  the two passes it runs each tick, and the one fixed step a signal takes to cross
+  a gate, so a chain of rows settles at the same rate a row of blocks would.
+- The stock mapper's row-count slider reads `0.00`–`32.00`. It is a slider because
   Besiege's mapper has no integer control.

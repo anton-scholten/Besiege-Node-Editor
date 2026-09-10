@@ -235,7 +235,7 @@ namespace TimerPlusMod
         public static void Remove(TimerPlusBehaviour block, int index,
                                   List<MapperType> touched)
         {
-            if (block == null || block.Count <= 1)
+            if (block == null)
             {
                 return;
             }

@@ -56,7 +56,8 @@ namespace TimerPlusMod
         /// </summary>
         private MToggle automatic;
 
-        /// <summary>How many rows are in use, 1..<see cref="MaxRows"/>. A control
+        /// <summary>How many rows are in use, 0..<see cref="MaxRows"/> -- a block
+        /// with none is one whose timers have all been taken off it. A control
         /// rather than a field so that it is saved, undone and sent over
         /// multiplayer with everything else.</summary>
         private MSlider rowCount;
@@ -109,13 +110,13 @@ namespace TimerPlusMod
                 {
                     return 0;
                 }
-                return Mathf.Clamp(Mathf.RoundToInt(rowCount.Value), 1, MaxRows);
+                return Mathf.Clamp(Mathf.RoundToInt(rowCount.Value), 0, MaxRows);
             }
             set
             {
                 if (rowCount != null)
                 {
-                    rowCount.Value = Mathf.Clamp(value, 1, MaxRows);
+                    rowCount.Value = Mathf.Clamp(value, 0, MaxRows);
                 }
             }
         }
@@ -148,7 +149,7 @@ namespace TimerPlusMod
             int wanted = Module == null ? 3 : Module.Rows;
             pinBlocks = AddToggle("Pin blocks", "PinKey", true);
             rowCount = BlockBehaviour.AddSlider("Rows", "RowsKey",
-                Mathf.Clamp(wanted, 1, MaxRows), 1f, MaxRows, "", "");
+                Mathf.Clamp(wanted, 0, MaxRows), 0f, MaxRows, "", "");
 
             rows.Clear();
             for (int i = 0; i < MaxRows; i++)

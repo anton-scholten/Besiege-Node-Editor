@@ -103,8 +103,7 @@ namespace TimerPlusMod
         public static void Erase(LogicGatePlusBehaviour block, int index,
                                  List<MapperType> touched)
         {
-            if (block == null || block.Count <= 1
-                || index < 0 || index >= block.Count)
+            if (block == null || index < 0 || index >= block.Count)
             {
                 return;
             }
@@ -239,6 +238,54 @@ namespace TimerPlusMod
             }
         }
 
+        /// <summary>
+        /// Settles a list of changed controls.
+        ///
+        /// `ApplyValue` is what reconciles the live value with the one the block
+        /// loads from. Where another player is listening the edit has to go out
+        /// through Besiege's own handler instead, which files its own undo step --
+        /// so anything filing its own must stand aside there; see
+        /// <see cref="Marked"/>, which returns nothing in that case.
+        /// </summary>
+        public static void Applied(List<MapperType> changed)
+        {
+            if (changed == null)
+            {
+                return;
+            }
+            for (int i = 0; i < changed.Count; i++)
+            {
+                Apply(changed[i]);
+            }
+        }
+
+        /// <summary>One of them.</summary>
+        public static void Apply(MapperType changed)
+        {
+            if (changed == null)
+            {
+                return;
+            }
+            try
+            {
+                if (EditFieldHandler.Instance != null)
+                {
+                    BlockMapper mapper = BlockMapper.CurrentInstance;
+                    if (mapper != null && BlockMapper.IsOpen
+                        && mapper.Current != null)
+                    {
+                        BlockMapper.OnEditField(mapper.Current, changed);
+                        return;
+                    }
+                }
+                changed.ApplyValue();
+            }
+            catch (Exception)
+            {
+                // The value is written either way; this is the reconciliation.
+            }
+        }
+
         /// <summary>Files what has happened since that snapshot as one step of
         /// Besiege's undo.</summary>
         public static void Filed(LogicGatePlusBehaviour block, BlockInfo before)
@@ -260,6 +307,35 @@ namespace TimerPlusMod
             catch (Exception e)
             {
                 Log.Warn("could not file the edit for undo: " + e.Message);
+            }
+        }
+
+        /// <summary>
+        /// The same step, handed back rather than filed, for an edit that is one
+        /// half of something bigger -- an import, where the rows arriving and the
+        /// blocks they came from leaving should undo together.
+        /// </summary>
+        public static UndoAction Edited(LogicGatePlusBehaviour block,
+                                        BlockInfo before)
+        {
+            if (before == null)
+            {
+                return null;
+            }
+            try
+            {
+                Machine machine = Machine.Active();
+                BlockInfo after = Snap(block);
+                if (machine == null || after == null)
+                {
+                    return null;
+                }
+                return new UndoActionEdit(machine, after, before);
+            }
+            catch (Exception e)
+            {
+                Log.Warn("could not make the undo step: " + e.Message);
+                return null;
             }
         }
 
@@ -378,7 +454,7 @@ namespace TimerPlusMod
         public static void Remove(LogicGatePlusBehaviour block, int index,
                                   List<MapperType> touched)
         {
-            if (block == null || block.Count <= 1)
+            if (block == null)
             {
                 return;
             }

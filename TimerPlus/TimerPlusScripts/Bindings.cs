@@ -209,16 +209,7 @@ namespace TimerPlusMod
             {
                 return;
             }
-            string[] split = MKey.SplitVariable(names == null ? "" : names.Trim());
-            List<string> kept = new List<string>();
-            for (int i = 0; i < split.Length; i++)
-            {
-                string one = split[i] == null ? "" : split[i].Trim();
-                if (one.Length > 0)
-                {
-                    kept.Add(one);
-                }
-            }
+            List<string> kept = Named(names);
             if (kept.Count == 0)
             {
                 Clear(key);
@@ -230,6 +221,215 @@ namespace TimerPlusMod
             }
             key.message = kept.ToArray();
             key.useMessage = true;
+        }
+
+        /// <summary>
+        /// How long a variable name may be, and the two characters that separate
+        /// one from the next as somebody types them.
+        ///
+        /// Besiege's own: `StatMaster.KeyMapper.VariableCharLimit` is 32, and its
+        /// tag editor splits what is typed on `Selectors.TagSelector`'s separators,
+        /// a semicolon and a comma. A name longer than the limit cannot be edited
+        /// in the game's own mapper afterwards, and a comma left in one would be
+        /// two names there and one here -- so both rules are kept to.
+        ///
+        /// Stored names are joined with a semicolon alone; that is what
+        /// `MKey.CombineVariables` writes and `MKey.SplitVariable` reads.
+        /// </summary>
+        public const int NameLimit = 32;
+
+        private static readonly char[] Apart = { ';', ',' };
+
+        /// <summary>What somebody typed, as the names Besiege would make of it:
+        /// split, trimmed, cut to the limit, and the empties dropped.</summary>
+        public static List<string> Named(string typed)
+        {
+            List<string> kept = new List<string>();
+            if (typed == null)
+            {
+                return kept;
+            }
+            string[] split = typed.Split(Apart);
+            for (int i = 0; i < split.Length; i++)
+            {
+                string one = split[i] == null ? "" : split[i].Trim();
+                if (one.Length > NameLimit)
+                {
+                    one = one.Substring(0, NameLimit);
+                }
+                if (one.Length > 0 && !kept.Contains(one))
+                {
+                    kept.Add(one);
+                }
+            }
+            return kept;
+        }
+
+        /// <summary>The same, as the one string a cell shows and a binding holds.
+        /// Null where nothing is left of it.</summary>
+        public static string Tidied(string typed)
+        {
+            List<string> kept = Named(typed);
+            if (kept.Count == 0)
+            {
+                return null;
+            }
+            return string.Join(";", kept.ToArray());
+        }
+
+        /// <summary>
+        /// How many keycodes one key may answer to, and how many names.
+        ///
+        /// Besiege's own: `Selectors.KeySelector.MaxKeys` is three, which is what
+        /// its mapper lets a hand bind, and `StatMaster.KeyMapper.MaxDisplayedTags`
+        /// is a hundred, past which its tag editor stops splitting what is typed.
+        /// A key answers to keycodes or to names and never both, so these are two
+        /// caps on the same key rather than a total.
+        /// </summary>
+        public const int MostKeys = 3;
+        public const int MostNames = 100;
+
+        /// <summary>How many things a key answers to. Nought when it is bound to
+        /// nothing at all.</summary>
+        public static int Count(MKey key)
+        {
+            if (key == null)
+            {
+                return 0;
+            }
+            if (IsVariable(key))
+            {
+                return Named(Variable(key)).Count;
+            }
+            int codes = 0;
+            for (int i = 0; i < key.KeysCount; i++)
+            {
+                if (key.GetKey(i) != KeyCode.None)
+                {
+                    codes++;
+                }
+            }
+            return codes;
+        }
+
+        /// <summary>Whether a key already answers to this name.</summary>
+        public static bool Holds(MKey key, string name)
+        {
+            return IsVariable(key) && name != null
+                && Named(Variable(key)).Contains(name);
+        }
+
+        /// <summary>Whether a key already answers to this keycode.</summary>
+        public static bool Holds(MKey key, KeyCode code)
+        {
+            return key != null && !IsVariable(key) && code != KeyCode.None
+                && key.HasKey(code);
+        }
+
+        /// <summary>
+        /// Adds a name to what a key answers to, keeping whatever it answers to
+        /// already.
+        ///
+        /// False where it cannot: the key is on the keyboard rather than on names
+        /// -- a Besiege key is one or the other and never both -- or it is holding
+        /// as many names as the game allows.
+        /// </summary>
+        public static bool Added(MKey key, string name)
+        {
+            if (key == null || string.IsNullOrEmpty(name))
+            {
+                return false;
+            }
+            List<string> kept = IsVariable(key) ? Named(Variable(key))
+                                                : new List<string>();
+            if (!IsVariable(key) && Code(key) != KeyCode.None)
+            {
+                return false;               // it is on the keyboard
+            }
+            if (kept.Contains(name))
+            {
+                return true;                // already there, and once is enough
+            }
+            if (kept.Count >= MostNames)
+            {
+                return false;
+            }
+            kept.Add(name);
+            BindVariable(key, string.Join(";", kept.ToArray()));
+            return true;
+        }
+
+        /// <summary>The same for a keycode: added beside whatever codes are there,
+        /// up to the three Besiege's own mapper allows.</summary>
+        public static bool Added(MKey key, KeyCode code)
+        {
+            if (key == null || code == KeyCode.None)
+            {
+                return false;
+            }
+            if (IsVariable(key))
+            {
+                return false;               // it is on names
+            }
+            if (key.HasKey(code))
+            {
+                return true;
+            }
+            int codes = Count(key);
+            if (codes >= MostKeys)
+            {
+                return false;
+            }
+            if (codes == 0)
+            {
+                Only(key, code);
+                key.useMessage = false;
+                return true;
+            }
+            key.AddKey(code);
+            key.useMessage = false;
+            return true;
+        }
+
+        /// <summary>Takes one name off a key, leaving the rest. The key is unbound
+        /// where it was the last one.</summary>
+        public static void Dropped(MKey key, string name)
+        {
+            if (!IsVariable(key) || string.IsNullOrEmpty(name))
+            {
+                return;
+            }
+            List<string> kept = Named(Variable(key));
+            if (!kept.Remove(name))
+            {
+                return;
+            }
+            if (kept.Count == 0)
+            {
+                Clear(key);
+                return;
+            }
+            BindVariable(key, string.Join(";", kept.ToArray()));
+        }
+
+        /// <summary>And one keycode.</summary>
+        public static void Dropped(MKey key, KeyCode code)
+        {
+            if (key == null || IsVariable(key) || code == KeyCode.None)
+            {
+                return;
+            }
+            for (int i = key.KeysCount - 1; i >= 0; i--)
+            {
+                if (key.GetKey(i) == code)
+                {
+                    key.RemoveKey(i);
+                }
+            }
+            if (Count(key) == 0)
+            {
+                Clear(key);
+            }
         }
 
         /// <summary>Unbinds the key entirely.</summary>

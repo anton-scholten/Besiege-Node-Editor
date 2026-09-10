@@ -2524,11 +2524,6 @@ namespace TimerPlusMod
         {
             if (Gated)
             {
-                if (logic.Count <= 1)
-                {
-                    Flash(plusLabel, "MUST KEEP AT LEAST ONE GATE", UIF.Hot);
-                    return;
-                }
                 List<MapperType> gateTouched = new List<MapperType>();
                 // The whole block as it stands, so that one press of undo puts the
                 // row back where it was in the list, with its wires, and with its
@@ -2539,7 +2534,9 @@ namespace TimerPlusMod
                 Shifted(index, gateTouched);
                 if (before != null)
                 {
-                    Applied(gateTouched);
+                    // Written without filing anything: this edit's undo step is
+                    // filed whole below, and `Commit` would file one per control.
+                    LogicTable.Applied(gateTouched);
                     LogicTable.Filed(logic, before);
                 }
                 else
@@ -2551,11 +2548,6 @@ namespace TimerPlusMod
             }
             if (served == null)
             {
-                return;
-            }
-            if (served.Count <= 1)
-            {
-                Flash(plusLabel, "A BLOCK KEEPS ONE ROW", UIF.Hot);
                 return;
             }
             List<MapperType> touched = new List<MapperType>();
@@ -2582,29 +2574,6 @@ namespace TimerPlusMod
             board.Forget(index);
             logic.LayoutControl.Value = board.Save();
             touched.Add(logic.LayoutControl);
-        }
-
-        /// <summary>
-        /// Writes the changed controls without filing anything: for an edit whose
-        /// undo step is filed as a whole by the caller. `Commit` files one step per
-        /// control through `BlockMapper.OnEditField`, and an edit filed twice comes
-        /// back in pieces.
-        /// </summary>
-        private static void Applied(List<MapperType> changed)
-        {
-            if (changed == null)
-            {
-                return;
-            }
-            for (int i = 0; i < changed.Count; i++)
-            {
-                if (changed[i] == null)
-                {
-                    continue;
-                }
-                try { changed[i].ApplyValue(); }
-                catch (Exception) { }
-            }
         }
 
         private void DoConvert()

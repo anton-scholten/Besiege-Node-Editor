@@ -225,6 +225,243 @@ namespace TimerPlusMod
             return Drop.Into(made, machine);
         }
 
+        /// <summary>
+        /// The other direction: Besiege's own logic gates taken off the machine and
+        /// read into this block's table.
+        ///
+        /// Nothing is translated. A gate's settings are the same six things a row
+        /// holds -- which gate, its switch, two inputs and what it answers to -- so
+        /// importing is a copy, and the wiring comes with it for free: a wire is
+        /// two blocks agreeing on a key, and copying both halves of that agreement
+        /// copies the wire. The board draws the circuit that was on the machine
+        /// because it *is* the circuit that was on the machine.
+        ///
+        /// Up to the block's own thirty-two rows. What is left over stays on the
+        /// machine, so a second Logic Gate Plus can import the rest.
+        /// </summary>
+        /// <param name="left">How many gates were left on the machine.</param>
+        /// <param name="undo">The steps the removal wants filed. Handed back rather
+        /// than filed here so that whoever called this can put its own edit in the
+        /// same list: the rows arriving, the places they are drawn in and the blocks
+        /// they came from all belong to one press of undo.</param>
+        /// <returns>How many were imported.</returns>
+        public static int From(LogicGatePlusBehaviour block, out int left,
+                               out List<UndoAction> undo)
+        {
+            left = 0;
+            undo = new List<UndoAction>();
+            if (block == null)
+            {
+                throw new Exception("there is no block to import into");
+            }
+            Machine machine = Machine.Active();
+            if (machine == null)
+            {
+                throw new Exception("there is no machine to import from");
+            }
+            if (!machine.CanModify)
+            {
+                throw new Exception("this machine cannot be changed here");
+            }
+
+            // Asked before anything is imported rather than after: the blocks are
+            // taken off through the game's own selection tool, and a run that read
+            // the gates into rows and then could not remove them would leave the
+            // machine holding both.
+            AdvancedBlockEditor editor = AdvancedBlockEditor.Instance;
+            if (editor == null || editor.selectionController == null)
+            {
+                throw new Exception("the block editor is not up");
+            }
+
+            List<BlockBehaviour> gates = Gathered(machine);
+            if (gates.Count == 0)
+            {
+                throw new Exception("there are no logic gates on this machine");
+            }
+
+            int room = LogicGatePlusBehaviour.MaxRows - block.Count;
+            if (room <= 0)
+            {
+                left = gates.Count;
+                throw new Exception("this block has no rows left");
+            }
+
+            List<MapperType> touched = new List<MapperType>();
+            List<BlockBehaviour> taken = new List<BlockBehaviour>();
+            for (int i = 0; i < gates.Count && taken.Count < room; i++)
+            {
+                if (Read(block, gates[i], touched))
+                {
+                    taken.Add(gates[i]);
+                }
+            }
+            left = gates.Count - taken.Count;
+            if (taken.Count == 0)
+            {
+                throw new Exception("those gates could not be read");
+            }
+
+            LogicTable.Applied(touched);
+
+            // Besiege's own removal, which handles the joints and hands back the
+            // undo actions rather than filing them.
+            undo = Removed(taken);
+            return taken.Count;
+        }
+
+        /// <summary>Every one of Besiege's own logic gates on the machine, in the
+        /// order the machine holds them.</summary>
+        private static List<BlockBehaviour> Gathered(Machine machine)
+        {
+            List<BlockBehaviour> found = new List<BlockBehaviour>();
+            List<BlockBehaviour> all = machine.BuildingBlocks;
+            for (int i = 0; all != null && i < all.Count; i++)
+            {
+                BlockBehaviour block = all[i];
+                if (block == null || block.GetComponent<LogicGate>() == null)
+                {
+                    continue;
+                }
+                // A Logic Gate Plus is a block of this mod's own and has no
+                // `LogicGate` on it, so nothing here can pick one up.
+                found.Add(block);
+            }
+            return found;
+        }
+
+        /// <summary>
+        /// One gate as a new row of the table. False when the block would not give
+        /// its settings up, in which case it is left where it is.
+        ///
+        /// Read off the live mapper controls rather than out of a save: they are
+        /// public, they are the same three kinds the rows are made of, and the
+        /// binding helpers this mod already has do the rest.
+        /// </summary>
+        private static bool Read(LogicGatePlusBehaviour into, BlockBehaviour gate,
+                                 List<MapperType> touched)
+        {
+            MMenu kind = Menued(gate, KeyGate);
+            MKey a = Keyed(gate, KeyInputA);
+            MKey b = Keyed(gate, KeyInputB);
+            MKey emulate = Keyed(gate, KeyEmulate);
+            if (kind == null || a == null || b == null || emulate == null)
+            {
+                return false;
+            }
+            int row = LogicTable.Add(into, touched);
+            if (row < 0 || row >= into.Rows.Count)
+            {
+                return false;
+            }
+            LogicRow made = into.Rows[row];
+            if (!made.Ready)
+            {
+                return false;
+            }
+            made.Kind.Value = kind.Value;
+            touched.Add(made.Kind);
+
+            // The block shows one of its two switches at a time and the row has
+            // one; which of the block's is the live one depends on its gate.
+            MToggle mode = Toggled(gate, Gates.Inverts(kind.Value)
+                                         ? KeyInverted : KeyToggleMode);
+            made.Mode.IsActive = mode != null && mode.IsActive;
+            touched.Add(made.Mode);
+
+            Copy(a, made.InputA, touched);
+            Copy(b, made.InputB, touched);
+            Copy(emulate, made.Emulate, touched);
+            return true;
+        }
+
+        /// <summary>One key's binding onto another: a name, a keycode, or nothing
+        /// at all.</summary>
+        private static void Copy(MKey from, MKey to, List<MapperType> touched)
+        {
+            if (from == null || to == null)
+            {
+                return;
+            }
+            if (Bindings.IsVariable(from))
+            {
+                Bindings.BindVariable(to, Bindings.Variable(from));
+            }
+            else
+            {
+                Bindings.Bind(to, Bindings.Code(from));
+            }
+            touched.Add(to);
+        }
+
+        /// <summary>
+        /// A block's mapper control by the name a save spells it with.
+        ///
+        /// `SaveableDataHolder.MapperTypes` is public and every control in it
+        /// carries its own `Key`; the gate's own fields are private, so this is the
+        /// way in that does not need reflection.
+        /// </summary>
+        private static MapperType Control(BlockBehaviour block, string key)
+        {
+            if (block == null)
+            {
+                return null;
+            }
+            List<MapperType> all = block.MapperTypes;
+            for (int i = 0; all != null && i < all.Count; i++)
+            {
+                if (all[i] == null)
+                {
+                    continue;
+                }
+                // A live control's `Key` is the bare name its block registered --
+                // `activate-A` -- and `bmt-` is only what a *save* puts in front of
+                // it (`MapperType.XDATA_PREFIX`). Asked with the save's spelling,
+                // which is what this mod names everywhere else, nothing matched and
+                // every gate on the machine read as unreadable.
+                if (all[i].Key == key
+                    || MapperType.XDATA_PREFIX + all[i].Key == key)
+                {
+                    return all[i];
+                }
+            }
+            return null;
+        }
+
+        private static MKey Keyed(BlockBehaviour block, string key)
+        {
+            return Control(block, key) as MKey;
+        }
+
+        private static MMenu Menued(BlockBehaviour block, string key)
+        {
+            return Control(block, key) as MMenu;
+        }
+
+        private static MToggle Toggled(BlockBehaviour block, string key)
+        {
+            return Control(block, key) as MToggle;
+        }
+
+        /// <summary>
+        /// Takes the blocks off the machine the way the delete key does, and hands
+        /// back the undo actions rather than filing them.
+        /// </summary>
+        private static List<UndoAction> Removed(List<BlockBehaviour> blocks)
+        {
+            AdvancedBlockEditor editor = AdvancedBlockEditor.Instance;
+            if (editor == null || editor.selectionController == null)
+            {
+                Log.Warn("the gates were imported but could not be taken off the "
+                         + "machine: the block editor is not up.");
+                return new List<UndoAction>();
+            }
+            BlockSelectionTool picker = editor.selectionController;
+            picker.DeselectAll(true, true);
+            List<UndoAction> undo = picker.RemoveBlocks(blocks, true);
+            return undo == null ? new List<UndoAction>() : undo;
+        }
+
         /// <summary>One row as the game's own description of a logic gate.</summary>
         private static BlockInfo One(GateData row, Vector3 at)
         {

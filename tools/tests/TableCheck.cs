@@ -41,6 +41,8 @@ static class TableCheck
         Latches();
         Counting();
         Edges();
+        Arguments();
+        Names();
         GateSorting();
         Boards();
 
@@ -209,6 +211,38 @@ static class TableCheck
              Gate(back, Gates.EdgeDetect, true, true, false, true, false, false));
         Same("and answers the release", true,
              Gate(back, Gates.EdgeDetect, true, false, false, false, false, true));
+    }
+
+    /// <summary>
+    /// What the block hands the state machine, which is the other half of being
+    /// the game's own gate: `LogicGate.UpdateBlock` counts a press as a hold, ORs
+    /// the emulated hold in, and takes the release only where the key is not held.
+    /// </summary>
+    static void Arguments()
+    {
+        Same("a press counts as held", true, Gates.Holding(true, false, false));
+        Same("so does an emulated hold", true, Gates.Holding(false, false, true));
+        Same("nothing held is nothing", false, Gates.Holding(false, false, false));
+        Same("a release counts", true, Gates.Letting(false, false, true));
+        Same("but not while still held", false, Gates.Letting(false, true, true));
+        Same("nor on the press itself", false, Gates.Letting(true, false, true));
+    }
+
+    /// <summary>
+    /// A variable name as Besiege would take it: split on its own two separators,
+    /// trimmed, and cut to `StatMaster.KeyMapper.VariableCharLimit`.
+    /// </summary>
+    static void Names()
+    {
+        Same("a name is left alone", "door", Bindings.Tidied(" door "));
+        Same("a comma separates, as the game's own editor has it", "a;b",
+             Bindings.Tidied("a, b"));
+        Same("and a semicolon", "a;b", Bindings.Tidied("a;b"));
+        Same("empties are dropped", "a", Bindings.Tidied("a;;"));
+        Same("nothing is nothing", null, Bindings.Tidied("  "));
+        Same("a name is cut to the game's limit", true,
+             Bindings.Tidied(new string('x', 40)).Length == Bindings.NameLimit);
+        Same("one name each", "a", Bindings.Tidied("a;a"));
     }
 
     static void GateSorting()
