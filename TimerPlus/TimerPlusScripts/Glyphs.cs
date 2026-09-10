@@ -167,7 +167,14 @@ namespace TimerPlusMod
 
         /// <summary>How big the plate is and how much of its half-width the corners
         /// take: the sliced sprite's border is worked out from them.</summary>
-        private const int PlateSize = 64;
+        /// <summary>The plate's picture is drawn at twice the size the corners
+        /// are shown at -- see `tools/make-glyphs.py` -- so a screen that scales the
+        /// interface up still has a curve to show rather than a staircase.</summary>
+        private const int PlateSize = 128;
+
+        /// <summary>How many times over the plate is drawn, against the size a
+        /// corner takes on the board.</summary>
+        private const float PlateScale = PlateSize / 64f;
         private const float Corner = 0.30f;
 
         /// <summary>
@@ -193,10 +200,13 @@ namespace TimerPlusMod
                 }
                 // The border is the corner itself, and a pixel over so the straight
                 // edge starts outside the curve rather than in it.
-                float edge = PlateSize * 0.5f * Corner + 1f;
+                // Both in the picture's own pixels, and read at as many more pixels
+                // to the unit as the picture has, so a corner is the size it always
+                // was on the board and simply has more to it.
+                float edge = PlateSize * 0.5f * Corner + PlateScale;
                 plate = Sprite.Create(drawn,
                                       new Rect(0f, 0f, drawn.width, drawn.height),
-                                      new Vector2(0.5f, 0.5f), 100f, 0,
+                                      new Vector2(0.5f, 0.5f), 100f * PlateScale, 0,
                                       SpriteMeshType.FullRect,
                                       new Vector4(edge, edge, edge, edge));
                 plate.hideFlags = HideFlags.HideAndDontSave;

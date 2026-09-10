@@ -30,7 +30,10 @@ OUT = os.path.join(REPO, "TimerPlus", "Resources")
 SAMPLES = 4
 
 GATE_SIZE = 48
-PLATE_SIZE = 64
+# Twice what it was drawn at, so the corners keep their curve on a screen that
+# scales the interface up. Glyphs.cs reads it at twice the pixels per unit, so
+# a corner is the same size on the board and simply has more to it.
+PLATE_SIZE = 128
 ARROW_SIZE = 32
 GRID_SIZE = 32
 BAR_SIZE = 24

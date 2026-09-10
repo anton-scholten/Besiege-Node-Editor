@@ -79,7 +79,7 @@ First version. Two blocks, each holding a table of up to thirty-two rows:
   copied as one; **TIDY** lays the board out and folds ends standing for the same
   key or variable into one, and **GRID** -- on by default -- sits every node on the
   grid's intersections. The nodes are whole numbers of squares for it: an end is
-  four cells across and two down, a gate three by one, and TIDY lays out in cells
+  four cells across and two down, a gate three by two, and TIDY lays out in cells
   as well, so a board on the grid fills them rather than straddling them. The board is two zoomed-out views across and two down, and nodes and the
   view both stop at its edge.
   Every edit is one step of Besiege's own undo, carrying the whole block, so one

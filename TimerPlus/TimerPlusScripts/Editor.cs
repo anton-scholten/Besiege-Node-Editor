@@ -66,7 +66,7 @@ namespace TimerPlusMod
         /// key or the name it stands for, and a gate holds nothing -- what it
         /// answers to is a name the board makes up and nobody needs to read.
         /// </summary>
-        private const float GateHeight = GridStep;
+        private const float GateHeight = GridStep * 2f;
 
         /// <summary>And how wide. A gate holds a picture and, sometimes, a switch;
         /// the width of an end is the width of the name in it, and a gate has no
@@ -77,6 +77,10 @@ namespace TimerPlusMod
         /// node itself.</summary>
         private const float PaletteIcon = 26f;
         private const float NodeIcon = 24f;
+
+        /// <summary>A gate's picture on its node, which has two cells of height to
+        /// be drawn in.</summary>
+        private const float GateIcon = 36f;
         private const float PortSize = 11f;
 
         /// <summary>How big the switch on a gate that has one is drawn.</summary>
@@ -501,6 +505,7 @@ namespace TimerPlusMod
 
         private void OnDestroy()
         {
+            muffled = ZoomGuard.Grip(false, muffled);
             all.Remove(this);
         }
 
@@ -582,6 +587,13 @@ namespace TimerPlusMod
         /// </summary>
         private void Update()
         {
+            // A frame after the key that was held off, the game has its keyboard
+            // back: its own `LateUpdate` has run in between, and that is where it
+            // would have acted.
+            if (muffled && Time.frameCount > muffledAt)
+            {
+                muffled = ZoomGuard.Grip(false, muffled);
+            }
             try
             {
                 Ticking();
@@ -634,10 +646,26 @@ namespace TimerPlusMod
             Pointing();
             Verging();
             Fading();
+            // A click anywhere outside the window puts the selection down, the same
+            // as a click on the empty board does: whatever is picked out belongs to
+            // somebody working in this window, and a hand that has gone to work on
+            // the machine is not that.
+            if (Input.GetMouseButtonDown(0) && picked.Count > 0
+                && !Inside(Input.mousePosition))
+            {
+                picked.Clear();
+                Rims();
+            }
             if ((Input.GetKeyDown(KeyCode.Delete)
                  || Input.GetKeyDown(KeyCode.Backspace))
                 && picked.Count > 0 && !Typing())
             {
+                // The game hears the same key, and with the pointer off this window
+                // -- a box dragged past its edge and let go outside, say -- nothing
+                // is holding it off: it deletes its own selection, which is the very
+                // block this board is drawing. Held off for this frame, the key is
+                // the board's alone.
+                Muffle();
                 Erase();
             }
             if (Input.GetKeyDown(KeyCode.Escape) || Shut())
@@ -655,6 +683,10 @@ namespace TimerPlusMod
             }
             asks = Time.unscaledTime + 0.05f;
 
+            if (lingering && Menued())
+            {
+                lingering = false;          // the menu is back; ordinary rules again
+            }
             LogicGatePlusBehaviour was = served;
             Following();
             if (served != was)
@@ -717,6 +749,7 @@ namespace TimerPlusMod
         private void Show(LogicGatePlusBehaviour block)
         {
             served = block;
+            lingering = false;
             if (!Build())
             {
                 return;
@@ -791,6 +824,7 @@ namespace TimerPlusMod
             Tip.Tips.Hide();
             Choices.Close();
             served = null;
+            lingering = false;
         }
 
         // ---- the window ------------------------------------------------------
@@ -922,9 +956,18 @@ namespace TimerPlusMod
             }
         }
 
-        /// <summary>Set while this board is doing something that may close the
-        /// block's menu underneath it. See <see cref="Dropped"/>.</summary>
-        private static bool holding;
+        /// <summary>
+        /// Set when this board has just imported, and cleared once the block's
+        /// menu is known to be up on it again.
+        ///
+        /// Taking blocks off the machine is the game's own gesture and the game
+        /// closes the block mapper for it -- in the same call or a frame later, as
+        /// the selection tool and the panel settle. A flag held only for the length
+        /// of the import missed the later one and the board went with the menu. So
+        /// the board stays up, pinned or not, until the menu is back on its block
+        /// or the hand moves on to another one.
+        /// </summary>
+        private bool lingering;
 
         /// <summary>
         /// Puts the block's menu back if whatever the board just did took it down,
@@ -968,17 +1011,10 @@ namespace TimerPlusMod
         /// </summary>
         public static void Dropped()
         {
-            if (holding)
-            {
-                // The board is in the middle of something the game answers by
-                // taking the block's menu down -- an import, which deletes blocks
-                // through the game's own selection tool. The board is not part of
-                // what is being closed, and the menu is put back when it is done.
-                return;
-            }
             for (int i = 0; i < all.Count; i++)
             {
-                if (all[i] != null && !all[i].pinned)
+                // Not a board that has just imported: see `lingering`.
+                if (all[i] != null && !all[i].pinned && !all[i].lingering)
                 {
                     all[i].Close();
                 }
@@ -1429,7 +1465,8 @@ namespace TimerPlusMod
                     : (kind == Place.Note ? Glyphs.Note : null);
                 if (face != null)
                 {
-                    RawImage drawn = Picture(ghost.transform, face, NodeIcon);
+                    RawImage drawn = Picture(ghost.transform, face,
+                                             gate >= 0 ? GateIcon : NodeIcon);
                     drawn.color = new Color(1f, 1f, 1f, 0.7f);
                 }
                 RectTransform rect = ghost.GetComponent<RectTransform>();
@@ -2637,7 +2674,7 @@ namespace TimerPlusMod
                                       : wide - PortSize * 2f - 4f;
                 UIF.Fit(head.GetComponent<RectTransform>(), PortSize + 2f, 3f,
                         room, tall - 6f);
-                Picture(head.transform, Glyphs.Gate(row.Gate), NodeIcon);
+                Picture(head.transform, Glyphs.Gate(row.Gate), GateIcon);
             }
             else
             {
@@ -5393,6 +5430,35 @@ namespace TimerPlusMod
             }
         }
 
+        /// <summary>
+        /// Holds the game off for the rest of this frame.
+        ///
+        /// `BlockSelectionTool.LateUpdate` returns without looking at the keyboard
+        /// while `StatMaster.inMenu` is up, and a `LateUpdate` always runs after
+        /// every `Update` -- so raising it here, in the frame the key went down, is
+        /// in time for the one place the game would have deleted with it.
+        /// </summary>
+        private void Muffle()
+        {
+            muffled = ZoomGuard.Grip(true, muffled);
+            muffledAt = Time.frameCount;
+        }
+
+        private bool muffled;
+        private int muffledAt;
+
+        /// <summary>Whether a point on the screen is on this window, or on the list
+        /// it has open.</summary>
+        private bool Inside(Vector2 screen)
+        {
+            if (windowRect != null && RectTransformUtility.RectangleContainsScreenPoint(
+                    windowRect, screen, null))
+            {
+                return true;
+            }
+            return Choices.Over(screen);
+        }
+
         /// <summary>Whether something is being typed into, which is when a key is
         /// a letter rather than a command.</summary>
         private static bool Typing()
@@ -5680,7 +5746,7 @@ namespace TimerPlusMod
                 if (clipboard[i].IsGate)
                 {
                     RawImage drawn = Picture(made.transform,
-                                             Glyphs.Gate(clipboard[i].Gate), NodeIcon);
+                                             Glyphs.Gate(clipboard[i].Gate), GateIcon);
                     drawn.color = new Color(1f, 1f, 1f, 0.7f);
                 }
                 RectTransform rect = made.GetComponent<RectTransform>();
@@ -5976,7 +6042,7 @@ namespace TimerPlusMod
             // tool, and the game answers a deleted block by closing the block
             // mapper -- which would take this window with it, on the one gesture
             // whose whole point is to fill it.
-            holding = true;
+            lingering = true;
             try
             {
                 // The block as it stands, so that everything this does -- the rows,
@@ -6018,7 +6084,6 @@ namespace TimerPlusMod
             }
             finally
             {
-                holding = false;
                 // And the menu, if the removal took it: the board stayed, and the
                 // table under it should be there when the board is looked away
                 // from.

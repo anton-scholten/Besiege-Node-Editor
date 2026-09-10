@@ -255,7 +255,7 @@ so when it is over one. The title bar carries the wire-style button (straight, c
 **GRID** is on to start with and lights while it is, and while it is on every node
 sits on the grid's intersections — dragged, dropped, pasted, adopted or laid out.
 The nodes are drawn in whole squares for it: an end is four across and two down, a
-gate three across and one down, so a board on the grid fills cells rather than
+gate three across and two down, so a board on the grid fills cells rather than
 straddling them. TIDY lays out in whole squares too, so what it makes is even
 before it lands rather than shoved into line afterwards. Turning the grid on takes
 what is already on the board with it; turning it off leaves everything where it is
@@ -404,7 +404,10 @@ of nodes rather than a row of little red crosses. Picked nodes drag together —
 the set — and holding control during a drag runs it along one axis from where it
 started, whichever way it has gone furthest. Dragging one to the edge of the window
 brings the board along with it. **Delete** removes everything picked out, in one
-step, and a click on the empty board puts the selection down. Copy them and they follow the pointer as ghosts
+step, and a click on the empty board — or anywhere outside the window — puts the
+selection down. While there is a selection, Delete is the board's alone: the game
+would otherwise delete its own selection with the same key, and with the pointer
+off the window that selection is the Logic Gate Plus block itself. Copy them and they follow the pointer as ghosts
 until you paste them down, keeping the shape they had. A wire is copied when both
 of its ends were: wires between copied gates are reproduced under fresh names, and
 a wire to something left behind is not copied — the pasted gate arrives with that
