@@ -36,6 +36,10 @@ namespace TimerPlusMod
         /// game's hotkeys firing at whatever is being typed into it.</summary>
         public const string InputPrefab = "Input Field";
 
+        /// <summary>A slider. The node editor's colour bands are drawn over one.
+        /// </summary>
+        public const string SliderPrefab = "Slider";
+
         /// <summary>
         /// The tooltip panel on its own -- background, label and pointing triangle,
         /// with no behaviour on it. UI Factory splits the two halves; the other one,

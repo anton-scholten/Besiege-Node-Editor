@@ -191,8 +191,9 @@ what they are.
 
 Every gate is Besiege's own, read out of the game: the seven combinational ones,
 the two latches, the counter that divides by four, the random gate and the edge
-detector that answers for exactly one tick. **CONVERT TO LOGIC GATES** builds one
-of the game's logic gate blocks per row, pinned the same way.
+detector that answers for exactly one tick. **EXPORT**, on the node editor's title
+bar, builds one of the game's logic gate blocks per row, each pinned where it is put
+while **PIN BLOCKS** beside it is on.
 
 A row runs the gate rather than standing in for one: the state machine is the
 game's own, read out of `LogicGate` and held to its truth tables by the build's own
@@ -207,8 +208,8 @@ is not one.
 
 ## The node editor
 
-The same rows, seen as a circuit. **NODE EDITOR**, between PIN BLOCKS and the
-convert button, opens a window of its own — not docked to the mapper, so it stays
+The same rows, seen as a circuit. **NODE EDITOR**, along the bottom of the table,
+opens a window of its own — not docked to the mapper, so it stays
 up while you work on the machine.
 
 Inputs and outputs are worked out from the rows themselves: a key or a name a row
@@ -230,7 +231,7 @@ variable into the table and the wire appears on the board.
 | **INPUT** | A key or a variable coming in. Wire it to as many gates as you like |
 | a gate | One row: its symbol and its switch where the gate has one, drawn narrow because it holds nothing else. What its answer goes out under is a name the board makes up (`ne01_04`) and nobody has to read. Both its inputs take as many wires as you like, OR-ed |
 | **OUTPUT** | A key or a variable the answer also goes out on |
-| a comment | A note on the board, wired to nothing. Click the writing and the caret goes in it; drag the writing and the note moves. It grows as you type to fit what you write — the same small margin on all four sides — newlines included |
+| a comment | A note on the board, wired to nothing. Click the writing and the caret goes in it; drag the writing and the note moves. It grows as you type to fit what you write — the same small margin on all four sides — newlines included. Point at it and a double arrow shows in its bottom-right corner, beside the red cross: drag that to make the writing bigger or smaller, and the note grows or shrinks with it — as far as three quarters of the board's width. However big it gets, a note stays on the board: grown past an edge, it is moved back inside |
 
 Along the top is a row of icons: an input, an output, a comment, and the twelve
 gates in Besiege's own order, each drawn as the shape it is and named on hover. Click one to
@@ -241,18 +242,48 @@ LIMIT** rather than quietly doing nothing. The last gate can go like any other: 
 block with no gates is a block whose circuit has been taken off it, and keeping one
 back would be a gate somebody has to find and delete somewhere else.
 
-The board is about two zoomed-all-the-way-out views across and two down, and that
-is as far as it goes: nodes stop at its edge and so does the view, because a board
+The board is big — about four views across and four down at the old furthest zoom —
+and the wheel pulls back far enough to show all of it at once, the grid fading out as
+its squares get too small to draw. That is as far as it goes: nodes stop at its edge
+and so does the view, because a board
 you can pan into for ever is a board with nodes on it nobody can find. A thin white
-line draws that edge, and the window opens in the middle of it — on the middle of
+line draws that edge, the same thickness on screen however far out you zoom, and the window opens in the middle of it — on the middle of
 what is drawn, where an older layout put the circuit somewhere else. It pans by
 dragging its empty parts — or with the middle button anywhere,
 node or no node — and zooms with the wheel, over a grid so
 you can see where you are, and the window resizes by its corners — the pointer says
-so when it is over one. The title bar carries the wire-style button (straight, curved, square), **GRID**, **TIDY**,
-**ZOOM FIT**, **IMPORT**, and the box for what generated wire names start with.
+so when it is over one. The title bar carries the wire-style button (line, curve, square — click for the next, right-click for the list), **EDIT COLORS**, **GRID**,
+**TIDY**, **ZOOM FIT**, **IMPORT**, **PIN BLOCKS** and **EXPORT**, and the
+box for what generated wire names start with. EXPORT keeps the board up as the new
+gates arrive under the move tool, and does not put the block's menu back, since that
+would take them out of your hand.
 
-**GRID** is on to start with and lights while it is, and while it is on every node
+**EDIT COLORS** lays two rows over the top of the board — the board itself stays
+where it is, and the rows hide what is under them while they are out. Under every
+palette button is that kind's colour. Under those, left to right: **NODE**, how nodes
+are coloured, the **UNICOLOR** node colour; **WIRE**, how wires are coloured, the
+**UNICOLOR** wire colour; and **RESET COLORS** at the far end, which puts every colour
+back as it started. Nodes and wires are coloured each their own way:
+
+| | Nodes | Wires |
+|---|---|---|
+| **UNICOLOR** | the unicolour node colour | the unicolour wire colour |
+| **COLOR** | each in its kind's colour | shading from the kind colour of the node they leave to that of the one they reach |
+| **RANDOM** | a kind colour picked for each | a kind colour picked for each |
+
+Both selectors, and the wire style on the title bar, step to the next choice on a
+click and open the list of all of them on a right-click — the same kind of list a
+right-click on the board opens. A node's colour is its picture or its word and its
+ports. Random is chosen once, not every time the board is drawn: a gate by its row,
+an end by the key or name it stands for. Each colour is the box of the Special
+Effects spot light's colour row, with its lettering as big as the box allows: type six
+hex characters, or drag sideways off the box to run through the hues. A drag inside
+the box selects text and a double-click selects all six, as in the spot light's. The palette buttons are
+drawn the way nodes are being coloured. The unicolour boxes are only as wide as
+the colour written in them. Colours are yours rather than the machine's — every open board shares
+them, and they are kept in the mod's data folder between sessions.
+
+**GRID** is a switch like PIN BLOCKS, on to start with and red while it is, and while it is on every node
 sits on the grid's intersections — dragged, dropped, pasted, adopted or laid out.
 The nodes are drawn in whole squares for it: an end is four across and two down, a
 gate three across and two down, so a board on the grid fills cells rather than
@@ -428,10 +459,12 @@ board it is given one of its own, so the copy is a circuit of its own rather tha
 second set of wires on the original's ends. What was copied stays copied, so the
 same thing can be laid down more than once.
 
-The two hotkeys — copy and paste — are declared in the mod's manifest, so they
-appear in Besiege's controls screen and can be rebound like any other. They default
-to 1+C and 1+V: the 1 key rather than Control, because Besiege's own copy and paste
-are on Ctrl and the game hears the keyboard at the same time this does.
+The three hotkeys — copy, paste and select all — are declared in the mod's
+manifest, so they appear in Besiege's controls screen and can be rebound like any
+other. They default to 1+C, 1+V and 1+A: the 1 key rather than Control, because
+Besiege's own copy and paste are on Ctrl and the game hears the keyboard at the same
+time this does. Select all picks out every node on the board, and does nothing while
+you are typing in a box.
 
 Undo is Besiege's own — Ctrl+Z, or the arrows on the toolbar. Every edit made
 here is filed in it as one step carrying the whole block, so one press puts every

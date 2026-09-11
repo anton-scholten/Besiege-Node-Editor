@@ -22,6 +22,21 @@ namespace TimerPlusMod
 
         private bool held;
 
+        /// <summary>
+        /// Frames left before the menu hold follows the zoom hold, and whether it
+        /// has.
+        ///
+        /// Not both at once. `MouseOrbit.Update` eases the camera's zoom towards
+        /// the last wheel reading *before* it looks at `inMenu`, and takes a fresh
+        /// reading -- nought while zoom is disabled -- only *after* it. A pointer
+        /// scrolled onto the window raised both in the same frame, so that reading
+        /// was never taken again and the camera went on zooming for as long as the
+        /// pointer stayed. With the menu a few frames behind, one pass sees zoom
+        /// held off and no menu, and puts the reading to nought.
+        /// </summary>
+        private int waiting;
+        private bool menued;
+
         /// <summary>How many of this mod's own pieces are telling Besiege a menu
         /// is open, so that anything asking "is a menu up" can tell ours from the
         /// game's.</summary>
@@ -82,17 +97,51 @@ namespace TimerPlusMod
 
         private void OnDisable() { Hold(false); }
 
+        private void Update()
+        {
+            if (waiting <= 0)
+            {
+                return;
+            }
+            waiting--;
+            if (waiting > 0 || !held || menued)
+            {
+                return;
+            }
+            try
+            {
+                Menu(true);
+                menued = true;
+            }
+            catch (Exception)
+            {
+            }
+        }
+
         private void Hold(bool on)
         {
             if (held == on) return;
             try
             {
                 StatMaster.DisableCameraZoom(on);
-                if (menu)
-                {
-                    Menu(on);
-                }
                 held = on;
+                if (!menu)
+                {
+                    return;
+                }
+                if (on)
+                {
+                    // Three rather than one: which of this and the camera runs
+                    // first in a frame is not ours to know.
+                    waiting = 3;
+                    return;
+                }
+                waiting = 0;
+                if (menued)
+                {
+                    Menu(false);
+                    menued = false;
+                }
             }
             catch (Exception)
             {

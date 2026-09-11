@@ -262,6 +262,18 @@ What depends on what:
   `RawImage`, which takes the `Texture` the resource system hands over as it is; an
   `Image` would want a `Sprite` made from it and owned by somebody. Missing
   textures fall back to the letters `H`, `S`, `L`.
+- **`Hues`** is how the node editor colours its board -- a way each for nodes and wires, the
+  row of kind colours in palette order, the unicolour node and wire -- and keeps
+  them in the mod's data folder through `Modding.ModIO` (spelt out: bare `ModIO` is
+  the mod.io SDK's namespace). The player's, not the block's, so nothing about them
+  is in a save or on the undo. Random colours are picked by a seed worked out from
+  the node -- a gate's row, an end's key or name -- so they hold still between
+  drawings; the way is saved by name, so adding one does not shift a saved choice.
+  **`Swatch`** is the colour control EDIT COLORS lays out: an `Input Field` with a
+  stroke and a `#`, dragged sideways through the hues by a `ValueField`, its
+  lettering sized to the box by measuring `#DDDDDD` with the text generator. **`Asks`**
+  is a right-click handler put beside a `Button` (which answers the left button
+  only) -- it opens the wire style's list and the two colour ways' lists.
 - **`Tip`** is one tooltip panel on the canvas, moved to whatever is hovered,
   rather than UI Factory's per-control `Besiege.UI.Bridge.Tooltip` — the table
   scrolls and hides whole rows, which a panel parented into a row cannot survive.

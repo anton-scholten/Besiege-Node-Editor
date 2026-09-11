@@ -32,6 +32,7 @@
 	<Keys>
 		<Key name="board-copy" defaultModifier="Alpha1" defaultTrigger="C" />
 		<Key name="board-paste" defaultModifier="Alpha1" defaultTrigger="V" />
+		<Key name="board-select-all" defaultModifier="Alpha1" defaultTrigger="A" />
 	</Keys>
 
 	<Icon name="TimerPlus_icon" />

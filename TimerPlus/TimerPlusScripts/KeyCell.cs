@@ -118,6 +118,11 @@ namespace TimerPlusMod
         /// the key and queues the commit.</summary>
         public Action<KeyCell> Changed;
 
+        /// <summary>Handed the name box when it is built -- the first time it is
+        /// needed, not with the cell -- for whoever wants a hand on it too: the
+        /// node editor drags its node by it.</summary>
+        public Action<InputField> Fielded;
+
         /// <summary>The name typed into the box, or null when there is none. Only
         /// meaningful in variable mode -- read <see cref="UsesVariable"/> first.
         /// </summary>
@@ -239,6 +244,10 @@ namespace TimerPlusMod
             if (guard != null)
             {
                 guard.box = box;
+            }
+            if (box != null && Fielded != null)
+            {
+                Fielded(box);
             }
         }
 
@@ -551,13 +560,22 @@ namespace TimerPlusMod
             // edit afterwards.
             // An empty box stays variable mode with nothing bound. Falling back to
             // key mode here is what made the button impossible to click back.
-            Variable = Bindings.Tidied(text);
+            string tidied = Bindings.Tidied(text);
+            // Nothing to say when nothing changed. The box announces its text when
+            // it is only put out of reach -- the node editor does that for the
+            // length of a drag begun on it -- and answering that redrew the node
+            // out from under the hand moving it.
+            bool same = tidied == Variable;
+            Variable = tidied;
             if (box != null && !box.isFocused)
             {
                 box.text = Variable == null ? "" : Variable;
             }
             Paint();
-            Raise();
+            if (!same)
+            {
+                Raise();
+            }
         }
 
         private void Update()

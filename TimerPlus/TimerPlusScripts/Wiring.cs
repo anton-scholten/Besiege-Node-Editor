@@ -36,6 +36,10 @@ namespace TimerPlusMod
         /// <summary>What a comment says. Empty on everything else.</summary>
         public string Words;
 
+        /// <summary>A comment's font size, where its corner has been pulled; 0 for
+        /// the size every comment starts at.</summary>
+        public int Size;
+
         public bool Bound
         {
             get { return Variable != null || Key != KeyCode.None; }
@@ -134,9 +138,15 @@ namespace TimerPlusMod
                     // A comment is a line like the rest, with what it says at the
                     // end of it -- newlines and all, written as `\n` so one comment
                     // stays one line of the layout.
+                    // The field before the words is `w`, with the font size run on
+                    // where the comment has been resized -- `w22`. A version that
+                    // knows nothing of sizes skips that field whatever it says.
                     text.Append("n ").Append(Whole(place.X)).Append(' ')
-                        .Append(Whole(place.Y)).Append(" w ")
-                        .Append(Folded(place.Words)).Append('\n');
+                        .Append(Whole(place.Y)).Append(" w")
+                        .Append(place.Size > 0
+                                ? place.Size.ToString(CultureInfo.InvariantCulture)
+                                : "")
+                        .Append(' ').Append(Folded(place.Words)).Append('\n');
                     continue;
                 }
                 text.Append(place.Kind == Place.Input ? "i " : "o ")
@@ -194,6 +204,10 @@ namespace TimerPlusMod
                     note.Kind = Place.Note;
                     note.X = Number(parts[1], 0);
                     note.Y = Number(parts[2], 0);
+                    if (parts[3].Length > 1 && parts[3][0] == 'w')
+                    {
+                        note.Size = Mathf.Max(0, Number(parts[3].Substring(1), 0));
+                    }
                     note.Words = Unfolded(Rest(parts, 4));
                     made.Places.Add(note);
                 }

@@ -29,7 +29,9 @@ namespace TimerPlusMod
         /// down to. It is resized by its corners after that.</summary>
         private const float StartWidth = 894f;
         private const float StartHeight = 574f;
-        private const float LeastWidth = 420f;
+        /// <summary>Wide enough for every button on the title bar and a prefix box
+        /// of ninety beside them.</summary>
+        private const float LeastWidth = 790f;
         private const float LeastHeight = 300f;
 
         /// <summary>Where it opens, from the middle of the screen: under the block
@@ -93,7 +95,13 @@ namespace TimerPlusMod
         /// <summary>How big the cross that removes a node is. Bigger than a port:
         /// it is the one thing on a node that is aimed at rather than dragged.
         /// </summary>
-        private const float CrossSize = 24f;
+        private const float CrossSize = 48f;
+
+        /// <summary>The comment's resizing corner: where it answers the pointer, and
+        /// the arrow drawn in it. Like the cross, in the window's own units at any
+        /// zoom.</summary>
+        private const float GripSize = 14f;
+        private const float GripArrows = 9.6f;
         private const float WireWidth = 2f;
 
         /// <summary>How far the wheel zooms, either way.</summary>
@@ -103,7 +111,7 @@ namespace TimerPlusMod
         /// <summary>
         /// How much board there is to put nodes on.
         ///
-        /// Two views across and two down at the furthest the wheel zooms out,
+        /// Four views across and four down at the furthest the wheel zooms out,
         /// measured off the window's own opening size: room for a circuit far
         /// larger than thirty-two gates, and an end to it. A board without one is a
         /// board somebody can drop a node into and never find again -- and ZOOM FIT
@@ -119,11 +127,13 @@ namespace TimerPlusMod
         /// off the top -- and since a node's place is measured from the top, a node
         /// snapped to the grid sat that fraction above the line it belonged on.
         ///
-        /// Two views across and two down at the furthest the wheel zooms out comes
-        /// to about 4390 by 2470, which is these two.
+        /// Four views across and four down at the furthest the wheel zooms out
+        /// comes to about 8770 by 4930, which is these two. An older board's nodes
+        /// sit in the top-left quarter of this one, and `Middled` opens the view
+        /// on them rather than on the empty middle.
         /// </summary>
-        private const int BoardCells = 137;
-        private const int BoardRows = 77;
+        private const int BoardCells = 274;
+        private const int BoardRows = 154;
         private const float BoardWide = GridStep * BoardCells;
         private const float BoardTall = GridStep * BoardRows;
 
@@ -137,7 +147,6 @@ namespace TimerPlusMod
 
         private static readonly Vector2 Reference = new Vector2(1920f, 1080f);
         private static readonly Color Ink = new Color(0.10f, 0.13f, 0.17f, 0.96f);
-        private static readonly Color WireInk = new Color(0.55f, 0.72f, 0.85f, 0.85f);
         private static readonly Color LiveInk = new Color(0.012f, 1f, 0.847f, 1f);
 
         /// <summary>Besiege's red, which is what the game paints anything that
@@ -196,6 +205,7 @@ namespace TimerPlusMod
             public KeyCode Key = KeyCode.None;
             public int Kind;                 // for a place
             public string Words;             // what a comment says
+            public int Size;                 // a comment's font size, 0 for the usual
             public string Wire;              // a gate's own answer name
             public KeyCode Answers = KeyCode.None;   // or the key it presses
             public string[] Inputs = new string[2];
@@ -634,18 +644,32 @@ namespace TimerPlusMod
                 catch (Exception) { }
                 canvas.enabled = !hidden;
             }
-            if (Hotkeys.Copy)
+            // None of the three while something is being typed: a 1 and a letter
+            // are what a name is spelt with.
+            if (Hotkeys.Copy && !Typing())
             {
                 Copy();
             }
-            else if (Hotkeys.Paste)
+            else if (Hotkeys.Paste && !Typing())
             {
                 Paste();
+            }
+            else if (Hotkeys.All && !Typing())
+            {
+                // Every node on the board picked out, as a box round all of it
+                // would.
+                picked.Clear();
+                for (int node = 0; node < Nodes; node++)
+                {
+                    picked.Add(node);
+                }
+                Rims();
             }
             Carrying();
             Pointing();
             Verging();
             Fading();
+            Hues.Settle();
             // A click anywhere outside the window puts the selection down, the same
             // as a click on the empty board does: whatever is picked out belongs to
             // somebody working in this window, and a hand that has gone to work on
@@ -686,6 +710,20 @@ namespace TimerPlusMod
             if (lingering && Menued())
             {
                 lingering = false;          // the menu is back; ordinary rules again
+            }
+            if (pinsBox != null && served != null && served.PinControl != null
+                && pinsBox.isOn != served.PinControl.IsActive)
+            {
+                hushed = true;
+                pinsBox.isOn = served.PinControl.IsActive;
+                hushed = false;
+            }
+            if (gridBox != null && gridBox.isOn != grid)
+            {
+                // Flipped on another board.
+                hushed = true;
+                gridBox.isOn = grid;
+                hushed = false;
             }
             LogicGatePlusBehaviour was = served;
             Following();
@@ -1027,10 +1065,61 @@ namespace TimerPlusMod
         private RectTransform tidyRect;
         private RectTransform fitRect;
         private RectTransform importRect;
+        private RectTransform pinsRect;
+        private RectTransform exportRect;
+
+        /// <summary>The block's pin-blocks setting, as a switch on the bar. Kept in
+        /// step with the block in `Ticking`, since an undo can flip it.</summary>
+        private Toggle pinsBox;
         private readonly List<RectTransform> palette = new List<RectTransform>();
         private readonly List<Corner> corners = new List<Corner>();
         private Text styleLabel;
-        private Text gridLabel;
+
+        /// <summary>The grid switch. Every board shares the one setting, so each
+        /// keeps its own switch in step with it in `Ticking`.</summary>
+        private Toggle gridBox;
+
+        /// <summary>The two ways-of-colouring selectors on the unicolour row, and
+        /// the words in front of them.</summary>
+        private RectTransform nodeModeRect;
+        private Text nodeModeLabel;
+        private RectTransform wireModeRect;
+        private Text wireModeLabel;
+        private RectTransform nodeWords;
+        private RectTransform wireWords;
+        private RectTransform editRect;
+        private Toggle editBox;
+
+        /// <summary>Whether this board has its colours out: the row of them over
+        /// the palette and the two unicolours under it.</summary>
+        private bool editing;
+
+        /// <summary>One colour per palette button, in the palette's order.</summary>
+        private readonly List<Swatch> swatches = new List<Swatch>();
+        private Swatch uniNode;
+        private Swatch uniWire;
+        private RectTransform uniNodeWords;
+        private RectTransform uniWireWords;
+        private RectTransform resetRect;
+
+        /// <summary>What each palette button draws itself with -- its picture or
+        /// its word -- to be coloured as the kind it offers.</summary>
+        private readonly List<Graphic> inks = new List<Graphic>();
+
+        private RawImage gridLines;
+
+        /// <summary>The four lines round the edge of the board, and the zoom they
+        /// were last made thick enough for.</summary>
+        private readonly List<RectTransform> rails = new List<RectTransform>();
+        private float railed = -1f;
+
+        /// <summary>Each node's colour and the number a random one was chosen by,
+        /// worked out once per drawing of the board: every wire asks for both at
+        /// both its ends on every frame of a pan.</summary>
+        private readonly List<Color> tints = new List<Color>();
+        private readonly List<int> seeds = new List<int>();
+        private readonly List<int> slots = new List<int>();
+        private bool tinted;
 
         /// <summary>The furniture: a title bar to drag it by, the switches on it,
         /// the board the nodes live on, and the row along the bottom.</summary>
@@ -1048,42 +1137,50 @@ namespace TimerPlusMod
             GameObject bar = Plate(window.transform, 0f, 0f, size.x, BarHeight,
                                    new Color(0f, 0f, 0f, 0.25f));
             barRect = bar.GetComponent<RectTransform>();
-            Caption(bar, "LOGIC BOARD", TextAnchor.MiddleCenter);
             NodeDrag drag = bar.AddComponent<NodeDrag>();
             drag.frame = windowRect;
             drag.Moved = delegate(Vector2 by) { windowRect.anchoredPosition += by; };
 
-            // On the left of the title: whether a gate's wire name is shown at all,
-            // how the wires are drawn, and a button that lays the board out.
+            // Along the bar from the left, with no title: the bar is full of
+            // buttons, and the window is plainly the board. How the wires are
+            // drawn, the grid, laying the board out, the view, and the two ways
+            // between the board and the machine.
             GameObject wireStyle = UIF.Spawn(UIF.ButtonPrefab, bar.transform);
             if (wireStyle != null)
             {
                 styleRect = wireStyle.GetComponent<RectTransform>();
                 UIF.NoSwell(wireStyle);
-                styleLabel = Caption(wireStyle, Styled(), TextAnchor.MiddleCenter);
+                styleLabel = Caption(wireStyle, Styled(style), TextAnchor.MiddleCenter);
                 Grow(wireStyle, styleLabel.transform);
                 Button click = wireStyle.GetComponent<Button>();
                 if (click != null)
                 {
                     click.onClick.AddListener(Styling);
                 }
+                Tip.On(wireStyle, "Wires: click for the next, right-click for the list");
+                Asks asks = wireStyle.AddComponent<Asks>();
+                asks.Asked = Restyling;
             }
 
-            GameObject squares = UIF.Spawn(UIF.ButtonPrefab, bar.transform);
+            // A switch, drawn and lit the way PIN BLOCKS and EDIT COLORS are: it
+            // says whether it is on, and it is the same click either way.
+            GameObject squares = UIF.Spawn(UIF.TogglePrefab, bar.transform);
             if (squares != null)
             {
                 gridRect = squares.GetComponent<RectTransform>();
                 UIF.NoSwell(squares);
-                gridLabel = Caption(squares, "GRID", TextAnchor.MiddleCenter);
-                Grow(squares, gridLabel.transform);
-                Tip.On(squares, "Sit nodes on the grid");
-                Button click = squares.GetComponent<Button>();
-                if (click != null)
+                Grow(squares, Caption(squares, "GRID",
+                                      TextAnchor.MiddleCenter).transform);
+                Tip.On(squares, "Align nodes to the grid");
+                gridBox = squares.GetComponent<Toggle>();
+                if (gridBox != null)
                 {
-                    click.onClick.AddListener(Snapping);
+                    hushed = true;
+                    gridBox.isOn = grid;
+                    hushed = false;
+                    gridBox.onValueChanged.AddListener(Snapping);
                 }
             }
-            Squared();
 
             GameObject tidy = UIF.Spawn(UIF.ButtonPrefab, bar.transform);
             if (tidy != null)
@@ -1119,11 +1216,64 @@ namespace TimerPlusMod
                 UIF.NoSwell(brought);
                 Grow(brought, Caption(brought, "IMPORT",
                                       TextAnchor.MiddleCenter).transform);
-                Tip.On(brought, "Take the machine's own logic gates into this block");
+                Tip.On(brought, "Take all logic gates of the machine into this editor");
                 Button click = brought.GetComponent<Button>();
                 if (click != null)
                 {
                     click.onClick.AddListener(Import);
+                }
+            }
+
+            // Whether EXPORT pins what it makes. Up here beside the button it
+            // governs rather than under the table, where it sat beside the convert
+            // button before that moved up too.
+            GameObject stakes = UIF.Spawn(UIF.TogglePrefab, bar.transform);
+            if (stakes != null)
+            {
+                pinsRect = stakes.GetComponent<RectTransform>();
+                UIF.NoSwell(stakes);
+                Grow(stakes, Caption(stakes, "PIN BLOCKS",
+                                     TextAnchor.MiddleCenter).transform);
+                Tip.On(stakes, "Pin logic gate blocks when exported");
+                pinsBox = stakes.GetComponent<Toggle>();
+                if (pinsBox != null)
+                {
+                    hushed = true;
+                    pinsBox.isOn = served == null || served.Pins;
+                    hushed = false;
+                    pinsBox.onValueChanged.AddListener(Staking);
+                }
+            }
+
+            GameObject sent = UIF.Spawn(UIF.ButtonPrefab, bar.transform);
+            if (sent != null)
+            {
+                exportRect = sent.GetComponent<RectTransform>();
+                UIF.NoSwell(sent);
+                Grow(sent, Caption(sent, "EXPORT", TextAnchor.MiddleCenter).transform);
+                Tip.On(sent, "Convert to logic gate blocks");
+                Button click = sent.GetComponent<Button>();
+                if (click != null)
+                {
+                    click.onClick.AddListener(Export);
+                }
+            }
+
+            GameObject edits = UIF.Spawn(UIF.TogglePrefab, bar.transform);
+            if (edits != null)
+            {
+                editRect = edits.GetComponent<RectTransform>();
+                UIF.NoSwell(edits);
+                Grow(edits, Caption(edits, "EDIT COLORS",
+                                    TextAnchor.MiddleCenter).transform);
+                Tip.On(edits, "Pick the colors nodes and wires are drawn in");
+                editBox = edits.GetComponent<Toggle>();
+                if (editBox != null)
+                {
+                    hushed = true;
+                    editBox.isOn = false;
+                    hushed = false;
+                    editBox.onValueChanged.AddListener(Editing);
                 }
             }
 
@@ -1150,7 +1300,7 @@ namespace TimerPlusMod
                     Quaternion.Euler(0f, 0f, 45f);
                 Paint();
                 Grow(shut, pinIcon.transform, 1.15f);
-                Tip.On(shut, "Keep the board open");
+                Tip.On(shut, "Keep the editor open");
                 Button click = shut.GetComponent<Button>();
                 if (click != null)
                 {
@@ -1165,6 +1315,8 @@ namespace TimerPlusMod
             {
                 Add(g, -1, g, "", Gates.Names[g], null);
             }
+            Swatches();
+            Painted();
 
             GameObject board = Plate(window.transform, Margin, 0f, 10f, 10f,
                                      new Color(0f, 0f, 0f, 0.20f));
@@ -1205,6 +1357,7 @@ namespace TimerPlusMod
             mesh.anchoredPosition = Vector2.zero;
             mesh.sizeDelta = new Vector2(BoardWide, BoardTall);
             RawImage lines = paper.AddComponent<RawImage>();
+            gridLines = lines;
             lines.texture = Glyphs.Grid;
             lines.color = new Color(1f, 1f, 1f, 0.5f);
             lines.raycastTarget = false;
@@ -1233,7 +1386,10 @@ namespace TimerPlusMod
                 line.anchorMax = new Vector2(flat ? 1f : (side == 2 ? 0f : 1f),
                                              flat ? (side == 0 ? 1f : 0f) : 1f);
                 line.pivot = new Vector2(0.5f, 0.5f);
-                line.sizeDelta = flat ? new Vector2(0f, 1.5f) : new Vector2(1.5f, 0f);
+                // Made thicker on the board as the board is zoomed out: see
+                // `Railed`, which keeps it the same on screen.
+                line.sizeDelta = flat ? new Vector2(0f, RailWide) : new Vector2(RailWide, 0f);
+                rails.Add(line);
                 line.anchoredPosition = Vector2.zero;
                 // A RawImage with no texture is a plain filled rectangle, which is
                 // all a line is.
@@ -1309,26 +1465,16 @@ namespace TimerPlusMod
             {
                 UIF.Fit(barRect, 0f, 0f, size.x, BarHeight);
             }
-            if (styleRect != null)
-            {
-                UIF.Fit(styleRect, 3f, 3f, bit * 3.4f, bit);
-            }
-            if (gridRect != null)
-            {
-                UIF.Fit(gridRect, 3f + bit * 3.4f + 3f, 3f, bit * 2.4f, bit);
-            }
-            if (tidyRect != null)
-            {
-                UIF.Fit(tidyRect, 3f + bit * 5.8f + 6f, 3f, bit * 2.4f, bit);
-            }
-            if (fitRect != null)
-            {
-                UIF.Fit(fitRect, 3f + bit * 8.2f + 9f, 3f, bit * 3.4f, bit);
-            }
-            if (importRect != null)
-            {
-                UIF.Fit(importRect, 3f + bit * 11.6f + 12f, 3f, bit * 3.0f, bit);
-            }
+            // Along the bar from the left, each after the last.
+            float along = 3f;
+            along = Slot(styleRect, along, bit * 3.4f);
+            along = Slot(editRect, along, bit * 5.2f);
+            along = Slot(gridRect, along, bit * 2.4f);
+            along = Slot(tidyRect, along, bit * 2.4f);
+            along = Slot(fitRect, along, bit * 3.4f);
+            along = Slot(importRect, along, bit * 3.0f);
+            along = Slot(pinsRect, along, bit * 4.6f);
+            along = Slot(exportRect, along, bit * 3.0f);
             if (shutRect != null)
             {
                 UIF.Fit(shutRect, size.x - bit - 3f, 3f, bit, bit);
@@ -1342,6 +1488,49 @@ namespace TimerPlusMod
             }
 
             float top = y + 30f + Margin;
+            if (editing)
+            {
+                // Between the palette and the board, on the window's own ground,
+                // with the board giving up the room. What is drawn on the board
+                // does not move with its edge -- see `Editing`.
+                float below = y + 30f + 4f;
+                // Each button's colour straight under it.
+                for (int i = 0; i < swatches.Count; i++)
+                {
+                    swatches[i].Fit(Margin + step * i, below, step - 3f, SwatchTall);
+                }
+                below += SwatchTall + 4f;
+                // Then nodes and wires: how each is coloured, and the one colour
+                // UNICOLOR gives it -- in a box only as wide as what it says.
+                float snug = uniNode != null ? uniNode.Snug(UniTall) : UniWide;
+                float at = Margin + 6f;
+                UIF.Fit(nodeWords, at, below, SideWords, UniTall);
+                at += SideWords + 4f;
+                UIF.Fit(nodeModeRect, at, below, ModeWide, UniTall);
+                at += ModeWide + 8f;
+                UIF.Fit(uniNodeWords, at, below, UniWords, UniTall);
+                at += UniWords + 4f;
+                if (uniNode != null)
+                {
+                    uniNode.Fit(at, below, snug, UniTall);
+                }
+                at += snug + 32f;
+                UIF.Fit(wireWords, at, below, SideWords, UniTall);
+                at += SideWords + 4f;
+                UIF.Fit(wireModeRect, at, below, ModeWide, UniTall);
+                at += ModeWide + 8f;
+                UIF.Fit(uniWireWords, at, below, UniWords, UniTall);
+                at += UniWords + 4f;
+                if (uniWire != null)
+                {
+                    uniWire.Fit(at, below, snug, UniTall);
+                }
+                // And at the far end of that row, putting all of them back.
+                UIF.Fit(resetRect, size.x - Margin - ResetWide, below, ResetWide,
+                        UniTall);
+                top = below + UniTall + Margin;
+            }
+            boardTop = top;
             // The same gap under the board as beside it: what used to be reserved
             // along the bottom held the prefix box, and that sits in the title bar
             // now.
@@ -1356,7 +1545,9 @@ namespace TimerPlusMod
                 // Beside the cross: what generated wire names start with belongs
                 // with the window's own furniture rather than in the middle of its
                 // title.
-                float wide = Mathf.Min(180f, size.x * 0.3f);
+                // Whatever the buttons leave, up to a comfortable width -- see
+                // `LeastWidth`, which keeps that from being nothing.
+                float wide = Mathf.Clamp(size.x - bit - 6f - along, 0f, 180f);
                 UIF.Fit(nameRect, size.x - bit - 6f - wide, 3f, wide, bit);
             }
             for (int i = 0; i < corners.Count; i++)
@@ -1409,16 +1600,22 @@ namespace TimerPlusMod
             UIF.Fit(go.GetComponent<RectTransform>(), x, y, w, 30f);
             UIF.NoSwell(go);
             palette.Add(go.GetComponent<RectTransform>());
+            // What is drawn on the button is kept, in the palette's order, to be
+            // coloured as the kind it offers.
             if (words.Length > 0)
             {
-                Grow(go, Caption(go, words, TextAnchor.MiddleCenter).transform);
+                Text shown = Caption(go, words, TextAnchor.MiddleCenter);
+                Grow(go, shown.transform);
+                inks.Add(shown);
             }
             else
             {
                 Caption(go, "", TextAnchor.MiddleCenter);
-                Grow(go, Picture(go.transform,
-                                 drawn != null ? drawn : Glyphs.Gate(gate),
-                                 PaletteIcon).transform);
+                RawImage shown = Picture(go.transform,
+                                         drawn != null ? drawn : Glyphs.Gate(gate),
+                                         PaletteIcon);
+                Grow(go, shown.transform);
+                inks.Add(shown);
             }
             Tip.On(go, tip);
             int born = kind;
@@ -1467,7 +1664,9 @@ namespace TimerPlusMod
                 {
                     RawImage drawn = Picture(ghost.transform, face,
                                              gate >= 0 ? GateIcon : NodeIcon);
-                    drawn.color = new Color(1f, 1f, 1f, 0.7f);
+                    Color shade = Shelf(gate >= 0 ? Hues.GateSlot(gate) : Hues.NoteSlot);
+                    shade.a = 0.7f;
+                    drawn.color = shade;
                 }
                 RectTransform rect = ghost.GetComponent<RectTransform>();
                 rect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -1648,15 +1847,11 @@ namespace TimerPlusMod
         /// </summary>
         private void Voiced()
         {
-            for (int i = 0; i < notes.Count && i < Nodes; i++)
+            for (int i = 0; i < notes.Count && i < noted.Count; i++)
             {
                 InputField box = notes[i];
-                if (box == null)
-                {
-                    continue;
-                }
-                Place place = Placed(i);
-                if (place == null || place.Kind != Place.Note)
+                Place place = noted[i];
+                if (box == null || place == null || place.Kind != Place.Note)
                 {
                     continue;
                 }
@@ -2525,6 +2720,8 @@ namespace TimerPlusMod
             // or leaving from somewhere else can be noticed for what it does to the
             // numbering. See `Ticking`.
             counted = Rows;
+            // The nodes may be different ones now, or numbered differently.
+            tinted = false;
             Cut();
             for (int i = 0; i < parts.Count; i++)
             {
@@ -2539,7 +2736,9 @@ namespace TimerPlusMod
             marks.Clear();
             rims.Clear();
             notes.Clear();
+            noted.Clear();
             bins.Clear();
+            grips.Clear();
             // The wires belong to the nodes just cleared; `Wired` fills it again
             // at the end of this, and a board that returns early below has none.
             wired.Clear();
@@ -2603,11 +2802,21 @@ namespace TimerPlusMod
             marks[index] = null;
             rims[index] = null;
             notes[index] = null;
+            while (noted.Count <= index)
+            {
+                noted.Add(null);
+            }
+            noted[index] = null;
             while (bins.Count <= index)
             {
                 bins.Add(null);
             }
             bins[index] = null;
+            while (grips.Count <= index)
+            {
+                grips.Add(null);
+            }
+            grips[index] = null;
             if (Picked(index))
             {
                 rims[index] = Edged(index, 1f);
@@ -2674,7 +2883,8 @@ namespace TimerPlusMod
                                       : wide - PortSize * 2f - 4f;
                 UIF.Fit(head.GetComponent<RectTransform>(), PortSize + 2f, 3f,
                         room, tall - 6f);
-                Picture(head.transform, Glyphs.Gate(row.Gate), GateIcon);
+                Picture(head.transform, Glyphs.Gate(row.Gate), GateIcon).color =
+                    Tinted(index);
             }
             else
             {
@@ -2693,6 +2903,7 @@ namespace TimerPlusMod
                 {
                     // Room for a bigger word now that the node is two cells tall.
                     word.resizeTextMaxSize = 18;
+                    word.color = Tinted(index);
                 }
             }
 
@@ -2752,6 +2963,12 @@ namespace TimerPlusMod
                 KeyCell cell = KeyCell.Make(body.transform, Beside(place), 33f,
                                             Across(wide), 26f, 22f);
                 cell.ignoreCtrl = true;
+                // Dragged by its name box as well as by its plate, the way a comment
+                // is dragged by its writing: the box is most of the node.
+                cell.Fielded = delegate(InputField field)
+                {
+                    Haul(field, me, body, cell);
+                };
                 cell.Load(Shown(index, place.Variable, place.Key), place.Key);
                 Place mine = place;
                 cell.Changed = delegate(KeyCell edited)
@@ -2836,6 +3053,10 @@ namespace TimerPlusMod
             catcher.color = new Color(0f, 0f, 0f, 0f);
             Text cross = Caption(bin, "x", TextAnchor.MiddleCenter);
             cross.color = Hot;
+            // The label only shrinks to fit, up to its own size, so the size is
+            // given as well as the room.
+            cross.fontSize = 28;
+            cross.resizeTextMaxSize = 28;
             Button click = bin.AddComponent<Button>();
             click.transition = Selectable.Transition.None;
             click.targetGraphic = catcher;
@@ -2853,6 +3074,314 @@ namespace TimerPlusMod
             return bin;
         }
 
+        /// <summary>
+        /// A node dragged by a text box on it.
+        ///
+        /// uGUI gives a drag to the first handler at or above what it hit, which is
+        /// the box, and the box would select its text with it. So the node's drag
+        /// goes on the box beside the box's own, and the box is put out of reach for
+        /// the length of it: its drag handlers all ask whether they may, and a box
+        /// that is not interactable may not.
+        /// </summary>
+        private void Haul(InputField field, int me, GameObject body, KeyCell cell)
+        {
+            // Greyed while out of reach otherwise, which is a flicker every move.
+            field.transition = Selectable.Transition.None;
+            Waving(field.gameObject);
+            NodeDrag carry = field.gameObject.AddComponent<NodeDrag>();
+            carry.frame = body.GetComponent<RectTransform>();
+            carry.Held = delegate
+            {
+                // A name typed and not yet taken: the drag is selecting in it, not
+                // moving the node. Put out of reach, the box would hand the new name
+                // in, the board would be drawn again with this node under the hand,
+                // and the drag would be left believing it was still going.
+                if (cell != null && Bindings.Tidied(field.text) != cell.Variable)
+                {
+                    return;
+                }
+                field.interactable = false;
+                Holding(me, carry);
+            };
+            carry.Moved = delegate(Vector2 by)
+            {
+                if (hauler == carry)
+                {
+                    Hauling(new Vector2(by.x, -by.y));
+                }
+            };
+            carry.Dropped = delegate
+            {
+                field.interactable = true;
+                if (hauler != carry)
+                {
+                    return;
+                }
+                dragging = false;
+                hauler = null;
+                Kept();
+            };
+        }
+
+        /// <summary>How much bigger a comment is drawn than one at the size every
+        /// comment starts at. Its margins, its slack and its limits all go by
+        /// this.</summary>
+        private static float Grown(Text drawn)
+        {
+            return drawn == null ? 1f : Mathf.Max(1, drawn.fontSize) / (float)NoteFont;
+        }
+
+        /// <summary>A comment's label kept inside its box by a margin that grows
+        /// with the lettering.</summary>
+        private static void Inset(Text label)
+        {
+            if (label == null)
+            {
+                return;
+            }
+            float edge = TextEdge * Grown(label);
+            RectTransform rect = label.rectTransform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            // Down past the box's own margin by the room a line keeps under its
+            // lowest letter, and a little more. The box is trimmed by that room --
+            // see `Measure` -- but the label must not be: a multi-line field draws
+            // only the lines that fit inside its label, and a last line a hair too
+            // tall for it simply disappeared.
+            float under = Leading(label) * label.fontSize + 2f;
+            rect.offsetMin = new Vector2(edge, edge - under);
+            rect.offsetMax = new Vector2(-edge, -edge);
+        }
+
+        /// <summary>The size a comment is written at before anybody resizes it,
+        /// and how small its corner takes it. How large is a matter of width: see
+        /// <see cref="NoteMostWide"/>; the ceiling here only keeps a number sane.
+        /// </summary>
+        private const int NoteFont = 14;
+        private const int NoteSmallest = 8;
+        private const int NoteLargest = 20000;
+
+        /// <summary>The widest a comment's corner can take it: three quarters of the
+        /// board. Room for a heading to read across a whole board zoomed out, and
+        /// still an edge to it.</summary>
+        private const float NoteMostWide = BoardWide * 0.75f;
+
+        /// <summary>
+        /// The largest a comment's font is actually set at. Past it the text box is
+        /// drawn bigger instead.
+        ///
+        /// A font asks its texture for every letter at the size it is set, and a
+        /// dynamic font's texture has a limit: letters a few thousand pixels high do
+        /// not fit on it, and what does not fit is not drawn. Scaled up past this
+        /// size the writing is a little soft close to, which a comment that size is
+        /// not read from.
+        /// </summary>
+        private const int NoteCrisp = 200;
+
+        private static int Drawn(int size)
+        {
+            return Mathf.Min(size, NoteCrisp);
+        }
+
+        /// <summary>The scale a comment's box is drawn at to make up what its font
+        /// is not set at.</summary>
+        private static Vector3 Magnified(int size)
+        {
+            float by = size / (float)Mathf.Max(1, Drawn(size));
+            return new Vector3(by, by, 1f);
+        }
+
+        private static Font leadingFont;
+        private static float leadingShare;
+
+        /// <summary>
+        /// How much of a line, as a share of the font's size, lies below the lowest
+        /// any letter reaches -- the space between lines rather than room for
+        /// writing. Asked of the font once: a line of the deepest letters is laid
+        /// out, and its height set against where its lowest corner landed.
+        ///
+        /// Laid out from the top, so a line's top is at nought and everything
+        /// drawn is below it. The last quad a generator makes is where a caret
+        /// would go after the text, not a letter, and is left out.
+        /// </summary>
+        private static float Leading(Text drawn)
+        {
+            if (drawn == null || drawn.font == null)
+            {
+                return 0f;
+            }
+            if (leadingFont == drawn.font)
+            {
+                return leadingShare;
+            }
+            leadingFont = drawn.font;
+            leadingShare = 0f;
+            try
+            {
+                TextGenerationSettings asked = drawn.GetGenerationSettings(Vector2.zero);
+                asked.fontSize = 100;
+                asked.scaleFactor = 1f;
+                asked.resizeTextForBestFit = false;
+                asked.textAnchor = TextAnchor.UpperLeft;
+                asked.horizontalOverflow = HorizontalWrapMode.Overflow;
+                asked.verticalOverflow = VerticalWrapMode.Overflow;
+                TextGenerator maker = new TextGenerator();
+                float line = maker.GetPreferredHeight("Hgjpqy_,;", asked);
+                IList<UIVertex> corners = maker.verts;
+                int count = corners.Count - 4;
+                float lowest = 0f;
+                for (int i = 0; i < count; i++)
+                {
+                    lowest = Mathf.Min(lowest, corners[i].position.y);
+                }
+                if (count > 0 && line > 0f)
+                {
+                    // Held to a sane share whatever the font says: a guess wrong by
+                    // a lot would cut the writing off rather than tidy it.
+                    leadingShare = Mathf.Clamp((line + lowest) / 100f, 0f, 0.4f);
+                }
+            }
+            catch (Exception)
+            {
+                leadingShare = 0f;
+            }
+            return leadingShare;
+        }
+
+        /// <summary>That scale read back off a comment's label -- its box is its
+        /// parent.</summary>
+        private static float Magnification(Text drawn)
+        {
+            Transform box = drawn == null ? null : drawn.transform.parent;
+            return box == null || box.localScale.x < 0.001f ? 1f : box.localScale.x;
+        }
+
+        /// <summary>A comment's writing set at a size: the font, as far as
+        /// <see cref="NoteCrisp"/>, the box's scale for the rest, and the margins
+        /// that go with the font.</summary>
+        private static void Rescaled(Place place, InputField box, int size)
+        {
+            place.Size = size == NoteFont ? 0 : size;
+            box.transform.localScale = Magnified(size);
+            Text laid = box.textComponent;
+            if (laid != null)
+            {
+                laid.fontSize = Drawn(size);
+                Inset(laid);
+            }
+            Text ghostText = box.placeholder as Text;
+            if (ghostText != null)
+            {
+                ghostText.fontSize = Drawn(size);
+                Inset(ghostText);
+            }
+        }
+
+        private static int Lettering(Place place)
+        {
+            return place != null && place.Size > 0 ? place.Size : NoteFont;
+        }
+
+        /// <summary>
+        /// The double arrow in a comment's bottom-right corner, which resizes it
+        /// by its lettering rather than by its box. A comment is as big as what is
+        /// written in it, so the size to change is the size it is written at, and
+        /// the box follows.
+        ///
+        /// Shown with the cross, on the comment the pointer is on, and centred on
+        /// its corner the same way.
+        /// </summary>
+        private GameObject Resizer(GameObject host, int me)
+        {
+            GameObject grip = new GameObject("Grip");
+            grip.transform.SetParent(host.transform, false);
+            RectTransform rect = grip.AddComponent<RectTransform>();
+            rect.anchorMin = new Vector2(1f, 0f);
+            rect.anchorMax = new Vector2(1f, 0f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(GripSize, GripSize);
+            rect.anchoredPosition = Vector2.zero;
+            Image catcher = grip.AddComponent<Image>();
+            catcher.color = new Color(0f, 0f, 0f, 0f);
+            // The double arrow the window's own corners put on the pointer, the
+            // way this corner is pulled: top left to bottom right.
+            RawImage arrows = Picture(grip.transform, Glyphs.Resizer(true), GripArrows);
+            arrows.raycastTarget = false;
+            Grow(grip, arrows.transform, 1.3f);
+            Waving(grip);
+
+            RectTransform plate = host.GetComponent<RectTransform>();
+            NodeDrag pull = grip.AddComponent<NodeDrag>();
+            // Measured on the board, which is what the comment is sized in.
+            pull.frame = plate;
+            Place held = null;
+            InputField box = null;
+            Vector2 span = Vector2.one;
+            Vector2 pulled = Vector2.zero;
+            int from = NoteFont;
+            pull.Held = delegate
+            {
+                held = Placed(me);
+                box = me < notes.Count ? notes[me] : null;
+                if (held == null || box == null)
+                {
+                    return;
+                }
+                // Whatever is being typed is the comment's from here on: the box
+                // is about to change size under it.
+                held.Words = box.text == null ? "" : box.text;
+                sizing = me;
+                from = Lettering(held);
+                span = plate.sizeDelta;
+                pulled = Vector2.zero;
+            };
+            pull.Moved = delegate(Vector2 step)
+            {
+                if (held == null || box == null)
+                {
+                    return;
+                }
+                // Down and to the right grows it; the board's y runs up. As much
+                // bigger as the corner has been pulled, across and down together.
+                pulled += new Vector2(step.x, -step.y);
+                float grown = ((span.x + pulled.x) / Mathf.Max(1f, span.x)
+                               + (span.y + pulled.y) / Mathf.Max(1f, span.y)) * 0.5f;
+                int size = Mathf.Clamp(Mathf.RoundToInt(from * grown), NoteSmallest,
+                                       NoteLargest);
+                int before = Lettering(held);
+                if (size == before)
+                {
+                    return;
+                }
+                RectTransform inner = box.GetComponent<RectTransform>();
+                Rescaled(held, box, size);
+                Stretch(host, inner, box.textComponent, box.text);
+                if (size > before && (plate.sizeDelta.x >= NoteMostWide - 0.5f
+                                      || plate.sizeDelta.y >= BoardTall - 0.5f))
+                {
+                    // As big as a comment goes -- `Measure` holds the box there, so
+                    // reaching it is the sign: the pull stops growing it, and
+                    // pulling back in still shrinks it.
+                    Rescaled(held, box, before);
+                    Stretch(host, inner, box.textComponent, box.text);
+                }
+                box.ForceLabelUpdate();
+                // Grown past the board's edge, it is moved back onto the board.
+                Put(me, Where(me));
+            };
+            pull.Dropped = delegate
+            {
+                sizing = -1;
+                Binned(me, under == me);
+                // One step of undo for the whole pull.
+                if (held != null && Lettering(held) != from)
+                {
+                    Kept();
+                }
+            };
+            return grip;
+        }
+
         /// <summary>The paper a comment is written on: lighter than a node, so it
         /// reads as a note laid on the board rather than a thing in the
         /// circuit.</summary>
@@ -2861,7 +3390,7 @@ namespace TimerPlusMod
         /// <summary>The clear space round a comment's text, the same on all four
         /// sides, and the widest a comment is allowed to grow before it wraps.
         /// </summary>
-        private const float NoteEdge = 5.25f;
+        private const float NoteEdge = 3f;
 
         /// <summary>And the clear space inside the text box itself, between its own
         /// dark plate and the letters on it.</summary>
@@ -2901,15 +3430,32 @@ namespace TimerPlusMod
             // Both paddings -- the plate's and the text box's -- and a few pixels
             // of slack: a line measured to exactly the width it is laid out in
             // wraps its last word anyway.
-            float pad = (NoteEdge + TextEdge) * 2f;
-            wide = Mathf.Clamp(raw + pad + 6f, NoteLeast, NoteWide);
+            // The writing's margin and the widest it wraps at grow with the
+            // lettering. The plate's edge does not -- it is the comment's border --
+            // and nor do the slack and the smallest a comment is: grown with it,
+            // they were a box far bigger than a large heading written in it.
+            // The generator answers in the label's own units, which a comment past
+            // `NoteCrisp` has scaled up by its box: brought out to the plate's.
+            float by = Magnification(drawn);
+            float grown = Grown(drawn) * by;
+            float pad = (NoteEdge + TextEdge * grown) * 2f;
+            // Never wider than a comment may be, nor taller than the board: a
+            // comment is kept on the board, and one bigger than it could not be.
+            wide = Mathf.Clamp(raw * by + pad + 6f * by, NoteLeast,
+                               Mathf.Min(NoteWide * grown, NoteMostWide));
             // And how tall it is once wrapped to that width, which is the width the
             // text itself is laid out in.
-            float room = wide - pad;
+            float room = (wide - pad) / by;
             float high = maker.GetPreferredHeight(asked,
                              drawn.GetGenerationSettings(
                                  new Vector2(room, 0f))) / much;
-            tall = Mathf.Clamp(high + pad, 34f, 420f);
+            // Less the room the last line keeps below its lowest letter, which is
+            // spacing for a line that is not there. At the size a comment starts at
+            // it is a pixel or two; at a heading's size it was a band of empty box
+            // under the words.
+            float spare = Leading(drawn) * drawn.fontSize * by;
+            tall = Mathf.Clamp(high * by + pad - spare, 34f,
+                               Mathf.Min(420f * grown, BoardTall));
         }
 
         /// <summary>
@@ -2936,14 +3482,16 @@ namespace TimerPlusMod
             }
             field.lineType = InputField.LineType.MultiLineNewline;
             Text ghostText = field.placeholder as Text;
-            Inked(field.textComponent, UIF.Ink);
-            Inked(ghostText, UIF.QuietInk);
+            Inked(field.textComponent, Tinted(index), Drawn(Lettering(place)));
+            Inked(ghostText, UIF.QuietInk, Drawn(Lettering(place)));
+            box.transform.localScale = Magnified(Lettering(place));
             if (ghostText != null)
             {
                 ghostText.text = "comment";
             }
             field.text = place.Words == null ? "" : place.Words;
             notes[index] = field;
+            noted[index] = place;
             field.interactable = true;
             // Greyed while it is put out of reach for a drag (below), and a comment
             // flickering pale every time it is moved is not worth the tint.
@@ -2997,8 +3545,10 @@ namespace TimerPlusMod
                 hauler = null;
                 Kept();
             };
-            // The size it actually wants, now that there is a font to ask about it.
+            // The size it actually wants, now that there is a font to ask about it
+            // -- and on the board at that size, wherever it was left or pasted.
             Stretch(body, inner, field.textComponent, field.text);
+            Put(me, Where(me));
             // Resized as it is typed rather than when the typing ends: a box that
             // only grows once the hand has moved on hides what is being written
             // into it. The layout is written when the typing ends -- one undo step
@@ -3008,6 +3558,7 @@ namespace TimerPlusMod
             field.onValueChanged.AddListener(delegate(string typed)
             {
                 Stretch(plate, inner, laid, typed);
+                Put(me, Where(me));
                 // The caret is drawn from the last laying-out of the text, and the
                 // box it is laid out in has just changed size: without this the
                 // caret is a line behind where the letters are.
@@ -3032,8 +3583,15 @@ namespace TimerPlusMod
             rect.sizeDelta = new Vector2(wide, tall);
             if (inner != null)
             {
-                inner.sizeDelta = new Vector2(wide - NoteEdge * 2f,
-                                              tall - NoteEdge * 2f);
+                // The plate's own edge is the comment's border and stays one
+                // thickness whatever the lettering is.
+                float edge = NoteEdge;
+                // In the box's own units, which its scale -- see `NoteCrisp` --
+                // makes bigger than the plate's.
+                float by = Magnification(drawn);
+                inner.anchoredPosition = new Vector2(edge, -edge);
+                inner.sizeDelta = new Vector2((wide - edge * 2f) / by,
+                                              (tall - edge * 2f) / by);
             }
             // Both dashed edges -- the faint one and the one that says picked out
             // -- are children of the plate and stretch with it, so what is left is
@@ -3056,7 +3614,7 @@ namespace TimerPlusMod
         /// fit off for the same reason: it lays the text out at a size nothing else
         /// knows about.
         /// </summary>
-        private static void Inked(Text label, Color colour)
+        private static void Inked(Text label, Color colour, int size)
         {
             if (label == null)
             {
@@ -3064,14 +3622,10 @@ namespace TimerPlusMod
             }
             UIF.Style(label, colour, TextAnchor.UpperLeft);
             label.resizeTextForBestFit = false;
-            label.fontSize = 14;
+            label.fontSize = size;
             label.horizontalOverflow = HorizontalWrapMode.Wrap;
             label.verticalOverflow = VerticalWrapMode.Overflow;
-            RectTransform rect = label.rectTransform;
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.offsetMin = new Vector2(TextEdge, TextEdge);
-            rect.offsetMax = new Vector2(-TextEdge, -TextEdge);
+            Inset(label);
         }
 
         private void Written(int node, Place place, string typed)
@@ -3082,10 +3636,13 @@ namespace TimerPlusMod
                 return;
             }
             place.Words = said;
-            // The plate is as big as what is written on it, so this is a redraw
-            // rather than a repaint.
+            // No redraw: the plate has been kept the size of what is written in it
+            // all the while it was typed. And a redraw here was a trap -- this
+            // arrives when the box loses focus, which a press anywhere else does,
+            // and drawing the board again took whatever was pressed out from under
+            // the hand: the comment's own resizing corner, or a node about to be
+            // dragged.
             Kept();
-            Redraw();
         }
 
         /// <summary>An end of the board rebound by hand.</summary>
@@ -3366,13 +3923,33 @@ namespace TimerPlusMod
         /// The node's own corner, with room left for the node itself.</summary>
         private static Vector2 Fenced(Vector2 at)
         {
-            return new Vector2(Mathf.Clamp(at.x, 0f, BoardWide - NodeWidth),
-                               Mathf.Clamp(at.y, 0f, BoardTall - NodeHeight));
+            return Fenced(at, new Vector2(NodeWidth, NodeHeight));
+        }
+
+        /// <summary>The same, with room for a node of that size. An end's size
+        /// would do for most, but a comment can be far bigger than an end, and
+        /// fenced as one it hung off the board's far edges.</summary>
+        private static Vector2 Fenced(Vector2 at, Vector2 span)
+        {
+            return new Vector2(Mathf.Clamp(at.x, 0f, Mathf.Max(0f, BoardWide - span.x)),
+                               Mathf.Clamp(at.y, 0f, Mathf.Max(0f, BoardTall - span.y)));
+        }
+
+        /// <summary>How big a node is drawn: as it is on the board where it has
+        /// been drawn, and as its sort is where it has not.</summary>
+        private Vector2 Span(int node)
+        {
+            if (node >= 0 && node < parts.Count && parts[node] != null)
+            {
+                return (parts[node].transform as RectTransform).sizeDelta;
+            }
+            return Row(node) != null ? new Vector2(GateWidth, GateHeight)
+                                     : new Vector2(NodeWidth, NodeHeight);
         }
 
         private void Move(int node, Vector2 to)
         {
-            to = Fenced(Snapped(to));
+            to = Fenced(Snapped(to), Span(node));
             Place place = Placed(node);
             if (place != null)
             {
@@ -3423,7 +4000,9 @@ namespace TimerPlusMod
             {
                 wired = Feeding(node, port) >= 0;
             }
-            Picture(go.transform, wired ? Glyphs.Dot : Glyphs.Ring, PortSize);
+            // In the node's own colour, so a port is plainly part of its node.
+            Picture(go.transform, wired ? Glyphs.Dot : Glyphs.Ring, PortSize).color =
+                Tinted(node);
 
             // Both ways of wiring: press and drag from one port to another, which
             // is what a hand reaches for, and click one then the other, which is
@@ -4279,6 +4858,7 @@ namespace TimerPlusMod
             // pieces a wire. Building them again each time was a hundred objects a
             // frame made and destroyed.
             strung = 0;
+            Faded();
             if (served == null || sheet == null)
             {
                 Spare();
@@ -4350,10 +4930,32 @@ namespace TimerPlusMod
         {
             RectTransform start = Held(from);
             RectTransform end = Held(to);
-            if (start != null && end != null)
+            if (start == null || end == null)
             {
-                String(Middle(start), Middle(end), armed ? LiveInk : WireInk);
+                return;
             }
+            if (armed)
+            {
+                String(Middle(start), Middle(end), LiveInk);
+                return;
+            }
+            // Three ports to a node, so the node is the port's number over three.
+            int source = from / 3;
+            int sink = to / 3;
+            if (Hues.Graded)
+            {
+                // Between the two ends' kind colours: what the nodes wear in
+                // COLORED, and what they would wear in UNI-COLOR.
+                String(Middle(start), Middle(end),
+                       Hues.Wired(Hues.Kind(Slotted(source))),
+                       Hues.Wired(Hues.Kind(Slotted(sink))));
+                return;
+            }
+            // Known by both its ends and the port it lands on, so two wires
+            // between the same two nodes are free to differ.
+            String(Middle(start), Middle(end),
+                   Hues.WireOf(Hues.Mix(Hues.Mix(Seeded(source), Seeded(sink)),
+                                        to % 3)));
         }
 
         /// <summary>Whether a row's answer goes out under this end's name.</summary>
@@ -4430,17 +5032,36 @@ namespace TimerPlusMod
         /// </summary>
         private void String(Vector2 from, Vector2 to, Color colour)
         {
+            String(from, to, colour, colour);
+        }
+
+        /// <summary>The same, shading from one colour at the start to another at
+        /// the end. A wire of one colour keeps the few pieces it always had; one
+        /// that shades is cut finer, since each piece is one colour.</summary>
+        private void String(Vector2 from, Vector2 to, Color start, Color end)
+        {
+            bool even = start == end;
             if (style == Straight)
             {
-                Piece(from, to, colour);
+                Leg(from, to, 0f, 1f, start, end, even ? 1 : Curve);
                 return;
             }
             if (style == Square)
             {
                 float middle = (from.x + to.x) * 0.5f;
-                Piece(from, new Vector2(middle, from.y), colour);
-                Piece(new Vector2(middle, from.y), new Vector2(middle, to.y), colour);
-                Piece(new Vector2(middle, to.y), to, colour);
+                Vector2 turn = new Vector2(middle, from.y);
+                Vector2 back = new Vector2(middle, to.y);
+                // How far along the whole wire each corner is, so the shade runs
+                // evenly over all three legs rather than a third to each.
+                float one = Mathf.Abs(middle - from.x);
+                float two = Mathf.Abs(to.y - from.y);
+                float whole = Mathf.Max(0.001f, one + two + Mathf.Abs(to.x - middle));
+                float first = one / whole;
+                float second = (one + two) / whole;
+                Leg(from, turn, 0f, first, start, end, even ? 1 : Cuts(first));
+                Leg(turn, back, first, second, start, end,
+                    even ? 1 : Cuts(second - first));
+                Leg(back, to, second, 1f, start, end, even ? 1 : Cuts(1f - second));
                 return;
             }
             // A curve: the two ends leave sideways, which is what makes a bundle of
@@ -4453,9 +5074,31 @@ namespace TimerPlusMod
             {
                 float t = i / (float)Curve;
                 Vector2 next = Bend(from, outOf, into, to, t);
-                Piece(last, next, colour);
+                Piece(last, next,
+                      even ? start : Color.Lerp(start, end, (i - 0.5f) / Curve));
                 last = next;
             }
+        }
+
+        /// <summary>A straight run of a wire, from `along` to `upTo` of the way
+        /// along the whole of it, in as many pieces as it is given.</summary>
+        private void Leg(Vector2 from, Vector2 to, float along, float upTo,
+                         Color start, Color end, int pieces)
+        {
+            for (int i = 0; i < pieces; i++)
+            {
+                float near = i / (float)pieces;
+                float far = (i + 1) / (float)pieces;
+                Color shade = Color.Lerp(start, end,
+                                         Mathf.Lerp(along, upTo, (near + far) * 0.5f));
+                Piece(Vector2.Lerp(from, to, near), Vector2.Lerp(from, to, far), shade);
+            }
+        }
+
+        /// <summary>How many pieces a share of a shading wire is cut into.</summary>
+        private static int Cuts(float share)
+        {
+            return Mathf.Max(1, Mathf.CeilToInt(Curve * share));
         }
 
         /// <summary>How many straight pieces a curve is drawn with.</summary>
@@ -4839,7 +5482,7 @@ namespace TimerPlusMod
             }
             float was = content.localScale.x;
             float now = Mathf.Clamp(was * (wheel > 0f ? 1.1f : 1f / 1.1f),
-                                    LeastZoom, MostZoom);
+                                    Least(), MostZoom);
             if (Mathf.Abs(now - was) < 0.0001f)
             {
                 return;
@@ -4892,7 +5535,7 @@ namespace TimerPlusMod
             float tall = Mathf.Max(1f, high.y - low.y);
             float much = Mathf.Clamp(
                 Mathf.Min((room.width - edge * 2f) / wide,
-                          (room.height - edge * 2f) / tall), LeastZoom, MostZoom);
+                          (room.height - edge * 2f) / tall), Least(), MostZoom);
             content.localScale = new Vector3(much, much, 1f);
             Looking((low + high) * 0.5f);
         }
@@ -4994,6 +5637,28 @@ namespace TimerPlusMod
         /// time the pointer finds that node.</summary>
         private readonly List<GameObject> bins = new List<GameObject>();
 
+        /// <summary>A comment's resizing corner, made the first time it is pointed
+        /// at like the cross; and the comment whose corner is being pulled, or -1.
+        /// </summary>
+        private readonly List<GameObject> grips = new List<GameObject>();
+        private int sizing = -1;
+
+        /// <summary>The place each comment's box was drawn for, by the same number
+        /// as `notes`. The box is matched to its place by this and not by the
+        /// number: a gate added or removed renumbers every end after it before the
+        /// board is drawn again, and matching by number wrote one comment's box
+        /// over the comment that had taken its number -- an empty new comment
+        /// wiping out the one before it.</summary>
+        private readonly List<Place> noted = new List<Place>();
+
+        /// <summary>Everything on the two rows EDIT COLORS puts out.</summary>
+        private readonly List<RectTransform> shelf = new List<RectTransform>();
+
+        /// <summary>Where the board's top edge was last laid out, so that putting
+        /// the rows out or away can move what is drawn on the board by as much the
+        /// other way.</summary>
+        private float boardTop;
+
         private int under = -1;
 
         /// <summary>Which node is showing its cross, so the last one can be put
@@ -5043,6 +5708,49 @@ namespace TimerPlusMod
                 // after the cross was, and the last child is the one drawn on top.
                 bins[node].transform.SetAsLastSibling();
             }
+
+            // A comment has its resizing corner as well, shown the same way.
+            Place place = Placed(node);
+            if (place == null || place.Kind != Place.Note)
+            {
+                return;
+            }
+            while (grips.Count <= node)
+            {
+                grips.Add(null);
+            }
+            // Held out while it is being pulled: the pointer comes off the comment
+            // as it resizes, and hiding the corner would end the drag it carries.
+            bool shown = on || sizing == node;
+            if (shown && grips[node] == null)
+            {
+                grips[node] = Resizer(parts[node], node);
+            }
+            if (grips[node] != null && grips[node].activeSelf != shown)
+            {
+                grips[node].SetActive(shown);
+            }
+            if (shown && grips[node] != null)
+            {
+                grips[node].transform.SetAsLastSibling();
+                grips[node].transform.localScale = Unzoomed();
+            }
+        }
+
+        /// <summary>
+        /// The scale that undoes the board's zoom, for what is drawn on a node but
+        /// should be one size on screen however far the board is zoomed: the
+        /// comment's resizing corner. On the node and zoomed with it, a board pulled
+        /// back shrank it to a speck and one zoomed in blew it up over the comment.
+        /// The cross is left to zoom with its node.
+        /// Asked every frame the pointer is on the node, so a zoom under a
+        /// pointer that stays put is followed.
+        /// </summary>
+        private Vector3 Unzoomed()
+        {
+            float much = content == null ? 1f : content.localScale.x;
+            float back = much > 0.001f ? 1f / much : 1f;
+            return new Vector3(back, back, 1f);
         }
 
         /// <summary>
@@ -5800,6 +6508,7 @@ namespace TimerPlusMod
                     made.Variable = place.Variable;
                     made.Key = place.Key;
                     made.Words = place.Words;
+                    made.Size = place.Size;
                 }
                 clipboard.Add(made);
             }
@@ -5819,7 +6528,9 @@ namespace TimerPlusMod
                 {
                     RawImage drawn = Picture(made.transform,
                                              Glyphs.Gate(clipboard[i].Gate), GateIcon);
-                    drawn.color = new Color(1f, 1f, 1f, 0.7f);
+                    Color shade = Shelf(Hues.GateSlot(clipboard[i].Gate));
+                    shade.a = 0.7f;
+                    drawn.color = shade;
                 }
                 RectTransform rect = made.GetComponent<RectTransform>();
                 rect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -5932,6 +6643,7 @@ namespace TimerPlusMod
                 place.Variable = copy.Variable;
                 place.Key = copy.Key;
                 place.Words = copy.Words;
+                place.Size = copy.Size;
                 Vector2 laid = Fenced(Snapped(corner + copy.At));
                 place.X = laid.x;
                 place.Y = laid.y;
@@ -6163,9 +6875,509 @@ namespace TimerPlusMod
             }
         }
 
-        private string Styled()
+        /// <summary>
+        /// The rows out onto the machine as Besiege's own logic gates: IMPORT the
+        /// other way round, and the conversion the table ran from under the mapper
+        /// before it came up here.
+        ///
+        /// The gates arrive as the selection under the move tool, and a new
+        /// selection closes the block's menu, so the board is held up through that
+        /// as an import holds it (see `lingering`). The menu is not put back: that
+        /// would take the new gates out of the hand they were just put in.
+        /// </summary>
+        private void Export()
         {
-            return style == Straight ? "LINE" : (style == Curved ? "CURVE" : "SQUARE");
+            if (served == null)
+            {
+                return;
+            }
+            lingering = true;
+            try
+            {
+                int made = Conversion.Into(served);
+                Warned(sheet, made + (made == 1 ? " gate exported" : " gates exported"),
+                       UIF.Live, 6f);
+            }
+            catch (Exception e)
+            {
+                Warned(sheet, e.Message);
+                Log.Warn("export failed: " + e);
+            }
+        }
+
+        /// <summary>The pin switch flipped: one step of undo, like any other edit
+        /// the board makes to its block.</summary>
+        private void Staking(bool on)
+        {
+            if (hushed || served == null || served.PinControl == null)
+            {
+                return;
+            }
+            served.PinControl.IsActive = on;
+            List<MapperType> touched = new List<MapperType>();
+            touched.Add(served.PinControl);
+            Commit(touched);
+        }
+
+        // ---- colours ---------------------------------------------------------
+
+        /// <summary>How tall a colour over a palette button is, and the pieces of
+        /// the row of unicolours under the palette.</summary>
+        private const float SwatchTall = 26f;
+        private const float UniTall = 26f;
+        private const float SideWords = 40f;
+        private const float ModeWide = 84f;
+        private const float UniWords = 66f;
+        private const float UniWide = 96f;
+        private const float ResetWide = 120f;
+
+        /// <summary>
+        /// A way-of-colouring selector for the unicolour row, built like the wire
+        /// style's: a word saying which, a click for the next, a right-click for
+        /// the list. For every board that is open, since the colours are the
+        /// player's and not the block's.
+        /// </summary>
+        private Text Selector(out RectTransform rect, bool nodes)
+        {
+            rect = null;
+            GameObject go = UIF.Spawn(UIF.ButtonPrefab, window.transform);
+            if (go == null)
+            {
+                return null;
+            }
+            rect = go.GetComponent<RectTransform>();
+            UIF.NoSwell(go);
+            Text label = Caption(go, Hues.Named(nodes ? Hues.NodeMode : Hues.WireMode),
+                                 TextAnchor.MiddleCenter);
+            Grow(go, label.transform);
+            Tip.On(go, (nodes ? "Nodes" : "Wires")
+                       + ": click for the next, right-click for the list");
+            bool mine = nodes;
+            Button click = go.GetComponent<Button>();
+            if (click != null)
+            {
+                click.onClick.AddListener(delegate
+                {
+                    Moded(mine, (mine ? Hues.NodeMode : Hues.WireMode) + 1);
+                });
+            }
+            Asks asks = go.AddComponent<Asks>();
+            asks.Asked = delegate(Vector2 screen)
+            {
+                Listed(screen, Hues.Listed(), delegate(int which)
+                {
+                    Moded(mine, which);
+                });
+            };
+            go.SetActive(false);
+            return label;
+        }
+
+        private static void Moded(bool nodes, int mode)
+        {
+            if (nodes)
+            {
+                Hues.NodeMode = mode;
+            }
+            else
+            {
+                Hues.WireMode = mode;
+            }
+            Recoloured(null);
+        }
+
+        /// <summary>EDIT COLORS: the colours out, or put away.</summary>
+        private void Editing(bool on)
+        {
+            if (hushed)
+            {
+                return;
+            }
+            editing = on;
+            for (int i = 0; i < shelf.Count; i++)
+            {
+                Shown(shelf[i], on);
+            }
+            Painted();
+            // The board's top edge comes down by the rows' height, or goes back up,
+            // and what is drawn on it hangs from that edge. Moved back by as much,
+            // the nodes stay where they were on screen: the rows cover the top of
+            // the board rather than pushing everything on it down. And a node let
+            // go over the rows is let go outside the board, which places nothing.
+            float was = boardTop;
+            Arrange();
+            if (content != null && Mathf.Abs(boardTop - was) > 0.01f)
+            {
+                content.anchoredPosition = Bounded(content.anchoredPosition
+                                                   + new Vector2(0f, boardTop - was));
+            }
+            Canvas.ForceUpdateCanvases();
+            Strings();
+        }
+
+        private static void Shown(Swatch swatch, bool on)
+        {
+            if (swatch != null)
+            {
+                Shown(swatch.Root, on);
+            }
+        }
+
+        private static void Shown(RectTransform rect, bool on)
+        {
+            if (rect != null && rect.gameObject.activeSelf != on)
+            {
+                rect.gameObject.SetActive(on);
+            }
+        }
+
+        /// <summary>The colours, made once and put away until EDIT COLORS asks for
+        /// them: one over each palette button, and the two unicolours.</summary>
+        private void Swatches()
+        {
+            for (int slot = 0; slot < Hues.Slots; slot++)
+            {
+                Swatch one = Swatch.Make(window.transform);
+                int mine = slot;
+                one.Value = Hues.Kind(slot);
+                one.Changed = delegate(Color picked)
+                {
+                    Hues.SetKind(mine, picked);
+                    Recoloured(one);
+                };
+                one.Root.gameObject.SetActive(false);
+                swatches.Add(one);
+            }
+            nodeWords = Words("NODE");
+            nodeModeLabel = Selector(out nodeModeRect, true);
+            uniNodeWords = Words("UNICOLOR");
+            uniNode = Swatch.Make(window.transform);
+            uniNode.Value = Hues.Node;
+            uniNode.Changed = delegate(Color picked)
+            {
+                Hues.Node = picked;
+                Recoloured(uniNode);
+            };
+            uniNode.Root.gameObject.SetActive(false);
+            wireWords = Words("WIRE");
+            wireModeLabel = Selector(out wireModeRect, false);
+            uniWireWords = Words("UNICOLOR");
+            uniWire = Swatch.Make(window.transform);
+            uniWire.Value = Hues.Wire;
+            uniWire.Changed = delegate(Color picked)
+            {
+                Hues.Wire = picked;
+                Recoloured(uniWire);
+            };
+            uniWire.Root.gameObject.SetActive(false);
+
+            GameObject reset = UIF.Spawn(UIF.ButtonPrefab, window.transform);
+            if (reset != null)
+            {
+                resetRect = reset.GetComponent<RectTransform>();
+                UIF.NoSwell(reset);
+                Grow(reset, Caption(reset, "RESET COLORS",
+                                    TextAnchor.MiddleCenter).transform);
+                Tip.On(reset, "Every color back to how it started");
+                Button click = reset.GetComponent<Button>();
+                if (click != null)
+                {
+                    click.onClick.AddListener(delegate
+                    {
+                        Hues.Reset();
+                        Recoloured(null);
+                    });
+                }
+                reset.SetActive(false);
+            }
+
+            // Everything the two rows hold, put out and away together.
+            for (int i = 0; i < swatches.Count; i++)
+            {
+                shelf.Add(swatches[i].Root);
+            }
+            shelf.Add(nodeWords);
+            shelf.Add(nodeModeRect);
+            shelf.Add(uniNodeWords);
+            shelf.Add(uniNode.Root);
+            shelf.Add(wireWords);
+            shelf.Add(wireModeRect);
+            shelf.Add(uniWireWords);
+            shelf.Add(uniWire.Root);
+            shelf.Add(resetRect);
+        }
+
+        private RectTransform Words(string said)
+        {
+            GameObject go = new GameObject("Words");
+            go.transform.SetParent(window.transform, false);
+            RectTransform rect = go.AddComponent<RectTransform>();
+            Caption(go, said, TextAnchor.MiddleLeft);
+            go.SetActive(false);
+            return rect;
+        }
+
+        /// <summary>
+        /// A colour changed, or the way of colouring did: every open board takes
+        /// it up. The colour being dragged is left alone on the board it is being
+        /// dragged on -- written back to itself, a band's hue read out of the
+        /// colour it just made wanders under the knob.
+        /// </summary>
+        private static void Recoloured(Swatch source)
+        {
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (all[i] != null)
+                {
+                    all[i].Repainted(source);
+                }
+            }
+        }
+
+        private void Repainted(Swatch source)
+        {
+            for (int slot = 0; slot < swatches.Count; slot++)
+            {
+                if (swatches[slot] != source)
+                {
+                    swatches[slot].Value = Hues.Kind(slot);
+                }
+            }
+            if (uniNode != null && uniNode != source)
+            {
+                uniNode.Value = Hues.Node;
+            }
+            if (uniWire != null && uniWire != source)
+            {
+                uniWire.Value = Hues.Wire;
+            }
+            if (nodeModeLabel != null)
+            {
+                nodeModeLabel.text = Hues.Named(Hues.NodeMode);
+            }
+            if (wireModeLabel != null)
+            {
+                wireModeLabel.text = Hues.Named(Hues.WireMode);
+            }
+            Painted();
+            tinted = false;
+            if (window != null && window.activeSelf && served != null)
+            {
+                Redraw();
+            }
+        }
+
+        /// <summary>The palette's pictures and words in the colours of what they
+        /// offer.</summary>
+        private void Painted()
+        {
+            for (int slot = 0; slot < inks.Count; slot++)
+            {
+                if (inks[slot] != null)
+                {
+                    inks[slot].color = Shelf(slot);
+                }
+            }
+        }
+
+        /// <summary>The colour a palette button is drawn in: the colour a node of
+        /// its kind is drawn in, the way nodes are being coloured -- the unicolour,
+        /// its kind's colour, or one picked from the row for it. The row of colours
+        /// over the buttons shows the kind colours themselves.</summary>
+        private Color Shelf(int slot)
+        {
+            return Hues.NodeOf(slot, Hues.Mix(5, slot));
+        }
+
+        /// <summary>A node's colour, from the list worked out for this drawing of
+        /// the board.</summary>
+        private Color Tinted(int node)
+        {
+            Tints();
+            return node >= 0 && node < tints.Count ? tints[node] : Hues.Node;
+        }
+
+        private int Seeded(int node)
+        {
+            Tints();
+            return node >= 0 && node < seeds.Count ? seeds[node] : node;
+        }
+
+        /// <summary>Which palette kind a node is, for its kind colour.</summary>
+        private int Slotted(int node)
+        {
+            Tints();
+            return node >= 0 && node < slots.Count ? slots[node] : Hues.NoteSlot;
+        }
+
+        private void Tints()
+        {
+            if (tinted)
+            {
+                return;
+            }
+            tinted = true;
+            tints.Clear();
+            seeds.Clear();
+            slots.Clear();
+            int many = Nodes;
+            for (int node = 0; node < many; node++)
+            {
+                int seed = Seed(node);
+                seeds.Add(seed);
+                LogicRow row = Row(node);
+                int slot;
+                if (row != null)
+                {
+                    slot = Hues.GateSlot(row.Gate);
+                }
+                else
+                {
+                    Place place = Placed(node);
+                    slot = place == null || place.Kind == Place.Note ? Hues.NoteSlot
+                        : (place.Kind == Place.Input ? Hues.InputSlot : Hues.OutputSlot);
+                }
+                slots.Add(slot);
+                tints.Add(Hues.NodeOf(slot, seed));
+            }
+        }
+
+        /// <summary>
+        /// The number a node's random colour is chosen by, as steady as the node
+        /// is: a gate by its row, an end by the key or name it stands for -- which
+        /// is what it is, wherever it sits in the list -- and a comment by its
+        /// place in the list, having nothing else.
+        /// </summary>
+        private int Seed(int node)
+        {
+            if (node < Rows)
+            {
+                return Hues.Mix(1, node);
+            }
+            Place place = Placed(node);
+            if (place == null || place.Kind == Place.Note)
+            {
+                return Hues.Mix(2, node);
+            }
+            string name = place.Variable != null ? place.Variable : place.Key.ToString();
+            return Hues.Mix(3 + place.Kind, Hues.Hashed(name));
+        }
+
+        /// <summary>
+        /// The furthest the wheel zooms out: far enough to see the whole board in
+        /// the window, or the usual limit where that is further still.
+        ///
+        /// A fixed limit stopped the view short of the board's own edges once the
+        /// board had grown, so the only way to see all of it was a pan at a time.
+        /// </summary>
+        private float Least()
+        {
+            if (sheet == null)
+            {
+                return LeastZoom;
+            }
+            Rect room = sheet.rect;
+            return Mathf.Min(LeastZoom, Mathf.Min(room.width / BoardWide,
+                                                  room.height / BoardTall));
+        }
+
+        /// <summary>
+        /// The grid put away as the view pulls back past where it can be drawn. A
+        /// square of thirty-two a tenth the size is three pixels, and the grid at
+        /// that is a grey shimmer over the whole board rather than lines; the
+        /// fence still says where the board ends.
+        /// </summary>
+        private void Faded()
+        {
+            if (content == null)
+            {
+                return;
+            }
+            Railed(content.localScale.x);
+            if (gridLines == null)
+            {
+                return;
+            }
+            float alpha = 0.5f * Mathf.InverseLerp(0.12f, 0.3f, content.localScale.x);
+            if (Mathf.Abs(gridLines.color.a - alpha) > 0.01f)
+            {
+                gridLines.color = new Color(1f, 1f, 1f, alpha);
+            }
+        }
+
+        /// <summary>How thick the board's edge is drawn, in the window's own units
+        /// whatever the zoom.</summary>
+        private const float RailWide = 1.5f;
+
+        /// <summary>
+        /// The edge of the board kept the same thickness on screen at any zoom.
+        ///
+        /// It is drawn on the content, which the zoom scales, so a line one and a
+        /// half units thick was a tenth of a pixel with the whole board in view --
+        /// gone, just when the edge of the board is the thing worth seeing. Made
+        /// thicker on the board as the board is drawn smaller.
+        /// </summary>
+        private void Railed(float much)
+        {
+            if (rails.Count == 0 || Mathf.Abs(much - railed) < 0.0001f)
+            {
+                return;
+            }
+            railed = much;
+            float thick = RailWide / Mathf.Max(0.01f, much);
+            for (int i = 0; i < rails.Count; i++)
+            {
+                if (rails[i] == null)
+                {
+                    continue;
+                }
+                // Laid down in the order top, bottom, left, right.
+                bool flat = i % 4 < 2;
+                rails[i].sizeDelta = flat ? new Vector2(0f, thick)
+                                          : new Vector2(thick, 0f);
+            }
+        }
+
+        /// <summary>A selector's list, where the right-click was -- the same list a
+        /// right-click on the board opens: every choice, to go straight to one
+        /// rather than stepping through.</summary>
+        private static void Listed(Vector2 screen, List<string> names,
+                                   Action<int> picked)
+        {
+            Choices.OpenAt(screen, names, delegate(string chosen)
+            {
+                int which = names.IndexOf(chosen);
+                if (which >= 0)
+                {
+                    picked(which);
+                }
+            });
+        }
+
+        /// <summary>The wire style's list.</summary>
+        private void Restyling(Vector2 screen)
+        {
+            List<string> names = new List<string>();
+            names.Add(Styled(Straight));
+            names.Add(Styled(Curved));
+            names.Add(Styled(Square));
+            Listed(screen, names, Restyled);
+        }
+
+        /// <summary>One button on the title bar at `along`, and where the next
+        /// one goes.</summary>
+        private static float Slot(RectTransform rect, float along, float wide)
+        {
+            if (rect != null)
+            {
+                UIF.Fit(rect, along, 3f, wide, BarHeight - 6f);
+            }
+            return along + wide + 3f;
+        }
+
+        private static string Styled(int which)
+        {
+            return which == Straight ? "LINE" : (which == Curved ? "CURVE" : "SQUARE");
         }
 
         /// <summary>
@@ -6176,10 +7388,13 @@ namespace TimerPlusMod
         /// -- and TIDY lays the board out and then falls on the grid like anything
         /// else, because it moves nodes the same way a hand does.
         /// </summary>
-        private void Snapping()
+        private void Snapping(bool on)
         {
-            grid = !grid;
-            Squared();
+            if (hushed)
+            {
+                return;
+            }
+            grid = on;
             if (!grid || served == null)
             {
                 return;
@@ -6190,15 +7405,6 @@ namespace TimerPlusMod
             }
             Kept();
             Redraw();
-        }
-
-        /// <summary>The switch's own lettering, lit while it is on.</summary>
-        private void Squared()
-        {
-            if (gridLabel != null)
-            {
-                gridLabel.color = grid ? UIF.Live : UIF.Ink;
-            }
         }
 
         /// <summary>A place taken to the nearest intersection, while the grid is
@@ -6216,12 +7422,27 @@ namespace TimerPlusMod
 
         private void Styling()
         {
-            style = (style + 1) % 3;
-            if (styleLabel != null)
+            Restyled(style + 1);
+        }
+
+        /// <summary>The wires drawn another way, on every board: the style is one
+        /// setting they all share.</summary>
+        private static void Restyled(int which)
+        {
+            style = ((which % 3) + 3) % 3;
+            for (int i = 0; i < all.Count; i++)
             {
-                styleLabel.text = Styled();
+                Editor board = all[i];
+                if (board == null)
+                {
+                    continue;
+                }
+                if (board.styleLabel != null)
+                {
+                    board.styleLabel.text = Styled(style);
+                }
+                board.Strings();
             }
-            Strings();
         }
 
         /// <summary>

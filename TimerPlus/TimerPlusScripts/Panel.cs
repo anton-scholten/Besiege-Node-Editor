@@ -1430,21 +1430,35 @@ namespace TimerPlusMod
         }
 
         /// <summary>How much of the bottom row the pin switch takes, the convert
-        /// button having the rest. The convert button carries the longest caption
-        /// of the three and grows it on hover, so it is given the room to: at a
-        /// quarter each for the other two its lettering stayed inside the plate.
-        /// </summary>
+        /// button having the rest. The convert button carries the longer caption
+        /// and grows it on hover, so it is given the room to.</summary>
         private const float PinShare = 0.24f;
-
-        /// <summary>And how much the button that opens the node editor takes. Only
-        /// the logic table has one: a timer is not a circuit.</summary>
-        private const float BoardShare = 0.255f;
 
         private float Footer(float y)
         {
             float tall = RowHeight + 4f;
+            if (Gated)
+            {
+                // The logic table's pin switch and convert button live in the node
+                // editor's title bar, as PIN BLOCKS and EXPORT beside IMPORT: the
+                // way out onto the machine next to the way in. What is left here
+                // is the switch that opens it -- a switch rather than a button,
+                // because it says whether the editor is up.
+                GameObject board = UIF.Spawn(UIF.TogglePrefab, fixedStrip);
+                if (board != null)
+                {
+                    UIF.Fit(board.GetComponent<RectTransform>(), Edge, y, Wide, tall);
+                    UIF.NoSwell(board);
+                    Grow(board, Pin(board, "NODE EDITOR", UIF.Ink));
+                    boardBox = board.GetComponent<Toggle>();
+                    if (boardBox != null)
+                    {
+                        boardBox.onValueChanged.AddListener(OpenBoard);
+                    }
+                }
+                return y + tall;
+            }
             float pinWide = Wide * PinShare;
-            float boardWide = Gated ? Wide * BoardShare : 0f;
 
             // The switch first, on the left, because it is a thing the convert
             // button does rather than a thing of its own.
@@ -1463,33 +1477,13 @@ namespace TimerPlusMod
                 }
             }
 
-            if (Gated)
-            {
-                // A switch rather than a button: it says whether the editor is up,
-                // and it is the same click either way.
-                GameObject board = UIF.Spawn(UIF.TogglePrefab, fixedStrip);
-                if (board != null)
-                {
-                    UIF.Fit(board.GetComponent<RectTransform>(), Edge + pinWide, y,
-                            boardWide - ColGap, tall);
-                    UIF.NoSwell(board);
-                    Grow(board, Pin(board, "NODE EDITOR", UIF.Ink));
-                    boardBox = board.GetComponent<Toggle>();
-                    if (boardBox != null)
-                    {
-                        boardBox.onValueChanged.AddListener(OpenBoard);
-                    }
-                }
-            }
-
             GameObject go = UIF.Spawn(UIF.ButtonPrefab, fixedStrip);
             if (go != null)
             {
-                UIF.Fit(go.GetComponent<RectTransform>(), Edge + pinWide + boardWide,
-                        y, Wide - pinWide - boardWide, tall);
+                UIF.Fit(go.GetComponent<RectTransform>(), Edge + pinWide, y,
+                        Wide - pinWide, tall);
                 UIF.NoSwell(go);
-                convertLabel = Pin(go, Gated ? "CONVERT TO LOGIC GATES"
-                                             : "CONVERT TO TIMER BLOCKS", UIF.Ink);
+                convertLabel = Pin(go, "CONVERT TO TIMER BLOCKS", UIF.Ink);
                 Grow(go, convertLabel);
                 Button click = go.GetComponent<Button>();
                 if (click != null)
@@ -1543,9 +1537,8 @@ namespace TimerPlusMod
             {
                 return;
             }
-            MToggle control = Gated
-                ? (logic == null ? null : logic.PinControl)
-                : (served == null ? null : served.PinControl);
+            // The timer table's alone: the logic table's is on the node editor.
+            MToggle control = served == null ? null : served.PinControl;
             if (control == null)
             {
                 return;
@@ -2147,9 +2140,7 @@ namespace TimerPlusMod
             {
                 return;
             }
-            MToggle control = Gated
-                ? (logic == null ? null : logic.PinControl)
-                : (served == null ? null : served.PinControl);
+            MToggle control = served == null ? null : served.PinControl;
             if (control != null)
             {
                 pinBox.isOn = control.IsActive;
@@ -2576,24 +2567,10 @@ namespace TimerPlusMod
             touched.Add(logic.LayoutControl);
         }
 
+        /// <summary>The timer table's convert button. The logic table's is the
+        /// node editor's EXPORT.</summary>
         private void DoConvert()
         {
-            if (Gated)
-            {
-                try
-                {
-                    int gatesMade = Conversion.Into(logic);
-                    Flash(convertLabel,
-                          gatesMade + (gatesMade == 1 ? " GATE ADDED" : " GATES ADDED"),
-                          UIF.Live);
-                }
-                catch (Exception e)
-                {
-                    Flash(convertLabel, "COULD NOT CONVERT", UIF.Hot);
-                    Log.Warn("convert failed: " + e);
-                }
-                return;
-            }
             if (served == null)
             {
                 return;

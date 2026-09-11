@@ -491,7 +491,10 @@ namespace TimerPlusMod
 
             public void OnPointerClick(PointerEventData pointer)
             {
-                if (Clicked != null)
+                // Not the click that ends a drag: uGUI raises one whenever the
+                // object pressed is the object dragged, and a node dragged by its
+                // name box would drop its list open wherever it landed.
+                if (Clicked != null && !pointer.dragging)
                 {
                     Clicked();
                 }

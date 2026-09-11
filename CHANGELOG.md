@@ -63,11 +63,11 @@ First version. Two blocks, each holding a table of up to thirty-two rows:
   as the one that made it. Input B is barred with diagonal stripes for a gate that
   reads one input, and the switch is barred and dead for a gate that has neither of
   the two it stands for; what is barred is still bound underneath. The switch wears
-  **T** or **I** for which of the two it is. Convert builds real logic gate
-  blocks.
+  **T** or **I** for which of the two it is. **EXPORT**, on the node editor's
+  title bar beside **PIN BLOCKS**, builds real logic gate blocks.
 
-- **A node editor** for the logic table, opened by a button between its pin switch
-  and its convert button. A gate node is a row and a wire is a row's input carrying
+- **A node editor** for the logic table, opened by the button along the bottom of
+  the table. A gate node is a row and a wire is a row's input carrying
   another row's answer name, so the board and the table are the same thing seen two
   ways -- neither can be out of step with the other, and the block runs and converts
   exactly as it did. Written rather than borrowed -- every node-editor library for Unity is an editor-time tool or wants
@@ -83,8 +83,19 @@ First version. Two blocks, each holding a table of up to thirty-two rows:
   key or variable into one, and **GRID** -- on by default -- sits every node on the
   grid's intersections. The nodes are whole numbers of squares for it: an end is
   four cells across and two down, a gate three by two, and TIDY lays out in cells
-  as well, so a board on the grid fills them rather than straddling them. The board is two zoomed-out views across and two down, and nodes and the
-  view both stop at its edge.
+  as well, so a board on the grid fills them rather than straddling them. The board is four zoomed-out views across and four down, the wheel pulls back
+  far enough to see all of it, and nodes and the view both stop at its edge.
+  **EDIT COLORS** lays rows over the top of the board, which stays put: a colour
+  under each palette button and, under those, a row of how nodes are coloured and
+  how wires are -- UNICOLOR, COLOR or
+  RANDOM each, clicked for the next or right-clicked for the list, as the wire style
+  is too -- with the unicolour node and wire colours beside them and **RESET
+  COLORS** at the far end. Each colour is a hex box like the Special Effects spot
+  light's.
+  Colours are kept per player, in the mod's data folder. The board's edge stays the
+  same thickness on screen at any zoom, and a comment is resized by the double
+  arrow in its corner, which scales its writing up to three quarters of the board's
+  width and keeps it on the board however big it is; that arrow stays one size on screen at any zoom.
   Every edit is one step of Besiege's own undo, carrying the whole block, so one
   press puts every gate back where it was with the wires it had -- the game's undo
   and no other, since an edit on the board and an edit in the table are the same
@@ -104,9 +115,9 @@ First version. Two blocks, each holding a table of up to thirty-two rows:
   and taken off the machine, wiring and all -- a wire is two gates agreeing on a
   key, so copying the gates copies the circuit -- up to the block's thirty-two
   rows, with anything over left on the machine for another block to take. One press
-  of undo puts the blocks back and the rows away. Its two hotkeys are in Besiege's controls
-  screen and default to 1+C and 1+V -- the game itself owns the Control versions
-  of both.
+  of undo puts the blocks back and the rows away. Its three hotkeys -- copy, paste and select
+  all -- are in Besiege's controls screen and default to 1+C, 1+V and 1+A -- the
+  game itself owns the Control versions.
 
 **Known and deliberate**
 
