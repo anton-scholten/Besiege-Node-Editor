@@ -37,6 +37,20 @@ namespace TimerPlusMod
         public const int Count = 12;
 
         /// <summary>
+        /// Not a gate: a timer, which a row can be as well. Besiege's own timer
+        /// block, run by <see cref="Clock"/> exactly as a Timer Plus row runs it,
+        /// started by the row's input A and pressing what the row presses.
+        ///
+        /// Numbered after the gates rather than among them, so every gate keeps the
+        /// number Besiege's menu gives it and a save keeps meaning the same gate.
+        /// <see cref="Count"/> still counts gates alone; <see cref="Kinds"/> is how
+        /// many things a row's menu offers.
+        /// </summary>
+        public const int Timer = 12;
+
+        public const int Kinds = 13;
+
+        /// <summary>
         /// What Besiege calls each gate, in the order its own menu lists them --
         /// which is the order of `GateType`, because the block casts the menu's
         /// value straight to the enum.
@@ -54,7 +68,7 @@ namespace TimerPlusMod
         private static readonly string[] Spelled =
         {
             "NOT", "AND", "OR", "NOR", "NAND", "XOR", "XNOR",
-            "RANDOM", "SR LATCH", "D LATCH", "COUNTER", "EDGE"
+            "RANDOM", "SR LATCH", "D LATCH", "COUNTER", "EDGE", "TIMER"
         };
 
         private static string[] names;
@@ -67,10 +81,16 @@ namespace TimerPlusMod
                 {
                     return names;
                 }
-                names = new string[Ids.Length];
-                for (int i = 0; i < Ids.Length; i++)
+                // The timer as well, which has no translation of the gates' own to
+                // look up and keeps its spelling.
+                names = new string[Spelled.Length];
+                for (int i = 0; i < Spelled.Length; i++)
                 {
                     names[i] = Spelled[i];
+                    if (i >= Ids.Length)
+                    {
+                        continue;
+                    }
                     try
                     {
                         string said = Localisation.LocalisationManager
@@ -99,7 +119,8 @@ namespace TimerPlusMod
         /// </summary>
         public static bool UsesB(int gate)
         {
-            return gate != Not && gate != Random && gate != EdgeDetect;
+            // A timer has one key that starts it, and that is input A.
+            return gate != Not && gate != Random && gate != EdgeDetect && gate != Timer;
         }
 
         /// <summary>Whether the row's one switch means "inverted" -- the edge

@@ -277,7 +277,7 @@ namespace TimerPlusMod
             List<BlockBehaviour> gates = Gathered(machine);
             if (gates.Count == 0)
             {
-                throw new Exception("there are no logic gates on this machine");
+                throw new Exception("there are no logic gates\nor timers on this machine");
             }
 
             int room = LogicGatePlusBehaviour.MaxRows - block.Count;
@@ -299,7 +299,7 @@ namespace TimerPlusMod
             left = gates.Count - taken.Count;
             if (taken.Count == 0)
             {
-                throw new Exception("those gates could not be read");
+                throw new Exception("those blocks could not be read");
             }
 
             LogicTable.Applied(touched);
@@ -319,7 +319,9 @@ namespace TimerPlusMod
             for (int i = 0; all != null && i < all.Count; i++)
             {
                 BlockBehaviour block = all[i];
-                if (block == null || block.GetComponent<LogicGate>() == null)
+                // Its logic gates and its timers: a timer is a row as well now.
+                if (block == null || (block.GetComponent<LogicGate>() == null
+                                      && block.GetComponent<global::TimerBlock>() == null))
                 {
                     continue;
                 }
@@ -341,6 +343,11 @@ namespace TimerPlusMod
         private static bool Read(LogicGatePlusBehaviour into, BlockBehaviour gate,
                                  List<MapperType> touched)
         {
+            global::TimerBlock timer = gate.GetComponent<global::TimerBlock>();
+            if (timer != null)
+            {
+                return Timed(into, timer, touched);
+            }
             MMenu kind = Menued(gate, KeyGate);
             MKey a = Keyed(gate, KeyInputA);
             MKey b = Keyed(gate, KeyInputB);
@@ -372,6 +379,71 @@ namespace TimerPlusMod
             Copy(a, made.InputA, touched);
             Copy(b, made.InputB, touched);
             Copy(emulate, made.Emulate, touched);
+            return true;
+        }
+
+        /// <summary>
+        /// One of Besiege's own timers as a timer row: its wait, its duration and
+        /// its three switches, started by what its activation key reads and pressing
+        /// what it presses.
+        ///
+        /// Read through the timer's own public properties -- `TimerBlock` has one
+        /// for every control -- rather than by key name.
+        ///
+        /// One with Automatic on comes in as the row that starts itself, with
+        /// nothing on its input and its wait kept -- see
+        /// <see cref="LogicRow.Automatic"/>.
+        /// </summary>
+        private static bool Timed(LogicGatePlusBehaviour into, global::TimerBlock timer,
+                                  List<MapperType> touched)
+        {
+            bool automatic = timer.Auto != null && timer.Auto.IsActive;
+            if (timer.ActivateKey == null || timer.EmulateKey == null
+                || timer.WaitSlider == null || timer.EmulationSlider == null)
+            {
+                return false;
+            }
+            int row = LogicTable.Add(into, touched);
+            if (row < 0 || row >= into.Rows.Count)
+            {
+                return false;
+            }
+            LogicRow made = into.Rows[row];
+            if (!made.Ready)
+            {
+                return false;
+            }
+            made.Kind.Value = Gates.Timer;
+            made.Mode.IsActive = false;
+            made.Wait.Value = timer.WaitSlider.Value;
+            made.Duration.Value = timer.EmulationSlider.Value;
+            made.Hold.IsActive = timer.HoldToActivate != null
+                && timer.HoldToActivate.IsActive;
+            made.Stop.IsActive = timer.CanStop != null && timer.CanStop.IsActive;
+            made.Loop.IsActive = timer.Loop != null && timer.Loop.IsActive;
+            touched.Add(made.Kind);
+            touched.Add(made.Mode);
+            touched.Add(made.Wait);
+            touched.Add(made.Duration);
+            touched.Add(made.Hold);
+            touched.Add(made.Stop);
+            touched.Add(made.Loop);
+
+            if (automatic)
+            {
+                // Nothing on its input is what makes it start itself.
+                Bindings.Clear(made.InputA);
+                touched.Add(made.InputA);
+            }
+            else
+            {
+                Copy(timer.ActivateKey, made.InputA, touched);
+            }
+            // The row it was added as is a copy of the one above; a timer reads one
+            // input, and whatever was copied into the other is nothing it reads.
+            Bindings.Clear(made.InputB);
+            touched.Add(made.InputB);
+            Copy(timer.EmulateKey, made.Emulate, touched);
             return true;
         }
 
@@ -465,6 +537,10 @@ namespace TimerPlusMod
         /// <summary>One row as the game's own description of a logic gate.</summary>
         private static BlockInfo One(GateData row, Vector3 at)
         {
+            if (row.Gate == Gates.Timer)
+            {
+                return Timed(row, at);
+            }
             XDataHolder data = new XDataHolder();
             data.Write(new XInteger("bmt-version", 1));
 
@@ -486,6 +562,44 @@ namespace TimerPlusMod
             BlockInfo info = new BlockInfo();
             info.Guid = Guid.NewGuid();
             info.ID = (BlockType)LogicGateBlock;
+            info.Position = at;
+            info.Rotation = Upright;
+            info.Scale = Vector3.one;
+            info.BlockData = data;
+            return info;
+        }
+
+        /// <summary>A logic table's timer row as the game's own timer block: started
+        /// by whatever the row's input A reads, pressing what the row
+        /// presses.</summary>
+        private static BlockInfo Timed(GateData row, Vector3 at)
+        {
+            XDataHolder data = new XDataHolder();
+            data.Write(new XInteger("bmt-version", 1));
+
+            data.Write(new XSingle(KeyWait, row.Wait));
+            data.Write(new XSingle(KeyDuration, row.Duration));
+            data.Write(new XBoolean(KeyHold, row.HoldRun));
+            data.Write(new XBoolean(KeyStop, row.CanStop));
+            data.Write(new XBoolean(KeyLoop, row.Loops));
+            bool unbound = row.AVariable == null
+                ? row.AKey == KeyCode.None
+                : Bindings.Named(row.AVariable).Count == 0;
+            if (unbound)
+            {
+                // Nothing to start it: a row that starts with the simulation, which
+                // on Besiege's own timer is Automatic.
+                data.Write(new XBoolean(KeyAutomatic, true));
+            }
+            else
+            {
+                Binding(data, KeyActivate, row.AVariable, row.AKey, KeyCode.B);
+            }
+            Binding(data, KeyEmulate, row.EmulateVariable, row.EmulateKey, KeyCode.C);
+
+            BlockInfo info = new BlockInfo();
+            info.Guid = Guid.NewGuid();
+            info.ID = (BlockType)TimerBlock;
             info.Position = at;
             info.Rotation = Upright;
             info.Scale = Vector3.one;

@@ -57,11 +57,12 @@ namespace TimerPlusMod
         private const float BarHeight = 26f;
         private const float Margin = 8f;
         /// <summary>
-        /// How big an end is drawn: four grid squares across and two down, so a node
-        /// on the grid fills whole cells and a row of them lines up with the lines
-        /// behind it. See <see cref="GridStep"/>.
+        /// How big an end or a timer is drawn: five grid squares across and two down,
+        /// so a node on the grid fills whole cells and a row of them lines up with
+        /// the lines behind it -- and five rather than four for the room it gives the
+        /// boxes written in. See <see cref="GridStep"/>.
         /// </summary>
-        private const float NodeWidth = GridStep * 4f;
+        private const float NodeWidth = GridStep * 5f;
         private const float NodeHeight = GridStep * 2f;
 
         /// <summary>How tall a gate is drawn. Shorter than an end: an end holds the
@@ -198,9 +199,14 @@ namespace TimerPlusMod
         /// relative to the others.</summary>
         private class Copied
         {
-            public bool IsGate;
+            public bool IsGate;              // a row: a gate, or a timer
             public int Gate;
             public bool Mode;
+            public float Wait = 1f;          // a timer's settings
+            public float Duration = 1f;
+            public bool Hold;
+            public bool Stop;
+            public bool Loop;
             public string Variable;
             public KeyCode Key = KeyCode.None;
             public int Kind;                 // for a place
@@ -547,6 +553,16 @@ namespace TimerPlusMod
                 {
                     continue;
                 }
+                if (row.IsTimer)
+                {
+                    // A timer's numbers and switches too, or an undo of a wait
+                    // changed on the board would go unseen here and undrawn.
+                    said.Append(row.Wait.Value).Append('/')
+                        .Append(row.Duration.Value)
+                        .Append(row.Hold.IsActive ? 'h' : '_')
+                        .Append(row.Stop.IsActive ? 's' : '_')
+                        .Append(row.Loop.IsActive ? 'l' : '_');
+                }
                 said.Append(row.Gate).Append(row.Switch ? '+' : '-')
                     .Append(Bindings.Show(row.InputA, "-")).Append(',')
                     .Append(Bindings.Show(row.InputB, "-")).Append(',')
@@ -670,6 +686,14 @@ namespace TimerPlusMod
             Verging();
             Fading();
             Hues.Settle();
+            if (scrubbing.Count > 0 && !Input.GetMouseButton(0))
+            {
+                // A timer's number dragged: written live all the while, and one
+                // step of undo now the hand has let go.
+                List<MapperType> touched = new List<MapperType>(scrubbing);
+                scrubbing.Clear();
+                Commit(touched);
+            }
             // A click anywhere outside the window puts the selection down, the same
             // as a click on the empty board does: whatever is picked out belongs to
             // somebody working in this window, and a hand that has gone to work on
@@ -1216,7 +1240,7 @@ namespace TimerPlusMod
                 UIF.NoSwell(brought);
                 Grow(brought, Caption(brought, "IMPORT",
                                       TextAnchor.MiddleCenter).transform);
-                Tip.On(brought, "Take all logic gates of the machine into this editor");
+                Tip.On(brought, "Take all logic gates and timers of the machine into this editor");
                 Button click = brought.GetComponent<Button>();
                 if (click != null)
                 {
@@ -1311,6 +1335,9 @@ namespace TimerPlusMod
             Add(0, Place.Input, -1, "INPUT", "", null);
             Add(0, Place.Output, -1, "OUTPUT", "", null);
             Add(0, Place.Note, -1, "", "Comment", Glyphs.Note);
+            // A timer is a row like a gate, and made the same way, but it is not one
+            // of the game's gates: it goes before them.
+            Add(Gates.Timer, -1, Gates.Timer, "", "Timer", Glyphs.Timer);
             for (int g = 0; g < Gates.Count; g++)
             {
                 Add(g, -1, g, "", Gates.Names[g], null);
@@ -1481,7 +1508,7 @@ namespace TimerPlusMod
             }
 
             float y = BarHeight + Margin;
-            float step = (size.x - Margin * 2f) / (Gates.Count + 3);
+            float step = (size.x - Margin * 2f) / Hues.Slots;
             for (int i = 0; i < palette.Count; i++)
             {
                 UIF.Fit(palette[i], Margin + step * i, y, step - 3f, 30f);
@@ -1658,12 +1685,14 @@ namespace TimerPlusMod
                 Vector2 span = Sized(kind, gate);
                 ghost = Rounded(canvas.transform, 0f, 0f, span.x, span.y,
                                 new Color(Ink.r, Ink.g, Ink.b, 0.55f));
-                Texture face = gate >= 0 ? Glyphs.Gate(gate)
-                    : (kind == Place.Note ? Glyphs.Note : null);
+                bool timer = gate == Gates.Timer;
+                Texture face = timer ? Glyphs.Timer
+                    : (gate >= 0 ? Glyphs.Gate(gate)
+                                 : (kind == Place.Note ? Glyphs.Note : null));
                 if (face != null)
                 {
                     RawImage drawn = Picture(ghost.transform, face,
-                                             gate >= 0 ? GateIcon : NodeIcon);
+                                             gate >= 0 && !timer ? GateIcon : NodeIcon);
                     Color shade = Shelf(gate >= 0 ? Hues.GateSlot(gate) : Hues.NoteSlot);
                     shade.a = 0.7f;
                     drawn.color = shade;
@@ -1753,6 +1782,10 @@ namespace TimerPlusMod
         /// written in it.</summary>
         private static Vector2 Sized(int kind, int gate)
         {
+            if (gate == Gates.Timer)
+            {
+                return new Vector2(NodeWidth, NodeHeight);
+            }
             if (gate >= 0)
             {
                 return new Vector2(GateWidth, GateHeight);
@@ -2779,10 +2812,11 @@ namespace TimerPlusMod
             // A comment is as big as what is written in it; everything else is
             // one size.
             bool note = place != null && place.Kind == Place.Note;
-            float wide = row != null ? GateWidth : NodeWidth;
-            // A gate is its picture, its switch and its ports; only the two ends
-            // have anything written on them, so only they need the room for it.
-            float tall = row != null ? GateHeight : NodeHeight;
+            // A gate is its picture, its switch and its ports; the two ends and a
+            // timer have things written on them, so only they need the room for it.
+            bool gated = row != null && !row.IsTimer;
+            float wide = gated ? GateWidth : NodeWidth;
+            float tall = gated ? GateHeight : NodeHeight;
 
             GameObject body = Rounded(content, at.x, at.y, wide, tall,
                                       note ? Paper : Ink);
@@ -2874,7 +2908,12 @@ namespace TimerPlusMod
             GameObject head = new GameObject("Head");
             head.transform.SetParent(body.transform, false);
             head.AddComponent<RectTransform>();
-            if (row != null)
+            if (row != null && row.IsTimer)
+            {
+                // No picture: a timer on the board is its numbers and its switches.
+                Timed(body, row, index, wide, tall);
+            }
+            else if (row != null)
             {
                 // The picture has the gate to itself unless there is a switch, and
                 // then it has what the switch has left: a picture centred in the
@@ -3935,6 +3974,254 @@ namespace TimerPlusMod
                                Mathf.Clamp(at.y, 0f, Mathf.Max(0f, BoardTall - span.y)));
         }
 
+        /// <summary>How wide a node of this sort is: a gate is narrow, and an end
+        /// and a timer five squares.</summary>
+        private float Wide(int node)
+        {
+            LogicRow row = Row(node);
+            return row != null && !row.IsTimer ? GateWidth : NodeWidth;
+        }
+
+        // ---- the timer node ---------------------------------------------------
+
+        /// <summary>A timer node's three switches down its right, and the words in
+        /// front of its two numbers.</summary>
+        private const float TimerSwitch = 18f;
+        private const float TimerWords = 30f;
+
+        /// <summary>How much of a second a pixel of drag is worth: the timer table's
+        /// own rate, a slider's whole range per two hundred and fifty
+        /// pixels.</summary>
+        private const float TimeDragPerPixel = 0.004f;
+
+        /// <summary>Timer numbers dragged and not yet committed. See
+        /// `Ticking`.</summary>
+        private readonly List<MapperType> scrubbing = new List<MapperType>();
+
+        /// <summary>
+        /// A timer row as a node: its wait and its duration as numbers to type or
+        /// drag sideways, the Special Effects spot light's value boxes without their
+        /// sliders; and its three switches -- hold to run, allow stop, loop -- down
+        /// the right, wearing the Timer Plus table's own column pictures. Input A on
+        /// the left starts it, as a timer's key does; what it presses leaves on the
+        /// right. Five squares by two, like an end.
+        /// </summary>
+        private void Timed(GameObject body, LogicRow row, int index, float wide,
+                           float tall)
+        {
+            float left = PortSize + 4f;
+            float switchAt = wide - PortSize - (PortReach - PortSize) * 0.5f
+                             - TimerSwitch - 1f;
+            float line = (tall - 9f) * 0.5f;
+            float room = switchAt - 3f - left - TimerWords;
+            for (int i = 0; i < 2; i++)
+            {
+                bool wait = i == 0;
+                float y = 3f + i * (line + 3f);
+                GameObject words = new GameObject("Words");
+                words.transform.SetParent(body.transform, false);
+                UIF.Fit(words.AddComponent<RectTransform>(), left, y, TimerWords, line);
+                Text said = Caption(words, wait ? "WAIT" : "DUR",
+                                    TextAnchor.MiddleLeft);
+                if (said != null)
+                {
+                    said.color = UIF.QuietInk;
+                }
+                Number(body, wait ? row.Wait : row.Duration, left + TimerWords, y,
+                       room, line);
+            }
+
+            MToggle[] switches = { row.Hold, row.Stop, row.Loop };
+            Texture[] faces = { Glyphs.Hold, Glyphs.Stop, Glyphs.Loop };
+            string[] letters = { "H", "S", "L" };
+            string[] tips = { "Hold to run", "Allow stop", "Loop" };
+            float gap = (tall - 6f - TimerSwitch * 3f) * 0.5f;
+            for (int k = 0; k < 3; k++)
+            {
+                GameObject flip = UIF.Spawn(UIF.TogglePrefab, body.transform);
+                if (flip == null)
+                {
+                    continue;
+                }
+                UIF.Fit(flip.GetComponent<RectTransform>(), switchAt,
+                        3f + k * (TimerSwitch + gap), TimerSwitch, TimerSwitch);
+                UIF.NoSwell(flip);
+                // The picture where there is one, and its letter where the file
+                // could not be loaded.
+                Text letter = Caption(flip, faces[k] == null ? letters[k] : "",
+                                      TextAnchor.MiddleCenter);
+                Transform grows = letter == null ? null : letter.transform;
+                if (faces[k] != null)
+                {
+                    grows = Picture(flip.transform, faces[k], TimerSwitch - 5f)
+                        .transform;
+                }
+                Grow(flip, grows, 1.3f);
+                Tip.On(flip, tips[k]);
+                Toggle box = flip.GetComponent<Toggle>();
+                MToggle control = switches[k];
+                if (box == null || control == null)
+                {
+                    continue;
+                }
+                hushed = true;
+                box.isOn = control.IsActive;
+                hushed = false;
+                Toggle flips = box;
+                box.onValueChanged.AddListener(delegate(bool on)
+                {
+                    if (hushed)
+                    {
+                        return;
+                    }
+                    if (Picking())
+                    {
+                        // The click was for the node, not the switch.
+                        hushed = true;
+                        flips.isOn = !on;
+                        hushed = false;
+                        return;
+                    }
+                    control.IsActive = on;
+                    List<MapperType> touched = new List<MapperType>();
+                    touched.Add(control);
+                    Commit(touched);
+                });
+            }
+        }
+
+        /// <summary>One of a timer's two numbers: typed, or dragged sideways off the
+        /// box, the way the timer table's are.</summary>
+        private void Number(GameObject body, MSlider slider, float x, float y,
+                           float w, float h)
+        {
+            GameObject go = UIF.Spawn(UIF.InputPrefab, body.transform);
+            if (go == null || slider == null)
+            {
+                return;
+            }
+            UIF.Fit(go.GetComponent<RectTransform>(), x, y, w, h);
+            InputField field = go.GetComponent<InputField>();
+            if (field == null)
+            {
+                return;
+            }
+            UIF.Style(field.textComponent, UIF.Ink, TextAnchor.MiddleCenter);
+            Text ghostText = field.placeholder as Text;
+            UIF.Style(ghostText, UIF.QuietInk, TextAnchor.MiddleCenter);
+            if (ghostText != null)
+            {
+                ghostText.text = "";
+            }
+            field.contentType = InputField.ContentType.DecimalNumber;
+            Digits(field, w, h);
+            field.text = Seconds(slider.Value);
+            // A modifier-click is for the node, as on every other box on a node.
+            Deaf guard = go.AddComponent<Deaf>();
+            guard.box = field;
+            Waving(go);
+
+            GameObject sheet = new GameObject("Drag");
+            sheet.transform.SetParent(go.transform, false);
+            RectTransform over = sheet.AddComponent<RectTransform>();
+            over.anchorMin = Vector2.zero;
+            over.anchorMax = Vector2.one;
+            over.offsetMin = Vector2.zero;
+            over.offsetMax = Vector2.zero;
+            Image catcher = sheet.AddComponent<Image>();
+            catcher.color = new Color(0f, 0f, 0f, 0f);
+            ValueField drag = sheet.AddComponent<ValueField>();
+            drag.field = field;
+            drag.dragged = delegate(float pixels)
+            {
+                float value = Mathf.Max(0f, slider.Value
+                    + pixels * (slider.Max - slider.Min) * TimeDragPerPixel);
+                slider.Value = value;
+                field.text = Seconds(value);
+                if (!scrubbing.Contains(slider))
+                {
+                    scrubbing.Add(slider);
+                }
+                // This board's own doing, so the watch does not read it as somebody
+                // else's and draw the board again under the drag.
+                Ours();
+            };
+            field.onEndEdit.AddListener(delegate(string typed)
+            {
+                float value;
+                if (!float.TryParse(typed, System.Globalization.NumberStyles.Float,
+                                    System.Globalization.CultureInfo.InvariantCulture,
+                                    out value))
+                {
+                    field.text = Seconds(slider.Value);
+                    return;
+                }
+                value = Mathf.Max(0f, value);
+                field.text = Seconds(value);
+                if (Mathf.Approximately(value, slider.Value))
+                {
+                    return;
+                }
+                slider.Value = value;
+                List<MapperType> touched = new List<MapperType>();
+                touched.Add(slider);
+                Commit(touched);
+            });
+        }
+
+        /// <summary>The clear space at each end of a timer's number.</summary>
+        private const float DigitPad = 3f;
+
+        /// <summary>
+        /// A timer number's lettering, sized so five digits and a point show whole
+        /// in its box. A field whose text is wider than the box scrolls part of it
+        /// out of sight, and a wait of 123.45 read as 23.45 is a wrong number rather
+        /// than a short one. Asked of the font at one big size and scaled, since a
+        /// width goes with the size it is set at.
+        /// </summary>
+        private static void Digits(InputField field, float w, float h)
+        {
+            Text label = field.textComponent;
+            if (label == null || label.font == null)
+            {
+                return;
+            }
+            TextGenerationSettings asked = label.GetGenerationSettings(Vector2.zero);
+            asked.fontSize = 40;
+            asked.resizeTextForBestFit = false;
+            float much = Mathf.Max(0.0001f, label.pixelsPerUnit);
+            float needs = label.cachedTextGeneratorForLayout
+                .GetPreferredWidth("888.88", asked) / much;
+            // A little spare, as the colour boxes keep: a pixel too wide scrolls.
+            float room = w - DigitPad * 2f - 4f;
+            int wide = Mathf.FloorToInt(40f * room / Mathf.Max(1f, needs));
+            int size = Mathf.Clamp(Mathf.Min(wide, Mathf.FloorToInt(h * 0.7f)), 8, 40);
+            Padded(label, size);
+            Padded(field.placeholder as Text, size);
+        }
+
+        private static void Padded(Text label, int size)
+        {
+            if (label == null)
+            {
+                return;
+            }
+            label.fontSize = size;
+            label.resizeTextForBestFit = false;
+            RectTransform rect = label.rectTransform;
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = new Vector2(DigitPad, 0f);
+            rect.offsetMax = new Vector2(-DigitPad, 0f);
+        }
+
+        /// <summary>A time as the timer table shows one.</summary>
+        private static string Seconds(float value)
+        {
+            return value.ToString("0.##",
+                                  System.Globalization.CultureInfo.InvariantCulture);
+        }
+
         /// <summary>How big a node is drawn: as it is on the board where it has
         /// been drawn, and as its sort is where it has not.</summary>
         private Vector2 Span(int node)
@@ -3943,8 +4230,7 @@ namespace TimerPlusMod
             {
                 return (parts[node].transform as RectTransform).sizeDelta;
             }
-            return Row(node) != null ? new Vector2(GateWidth, GateHeight)
-                                     : new Vector2(NodeWidth, NodeHeight);
+            return new Vector2(Wide(node), NodeHeight);
         }
 
         private void Move(int node, Vector2 to)
@@ -4542,6 +4828,7 @@ namespace TimerPlusMod
             names.Add("INPUT");
             names.Add("OUTPUT");
             names.Add("COMMENT");
+            names.Add(Gates.Names[Gates.Timer]);
             for (int g = 0; g < Gates.Count; g++)
             {
                 names.Add(Gates.Names[g]);
@@ -4558,7 +4845,9 @@ namespace TimerPlusMod
                 return -1;
             }
             int kind = Kinded(which);
-            return Born(kind, kind < 0 ? which - 3 : -1, at, true);
+            // Past the two ends and the comment, the timer and then the gates.
+            int gate = which == 3 ? Gates.Timer : which - 4;
+            return Born(kind, kind < 0 ? gate : -1, at, true);
         }
 
         /// <summary>What that list's nth entry is: one of the two ends, a comment,
@@ -6484,6 +6773,11 @@ namespace TimerPlusMod
                     made.IsGate = true;
                     made.Gate = row.Gate;
                     made.Mode = row.Switch;
+                    made.Wait = row.Wait.Value;
+                    made.Duration = row.Duration.Value;
+                    made.Hold = row.Hold.IsActive;
+                    made.Stop = row.Stop.IsActive;
+                    made.Loop = row.Loop.IsActive;
                     made.Wire = Bindings.IsVariable(row.Emulate)
                         ? Bindings.Variable(row.Emulate) : null;
                     made.Answers = made.Wire == null ? Bindings.Code(row.Emulate)
@@ -6526,8 +6820,11 @@ namespace TimerPlusMod
                                           new Color(Ink.r, Ink.g, Ink.b, 0.55f));
                 if (clipboard[i].IsGate)
                 {
+                    bool timer = clipboard[i].Gate == Gates.Timer;
                     RawImage drawn = Picture(made.transform,
-                                             Glyphs.Gate(clipboard[i].Gate), GateIcon);
+                                             timer ? Glyphs.Timer
+                                                   : Glyphs.Gate(clipboard[i].Gate),
+                                             timer ? NodeIcon : GateIcon);
                     Color shade = Shelf(Hues.GateSlot(clipboard[i].Gate));
                     shade.a = 0.7f;
                     drawn.color = shade;
@@ -6701,8 +6998,18 @@ namespace TimerPlusMod
                 }
                 fresh.Kind.Value = copy.Gate;
                 fresh.Mode.IsActive = copy.Mode;
+                fresh.Wait.Value = copy.Wait;
+                fresh.Duration.Value = copy.Duration;
+                fresh.Hold.IsActive = copy.Hold;
+                fresh.Stop.IsActive = copy.Stop;
+                fresh.Loop.IsActive = copy.Loop;
                 touched.Add(fresh.Kind);
                 touched.Add(fresh.Mode);
+                touched.Add(fresh.Wait);
+                touched.Add(fresh.Duration);
+                touched.Add(fresh.Hold);
+                touched.Add(fresh.Stop);
+                touched.Add(fresh.Loop);
                 // A name of its own, and one nothing else on the block is using:
                 // two rows answering to the same name are one node as far as the
                 // board is concerned, and the pasted one would never be drawn.
@@ -6857,7 +7164,7 @@ namespace TimerPlusMod
                 Fitted();
                 // Everything above is this board's own doing, ends included.
                 Ours();
-                Warned(sheet, took + (took == 1 ? " gate imported" : " gates imported")
+                Warned(sheet, took + (took == 1 ? " block imported" : " blocks imported")
                        + (left > 0 ? "\n" + left + " left on the machine" : ""),
                        UIF.Live, 6f);       // longer: a count worth reading twice
             }
@@ -7229,7 +7536,7 @@ namespace TimerPlusMod
                 int slot;
                 if (row != null)
                 {
-                    slot = Hues.GateSlot(row.Gate);
+                    slot = Hues.GateSlot(row.Gate);     // the timer's, for a timer
                 }
                 else
                 {
@@ -7655,8 +7962,7 @@ namespace TimerPlusMod
                 float span = 0f;
                 for (int i = 0; i < columns[column].Count; i++)
                 {
-                    float mine = Row(columns[column][i]) != null ? GateWidth
-                                                                 : NodeWidth;
+                    float mine = Wide(columns[column][i]);
                     if (mine > span)
                     {
                         span = mine;
@@ -7682,8 +7988,7 @@ namespace TimerPlusMod
                 float span = 0f;
                 for (int i = 0; i < columns[column].Count; i++)
                 {
-                    float mine = Row(columns[column][i]) != null ? GateWidth
-                                                                 : NodeWidth;
+                    float mine = Wide(columns[column][i]);
                     if (mine > span)
                     {
                         span = mine;
@@ -7699,8 +8004,7 @@ namespace TimerPlusMod
                     // Middled in the column, for the column that holds both sorts
                     // -- and against its left edge on the grid, where half a node's
                     // difference is half a square.
-                    float mine = Row(columns[column][i]) != null ? GateWidth
-                                                                 : NodeWidth;
+                    float mine = Wide(columns[column][i]);
                     float aside = grid ? 0f : (span - mine) * 0.5f;
                     Move(columns[column][i],
                          new Vector2(left + aside, top + i * pitch));

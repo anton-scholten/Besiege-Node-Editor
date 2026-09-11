@@ -67,6 +67,7 @@
 		     Same pipeline as the three above. -->
 		<Texture name="TimerPlus_bubble" path="Bubble.png" />
 		<Texture name="TimerPlus_pin" path="Pin.png" />
+		<Texture name="TimerPlus_timer" path="Timer.png" />
 
 		<!-- The node editor's drawn glyphs. Every one of them used to be drawn a
 		     pixel at a time when the game first asked for it, which was a stall on

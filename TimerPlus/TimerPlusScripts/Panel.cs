@@ -2267,7 +2267,9 @@ namespace TimerPlusMod
             Queue(key);
         }
 
-        /// <summary>Offers the twelve gates, in the game's own order.</summary>
+        /// <summary>Offers the twelve gates, in the game's own order, and the timer
+        /// after them. The timer's wait, duration and switches are set on the node
+        /// editor's timer node.</summary>
         private void PickGate(int index)
         {
             if (logic == null || index >= logic.Rows.Count || index >= table.Count)
@@ -2275,7 +2277,7 @@ namespace TimerPlusMod
                 return;
             }
             List<string> names = new List<string>();
-            for (int g = 0; g < Gates.Count; g++)
+            for (int g = 0; g < Gates.Kinds; g++)
             {
                 names.Add(Gates.Names[g]);
             }

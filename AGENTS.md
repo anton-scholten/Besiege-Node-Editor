@@ -307,7 +307,8 @@ Renaming one silently resets that setting on every existing machine. The display
 names beside them are only labels and are free to change.
 
 **Do not rename the logic block's mapper keys either** -- `"A<n>"`, `"B<n>"`,
-`"Gate<n>"`, `"Mode<n>"`, `"Out<n>"`, or either block's `"PinKey"` -- or change `<ID>2</ID>` in
+`"Gate<n>"`, `"Mode<n>"`, `"Out<n>"`, its timer rows' `"Wait<n>"`, `"Dur<n>"`,
+`"Hold<n>"`, `"Stop<n>"`, `"Loop<n>"`, or either block's `"PinKey"` -- or change `<ID>2</ID>` in
 `LogicGatePlus.xml`, for the same reasons.
 
 **Do not lower `TimerPlusBehaviour.MaxRows`.** Raising it is safe. Lowering it

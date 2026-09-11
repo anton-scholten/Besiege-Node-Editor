@@ -35,6 +35,7 @@ namespace TimerPlusMod
         private static Texture loop;
         private static Texture bubble;
         private static Texture pinned;
+        private static Texture timer;
         private static Texture ring;
         private static Texture dot;
         private static Texture rounded;
@@ -60,6 +61,11 @@ namespace TimerPlusMod
         public static Texture Note { get { Look(); return bubble; } }
 
         public static Texture Pin { get { Look(); return pinned; } }
+
+        /// <summary>The timer node's palette button, and the timer being carried
+        /// off it. Not drawn on the node itself: a timer on the board is its
+        /// numbers and its switches.</summary>
+        public static Texture Timer { get { Look(); return timer; } }
 
         /// <summary>The mark on the heading of the column the table is sorted by,
         /// turned over for a descending sort.</summary>
@@ -226,6 +232,7 @@ namespace TimerPlusMod
             loop = Fetch("TimerPlus_loop");
             bubble = Fetch("TimerPlus_bubble");
             pinned = Fetch("TimerPlus_pin");
+            timer = Fetch("TimerPlus_timer");
             for (int i = 0; i < Named.Length; i++)
             {
                 gates[i] = Fetch("TimerPlus_gate_" + Named[i]);

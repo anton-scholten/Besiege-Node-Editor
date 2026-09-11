@@ -67,7 +67,12 @@ First version. Two blocks, each holding a table of up to thirty-two rows:
   title bar beside **PIN BLOCKS**, builds real logic gate blocks.
 
 - **A node editor** for the logic table, opened by the button along the bottom of
-  the table. A gate node is a row and a wire is a row's input carrying
+  the table. Besides the gates it has a **timer**: a row run as Besiege's own timer
+  block, started by its one input, with its wait and duration as numbers to type or
+  drag and its hold, stop and loop switches on the node. The table shows it as a
+  TIMER row, and EXPORT makes a real timer block of it. With nothing on its input
+  it starts with the simulation, its wait counted from there, and is exported as a
+  timer with Automatic on. A gate node is a row and a wire is a row's input carrying
   another row's answer name, so the board and the table are the same thing seen two
   ways -- neither can be out of step with the other, and the block runs and converts
   exactly as it did. Written rather than borrowed -- every node-editor library for Unity is an editor-time tool or wants
@@ -82,7 +87,7 @@ First version. Two blocks, each holding a table of up to thirty-two rows:
   copied as one; **TIDY** lays the board out and folds ends standing for the same
   key or variable into one, and **GRID** -- on by default -- sits every node on the
   grid's intersections. The nodes are whole numbers of squares for it: an end is
-  four cells across and two down, a gate three by two, and TIDY lays out in cells
+  five cells across and two down, as is a timer, a gate three by two, and TIDY lays out in cells
   as well, so a board on the grid fills them rather than straddling them. The board is four zoomed-out views across and four down, the wheel pulls back
   far enough to see all of it, and nodes and the view both stop at its edge.
   **EDIT COLORS** lays rows over the top of the board, which stays put: a colour
@@ -111,7 +116,8 @@ First version. Two blocks, each holding a table of up to thirty-two rows:
   instead, for four seconds or six for an import. A cell wired to
   several shows the count in the live colour and takes no typing; the board is where
   those wires are. **IMPORT** runs the conversion backwards: every
-  one of Besiege's own logic gates on the machine is read into the block as a row
+  one of Besiege's own logic gates and timers on the machine -- an Automatic timer as a
+  timer row with nothing on its input -- is read into the block as a row
   and taken off the machine, wiring and all -- a wire is two gates agreeing on a
   key, so copying the gates copies the circuit -- up to the block's thirty-two
   rows, with anything over left on the machine for another block to take. One press

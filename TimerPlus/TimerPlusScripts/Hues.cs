@@ -47,17 +47,24 @@ namespace TimerPlusMod
         }
 
         /// <summary>One colour per thing the palette offers, in the palette's own
-        /// order: the two ends, a comment, and the gates as Besiege lists them.
+        /// order: the two ends, a comment, a timer, and the gates as Besiege lists
+        /// them.
         /// </summary>
-        public const int Slots = 3 + Gates.Count;
+        public const int Slots = 4 + Gates.Count;
 
         public const int InputSlot = 0;
         public const int OutputSlot = 1;
         public const int NoteSlot = 2;
+        public const int TimerSlot = 3;
 
+        /// <summary>A row's slot: the timer's, or its gate's.</summary>
         public static int GateSlot(int gate)
         {
-            return 3 + Mathf.Clamp(gate, 0, Gates.Count - 1);
+            if (gate == Gates.Timer)
+            {
+                return TimerSlot;
+            }
+            return 4 + Mathf.Clamp(gate, 0, Gates.Count - 1);
         }
 
         /// <summary>Where they are kept, in the mod's data folder.</summary>
@@ -350,9 +357,16 @@ namespace TimerPlusMod
                 else if (key == "kinds")
                 {
                     string[] each = said.Split(';');
-                    for (int k = 0; k < each.Length && k < Slots; k++)
+                    // Written before the timer had a slot: everything from its
+                    // place on is one along, and the timer keeps its default.
+                    bool older = each.Length == Slots - 1;
+                    for (int k = 0; k < each.Length; k++)
                     {
-                        Parse(each[k], kinds[k], out kinds[k]);
+                        int slot = older && k >= TimerSlot ? k + 1 : k;
+                        if (slot < Slots)
+                        {
+                            Parse(each[k], kinds[slot], out kinds[slot]);
+                        }
                     }
                 }
             }

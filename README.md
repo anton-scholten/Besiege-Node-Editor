@@ -192,7 +192,8 @@ what they are.
 Every gate is Besiege's own, read out of the game: the seven combinational ones,
 the two latches, the counter that divides by four, the random gate and the edge
 detector that answers for exactly one tick. **EXPORT**, on the node editor's title
-bar, builds one of the game's logic gate blocks per row, each pinned where it is put
+bar, builds one of the game's logic gate blocks per row — a timer row as one of its
+timer blocks — each pinned where it is put
 while **PIN BLOCKS** beside it is on.
 
 A row runs the gate rather than standing in for one: the state machine is the
@@ -230,6 +231,7 @@ variable into the table and the wire appears on the board.
 | --- | --- |
 | **INPUT** | A key or a variable coming in. Wire it to as many gates as you like |
 | a gate | One row: its symbol and its switch where the gate has one, drawn narrow because it holds nothing else. What its answer goes out under is a name the board makes up (`ne01_04`) and nobody has to read. Both its inputs take as many wires as you like, OR-ed |
+| a timer | One row, run as Besiege's own timer block runs: five squares by two, with its **WAIT** and **DUR** as numbers to type or drag sideways off the box — lettered to show five digits whole — and its three switches — hold to run, allow stop, loop — down the right in the Timer Plus table's own pictures. Its one input starts it, as a timer's key does, and its answer is what it presses. With nothing on its input it starts with the simulation instead, its wait counted from there, as a timer with Automatic on does, and is exported and imported as one. In the table it is a row whose gate reads **TIMER**; its numbers and switches are set here |
 | **OUTPUT** | A key or a variable the answer also goes out on |
 | a comment | A note on the board, wired to nothing. Click the writing and the caret goes in it; drag the writing and the note moves. It grows as you type to fit what you write — the same small margin on all four sides — newlines included. Point at it and a double arrow shows in its bottom-right corner, beside the red cross: drag that to make the writing bigger or smaller, and the note grows or shrinks with it — as far as three quarters of the board's width. However big it gets, a note stays on the board: grown past an edge, it is moved back inside |
 
@@ -285,8 +287,8 @@ them, and they are kept in the mod's data folder between sessions.
 
 **GRID** is a switch like PIN BLOCKS, on to start with and red while it is, and while it is on every node
 sits on the grid's intersections — dragged, dropped, pasted, adopted or laid out.
-The nodes are drawn in whole squares for it: an end is four across and two down, a
-gate three across and two down, so a board on the grid fills cells rather than
+The nodes are drawn in whole squares for it: an end or a timer is five across and
+two down, a gate three across and two down, so a board on the grid fills cells rather than
 straddling them. TIDY lays out in whole squares too, so what it makes is even
 before it lands rather than shoved into line afterwards. Turning the grid on takes
 what is already on the board with it; turning it off leaves everything where it is
@@ -303,7 +305,10 @@ to wire, and the red cross is how a node goes. A board opened for the first time
 arrives laid out the same way.
 
 **IMPORT** is CONVERT run backwards: it takes every one of Besiege's own logic
-gates off the machine and reads them into this block as rows. Nothing is
+gates and timers off the machine and reads them into this block as rows — a timer as
+a timer row, with its wait, duration and switches, started by what its activation
+key reads. A timer with Automatic on comes in with nothing on its input and its wait
+kept, which is how a timer row starts itself. Nothing is
 translated, because there is nothing to translate — a gate's settings are the six
 things a row holds, and a wire between two gates is the two of them agreeing on a
 key, so copying both halves of that agreement copies the wire. The board that comes

@@ -20,6 +20,14 @@ namespace TimerPlusMod
 
         public KeyCode EmulateKey = KeyCode.C;
         public string EmulateVariable;
+
+        /// <summary>A timer row's own settings, carried by every row as the row
+        /// carries them.</summary>
+        public float Wait = 1f;
+        public float Duration = 1f;
+        public bool HoldRun;
+        public bool CanStop;
+        public bool Loops;
     }
 
     /// <summary>
@@ -52,6 +60,11 @@ namespace TimerPlusMod
             data.EmulateKey = Bindings.Code(row.Emulate);
             data.EmulateVariable = Bindings.IsVariable(row.Emulate)
                 ? Bindings.Variable(row.Emulate) : null;
+            data.Wait = row.Wait.Value;
+            data.Duration = row.Duration.Value;
+            data.HoldRun = row.Hold.IsActive;
+            data.CanStop = row.Stop.IsActive;
+            data.Loops = row.Loop.IsActive;
             return data;
         }
 
@@ -64,8 +77,13 @@ namespace TimerPlusMod
             Bind(row.InputA, data.AVariable, data.AKey);
             Bind(row.InputB, data.BVariable, data.BKey);
             Bind(row.Emulate, data.EmulateVariable, data.EmulateKey);
-            row.Kind.Value = Mathf.Clamp(data.Gate, 0, Gates.Count - 1);
+            row.Kind.Value = Mathf.Clamp(data.Gate, 0, Gates.Kinds - 1);
             row.Mode.IsActive = data.Mode;
+            row.Wait.Value = data.Wait;
+            row.Duration.Value = data.Duration;
+            row.Hold.IsActive = data.HoldRun;
+            row.Stop.IsActive = data.CanStop;
+            row.Loop.IsActive = data.Loops;
 
             if (touched != null)
             {
@@ -74,6 +92,11 @@ namespace TimerPlusMod
                 Note(touched, row.Kind);
                 Note(touched, row.Mode);
                 Note(touched, row.Emulate);
+                Note(touched, row.Wait);
+                Note(touched, row.Duration);
+                Note(touched, row.Hold);
+                Note(touched, row.Stop);
+                Note(touched, row.Loop);
             }
         }
 
@@ -441,6 +464,11 @@ namespace TimerPlusMod
                 fresh.Mode = last.Mode;
                 fresh.EmulateKey = last.EmulateKey;
                 fresh.EmulateVariable = last.EmulateVariable;
+                fresh.Wait = last.Wait;
+                fresh.Duration = last.Duration;
+                fresh.HoldRun = last.HoldRun;
+                fresh.CanStop = last.CanStop;
+                fresh.Loops = last.Loops;
             }
             Write(block.Rows[at], fresh, touched);
             block.Count = at + 1;

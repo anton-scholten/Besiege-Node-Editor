@@ -25,7 +25,7 @@ namespace TimerPlusMod
     /// </summary>
     public class LogicGatePlusBehaviour : BlockModuleBehaviour<LogicGatePlusModule>
     {
-        /// <summary>How many rows a block can hold. Every row's five controls
+        /// <summary>How many rows a block can hold. Every row's ten controls
         /// exist from <c>SafeAwake</c> whether the row is in use or not. Lowering
         /// this orphans the controls of any row above the new cap, and a machine
         /// saved with those rows loses them silently.</summary>
@@ -278,7 +278,8 @@ namespace TimerPlusMod
                                 first ? FirstB[index] : KeyCode.I);
 
             List<string> gates = new List<string>();
-            for (int g = 0; g < Gates.Count; g++)
+            // The gates, and the timer after them.
+            for (int g = 0; g < Gates.Kinds; g++)
             {
                 gates.Add(Gates.Names[g]);
             }
@@ -297,6 +298,24 @@ namespace TimerPlusMod
             {
                 Bindings.BindVariable(row.Emulate, FirstNamed[index]);
             }
+
+            // What the row is set to as a timer, declared exactly as the Timer Plus
+            // block declares its own -- unclamped seconds, 0..60 -- and under keys
+            // of their own: new ones, so no save that exists means anything by them.
+            row.Wait = BlockBehaviour.AddSliderUnclamped(
+                "Wait " + (index + 1), "Wait" + n, 1f, 0f, 60f, "", "s", true);
+            row.Duration = BlockBehaviour.AddSliderUnclamped(
+                "Duration " + (index + 1), "Dur" + n, 1f, 0f, 60f, "", "s", true);
+            row.Hold = AddToggle("Hold to run " + (index + 1), "Hold" + n, false);
+            row.Stop = AddToggle("Allow stop " + (index + 1), "Stop" + n, false);
+            row.Loop = AddToggle("Loop " + (index + 1), "Loop" + n, false);
+            row.Timing = new Row();
+            row.Timing.Emulate = row.Emulate;
+            row.Timing.Wait = row.Wait;
+            row.Timing.Duration = row.Duration;
+            row.Timing.Hold = row.Hold;
+            row.Timing.Stop = row.Stop;
+            row.Timing.Loop = row.Loop;
 
             row.ReadA = new KeyReader(row.InputA);
             row.ReadB = new KeyReader(row.InputB);
@@ -335,13 +354,19 @@ namespace TimerPlusMod
                 {
                     continue;
                 }
+                bool timed = row.IsTimer;
                 row.InputA.DisplayInMapper = on;
                 // The gates that read one input take the second off the mapper,
-                // exactly as the game's own block does.
+                // exactly as the game's own block does -- and a timer reads one.
                 row.InputB.DisplayInMapper = on && Gates.UsesB(row.Gate);
                 row.Kind.DisplayInMapper = on;
-                row.Mode.DisplayInMapper = on;
+                row.Mode.DisplayInMapper = on && !timed;
                 row.Emulate.DisplayInMapper = on;
+                row.Wait.DisplayInMapper = on && timed;
+                row.Duration.DisplayInMapper = on && timed;
+                row.Hold.DisplayInMapper = on && timed;
+                row.Stop.DisplayInMapper = on && timed;
+                row.Loop.DisplayInMapper = on && timed;
             }
         }
 
@@ -360,6 +385,24 @@ namespace TimerPlusMod
         // ---- running ---------------------------------------------------------
 
         /// <summary>
+        /// Starts every timer row that starts itself -- nothing on its input -- as
+        /// Besiege's own timer with Automatic on starts. The one thing a
+        /// run has to be told rather than reset: this object is made afresh for it,
+        /// so everything else is already at its default.
+        /// </summary>
+        public override void OnSimulateStart()
+        {
+            int count = Count;
+            for (int i = 0; i < count && i < rows.Count; i++)
+            {
+                if (rows[i].Ready && rows[i].Automatic)
+                {
+                    Clock.Start(rows[i].Timing);
+                }
+            }
+        }
+
+        /// <summary>
         /// The keyboard's own edges, once a frame. Besiege's gate runs its state
         /// machine here as well as on the emulation tick, so a press and a release
         /// inside one tick are not lost.
@@ -376,6 +419,25 @@ namespace TimerPlusMod
                 LogicRow row = rows[i];
                 if (!row.Ready || row.ReadA == null || row.ReadB == null)
                 {
+                    continue;
+                }
+                if (row.IsTimer)
+                {
+                    if (row.Automatic)
+                    {
+                        // Started with the simulation, as Besiege's automatic timer
+                        // is: its key does nothing -- and asked, a hold-to-run would
+                        // stop it at once for want of a key held.
+                        continue;
+                    }
+                    // A timer row is started by its input A the way the Timer Plus
+                    // block is started by its key: one activation however it
+                    // arrives, so the reader's merged edges, taken here once a
+                    // frame -- which is why the emulation tick leaves them alone.
+                    row.ReadA.Poll();
+                    Clock.Pressed(row.Timing, row.ReadA.Pressed, row.ReadA.Held,
+                                  row.Timing.HoldToRun, row.Timing.CanStop,
+                                  row.Timing.Loops);
                     continue;
                 }
                 // The game's own `UpdateBlock`, argument for argument:
@@ -435,6 +497,16 @@ namespace TimerPlusMod
                 {
                     continue;
                 }
+                if (i < count && row.Ready && row.IsTimer)
+                {
+                    // Its edges are the frame update's to take. This is where its
+                    // seconds are counted, at the same 50 Hz and with the same
+                    // rounding as Besiege's own timer.
+                    Clock.Tick(row.Timing, row.Timing.WaitSeconds,
+                               row.Timing.PressSeconds, row.Timing.Loops);
+                    Hold(row, i, row.Timing.Wants);
+                    continue;
+                }
                 // Taken for every row, in use or not: an edge that is never
                 // consumed keeps a stale latch, and a row switched back on would
                 // act on a press from minutes ago.
@@ -492,6 +564,10 @@ namespace TimerPlusMod
                 row.BToggled = false;
                 row.Count = 0;
                 row.LastCount = 0;
+                if (row.Timing != null)
+                {
+                    Clock.Stop(row.Timing);
+                }
             }
         }
     }
