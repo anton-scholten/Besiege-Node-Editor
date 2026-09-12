@@ -8,15 +8,16 @@ What this mod established about Besiege that was not already written down is in
 
 ## Layout
 
-The folder Besiege loads is `TimerPlus/`, because that subfolder is the whole of
+The folder Besiege loads is `NodeEditor/`, because that subfolder is the whole of
 what gets uploaded to the Workshop. Everything beside it is not part of the mod.
 
 ```
-TimerPlus/Mod.xml                    manifest: assembly, resources, block list
-TimerPlus/TimerPlus.xml              the block: mesh, colliders, module, icon
-TimerPlus/TimerPlus.dll              built by tools/build.sh (checked in, the game loads it)
-TimerPlus/Resources/                 the mesh, its texture, the thumbnail, the UI icons
-TimerPlus/TimerPlusScripts/*.cs      mod source; not read by the game
+NodeEditor/Mod.xml                   manifest: assembly, resources, block list
+NodeEditor/TimerPlus.xml             the Timer Plus block: mesh, colliders, module, icon
+NodeEditor/NodeEditor.xml            the Node Editor block, the same
+NodeEditor/NodeEditor.dll            built by tools/build.sh (checked in, the game loads it)
+NodeEditor/Resources/                the meshes, their textures, the thumbnail, the UI icons
+NodeEditor/NodeEditorScripts/*.cs    mod source; not read by the game
 tools/build.sh                       compiles with Besiege's own compiler, and checks
 tools/verify-build.sh                the check to run after editing any .cs
 tools/install.sh                     builds and installs into the game
@@ -27,9 +28,9 @@ tools/tests/                         the checks the build runs (XML, blacklist, 
 docs/                                notes; not loaded by anything
 ```
 
-`TimerPlus/TimerPlus.dll` is committed on purpose. `Mod.xml` names it as an
+`NodeEditor/NodeEditor.dll` is committed on purpose. `Mod.xml` names it as an
 `<Assembly>`, so a checkout has to carry a built one or the mod does not load.
-`TimerPlusScripts/` sits inside `TimerPlus/` so the sources travel with the mod
+`NodeEditorScripts/` sits inside `NodeEditor/` so the sources travel with the mod
 folder; Besiege reads only what `Mod.xml` names, and `install.sh --copy` strips
 them out of the copy it makes.
 
@@ -37,7 +38,7 @@ them out of the copy it makes.
 
 ```sh
 ./tools/verify-build.sh          # compile check; leaves the shipped assembly alone
-./tools/build.sh                 # compile, run every check, install into TimerPlus/
+./tools/build.sh                 # compile, run every check, install into NodeEditor/
 ./tools/install.sh               # build, then symlink into Besiege_Data/Mods
 ./tools/install.sh --no-build    # symlink only
 ./tools/install.sh --uninstall
@@ -70,7 +71,7 @@ the top of `Main`.
 
 The assembly is built into a scratch *directory* rather than under a scratch
 *name*: an assembly is identified by its name once loaded, so building to
-`TimerPlus.<pid>.dll` would make it impossible for the table check to reference.
+`NodeEditor.<pid>.dll` would make it impossible for the table check to reference.
 
 Iterating means restarting Besiege — mods are read once at startup. The symlink
 means a rebuild needs no reinstall.
@@ -101,7 +102,7 @@ What depends on what:
   `SafeAwake` and a repaint replaces the material outright. The colours are held
   to the palette `tools/make-block-mesh.py` writes -- run it and it says so.
 - **`Row`** is one row's controls plus its phase; **`Clock`** is the phase machine.
-- **`LogicGatePlusBehaviour`**, **`LogicRow`**, **`Gates`**, **`LogicTable`** are the
+- **`NodeEditorBehaviour`**, **`LogicRow`**, **`Gates`**, **`LogicTable`** are the
   same four things for the second block. `Gates` is Besiege's `LogicGate` read out
   with `peek.sh`: `Advance` is its `UpdateState` (the latches, the counter, the
   toggled inputs) and `Answer` is its `EvaluateEmulation`. Both take the gate and
@@ -115,7 +116,7 @@ What depends on what:
   how the game stops a gate driving itself -- so passing the whole block's inputs
   told it to skip them all, and no row could drive another row in the same block:
   every wire the board drew between two of its own gates was dead in a simulation
-  and nowhere else. See `ownKeys` in `LogicGatePlusBehaviour`, and
+  and nowhere else. See `ownKeys` in `NodeEditorBehaviour`, and
   notes/03-keys-and-automation.md.
 - **A port holds a list, not a wire.** A gate's input answers to as many names (or
   keycodes) as are wired to it and Besiege ORs them -- `MKey.IsHeld` returns on the
@@ -265,7 +266,8 @@ What depends on what:
 - **`Hues`** is how the node editor colours its board -- a way each for nodes and wires, the
   row of kind colours in palette order, the unicolour node and wire -- and keeps
   them in the mod's data folder through `Modding.ModIO` (spelt out: bare `ModIO` is
-  the mod.io SDK's namespace). The player's, not the block's, so nothing about them
+  the mod.io SDK's namespace). That folder is `Mods/Data/NodeEditor_<ID>/`, named
+  off `Mod.xml`'s `<Name>`, so renaming the mod leaves saved colours behind. The player's, not the block's, so nothing about them
   is in a save or on the undo. Random colours are picked by a seed worked out from
   the node -- a gate's row, an end's key or name -- so they hold still between
   drawings; the way is saved by name, so adding one does not shift a saved choice.
@@ -309,7 +311,7 @@ names beside them are only labels and are free to change.
 **Do not rename the logic block's mapper keys either** -- `"A<n>"`, `"B<n>"`,
 `"Gate<n>"`, `"Mode<n>"`, `"Out<n>"`, its timer rows' `"Wait<n>"`, `"Dur<n>"`,
 `"Hold<n>"`, `"Stop<n>"`, `"Loop<n>"`, or either block's `"PinKey"` -- or change `<ID>2</ID>` in
-`LogicGatePlus.xml`, for the same reasons.
+`NodeEditor.xml`, for the same reasons.
 
 **Do not lower `TimerPlusBehaviour.MaxRows`.** Raising it is safe. Lowering it
 orphans the controls of every row above the new cap, and a machine saved with
@@ -391,7 +393,7 @@ Everything else — the panel, the block lifecycle, the additive load — needs 
 running. Verify those by installing and launching, and read the log:
 
 ```sh
-grep -a 'TimerPlus\]\|Mods\]' ~/.config/unity3d/Spiderling\ Games/Besiege/Player.log
+grep -a 'NodeEditor\]\|Mods\]' ~/.config/unity3d/Spiderling\ Games/Besiege/Player.log
 ```
 
 `-a` matters: the log picks up bytes that make grep treat it as binary. Grep for
@@ -420,7 +422,7 @@ That is how `BlockBehaviour.AddSliderUnclamped`'s eight-argument overload and
 
 **A short public type name collides with something.** `Keys` is one of Besiege's
 own global types (so are `Slider`, `Scrollbar`, `LOD` and `Particle`), and
-`Convert` is `System.Convert`. Both compiled fine inside `namespace TimerPlusMod`
+`Convert` is `System.Convert`. Both compiled fine inside `namespace NodeEditorMod`
 and both broke `tools/tests/TableCheck.cs`, which is in the global namespace —
 with the error naming Besiege's or Microsoft's assembly as the location, so it
 reads like an API that moved. Hence `Bindings` and `Conversion`. Check a new

@@ -8,7 +8,7 @@ instead and shipped beside the block's mesh.
 
     python3 tools/make-glyphs.py
 
-Writes TimerPlus/Resources/glyph-*.png, which Mod.xml declares and Glyphs.cs
+Writes NodeEditor/Resources/glyph-*.png, which Mod.xml declares and Glyphs.cs
 loads by name. The shapes are the ones that were in Glyphs.cs, kept in the same
 0..1 space with v counting up -- so a change here is a change to the picture and
 nothing else has to follow it.
@@ -23,7 +23,7 @@ import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
-OUT = os.path.join(REPO, "TimerPlus", "Resources")
+OUT = os.path.join(REPO, "NodeEditor", "Resources")
 
 # Coverage samples per pixel, per axis. Sixteen samples an edge is what makes a
 # forty-eight pixel glyph look drawn rather than stepped.

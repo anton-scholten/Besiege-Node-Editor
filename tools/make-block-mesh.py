@@ -33,7 +33,7 @@ import json, math, os, re, struct, sys, zlib
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 CACHE = os.path.join(HERE, "models")
-OUT = os.path.join(REPO, "TimerPlus", "Resources")
+OUT = os.path.join(REPO, "NodeEditor", "Resources")
 
 # Every block the mod ships, by the name its XML and its resources carry.
 #
@@ -61,7 +61,7 @@ BLOCKS = {
         "icon": (-83.0, -45.0, 0.0),
         "recolour": {},
     },
-    "LogicGatePlus": {
+    "NodeEditor": {
         "source": ("doMMnviJrGi", "4f68868e-5e24-48ff-92a5-442c8bf3d0f7",
                    "Simple computer", "Robert Schlyter", "CC-BY 3.0"),
         "span": 1.6,
@@ -555,7 +555,7 @@ def fetch():
 # builds its own two-by-two version of this palette to blink the display, and a
 # model change that moved a colour would light the wrong part of the block --
 # silently, since nothing else reads those numbers.
-GLOW = os.path.join(REPO, "TimerPlus", "TimerPlusScripts", "Glow.cs")
+GLOW = os.path.join(REPO, "NodeEditor", "NodeEditorScripts", "Glow.cs")
 GLOW_NAMES = ("Body", "Buttons", "Display", "Spare")
 
 
@@ -610,7 +610,7 @@ def build(name, want_preview):
           % (name, verts, faces, len(colours), extent[0], extent[1], extent[2]))
 
     # The mod's own thumbnail, which Mod.xml names as its <Icon>: one picture for
-    # the whole mod, and the Timer is the block it is named after. Drawn from the
+    # the whole mod, and it is the Timer's. Drawn from the
     # same geometry as everything else, so it cannot show a block the mod does
     # not have -- and drawn every run, so it cannot go stale either.
     if name == "TimerPlus":

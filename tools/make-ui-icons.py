@@ -16,7 +16,7 @@ zlib either way.
 
     python3 tools/make-ui-icons.py
 
-Writes TimerPlus/Resources/{Hold,Stop,Loop,Bubble,Pin}.png, which Mod.xml
+Writes NodeEditor/Resources/{Hold,Stop,Loop,Bubble,Pin}.png, which Mod.xml
 declares and Glyphs.cs loads by name. The last two are the node editor's: the
 comment node's picture in the palette, and the pin that holds the board open.
 """
@@ -29,7 +29,7 @@ import zlib
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 SRC = os.path.join(HERE, "icons")
-OUT = os.path.join(REPO, "TimerPlus", "Resources")
+OUT = os.path.join(REPO, "NodeEditor", "Resources")
 
 NAMES = ("Hold", "Stop", "Loop", "Bubble", "Pin")
 

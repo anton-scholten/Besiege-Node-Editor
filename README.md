@@ -1,6 +1,6 @@
-# Besiege Timer Plus
+# Besiege Node Editor
 
-<img src="TimerPlus/Resources/Thumbnail.png" alt="thumbnail" width="200" align="right">
+<img src="NodeEditor/Resources/Thumbnail.png" alt="thumbnail" width="200" align="right">
 
 One block that is up to thirty-two timer blocks, in
 [Besiege](https://store.steampowered.com/app/346010/Besiege/).
@@ -38,8 +38,8 @@ Either subscribe to the mod on Steam, or if you don't use Steam you can clone th
 ```
 
 Set `BESIEGE_DIR` if your install isn't found automatically. Start Besiege, enable
-**Timer Plus** in the mods menu, and the block appears in the toolbar — search
-`timer`. No C# toolchain is needed; the build uses Besiege's own compiler.
+**Node Editor** in the mods menu, and the blocks appear in the toolbar — search
+`timer` or `logic`. No C# toolchain is needed; the build uses Besiege's own compiler.
 
 ## The table
 
@@ -167,7 +167,7 @@ Those two are the only columns that sort. Three ticks in a column of thirty-two
 rows are read off faster than a sort is clicked, and a table in keycode-name order
 answers a question nobody asks.
 
-## Logic Gate Plus
+## The Node Editor block
 
 The same table, for Besiege's logic gate. A row is a whole gate:
 
@@ -323,7 +323,7 @@ it on the one press whose whole point is to fill it.
 
 A block holds thirty-two rows, so a machine with more logic gates than there is
 room for imports as many as fit and leaves the rest standing: the message says how
-many stayed, and a second Logic Gate Plus can import those. News about the board as a
+many stayed, and a second Node Editor can import those. News about the board as a
 whole shows in the board's top-left corner — an import for six seconds, anything
 else, such as a block with no rows left, for four; a refusal shows over what refused
 it for two.
@@ -411,13 +411,13 @@ is refused where you drop it — **A KEY AND A NAME CANNOT SHARE**, or **THAT IN
 FULL**.
 
 The box in the title bar is what generated wire names start with. A block takes its
-own number the first time it is opened — `ne01_` for the first Logic Gate Plus on
+own number the first time it is opened — `ne01_` for the first Node Editor block on
 the machine, `ne02_` for the next — so its wires are `ne01_01`, `ne01_02`, and two
 blocks never generate the same name. Type over it and new wires start with whatever
 you typed. Names already given are left alone: a wire name is machine-wide, and
 something else may be reading it.
 
-The editor opens with the block: selecting a Logic Gate Plus brings up its table
+The editor opens with the block: selecting a Node Editor block brings up its table
 and its board together, because they are the same circuit written two ways. An
 unpinned board follows the selection — open another block and it draws that one. A
 pinned board belongs to its block, so opening another gets a board of its own,
@@ -454,7 +454,7 @@ brings the board along with it. **Delete** removes everything picked out, in one
 step, and a click on the empty board — or anywhere outside the window — puts the
 selection down. While there is a selection, Delete is the board's alone: the game
 would otherwise delete its own selection with the same key, and with the pointer
-off the window that selection is the Logic Gate Plus block itself. Copy them and they follow the pointer as ghosts
+off the window that selection is the Node Editor block itself. Copy them and they follow the pointer as ghosts
 until you paste them down, keeping the shape they had. A wire is copied when both
 of its ends were: wires between copied gates are reproduced under fresh names, and
 a wire to something left behind is not copied — the pasted gate arrives with that
@@ -545,7 +545,7 @@ The block model is Creative Commons Attribution (CC-BY 3.0), from Poly Pizza:
 | Block | Model | By |
 | --- | --- | --- |
 | Timer Plus | [Timer](https://poly.pizza/m/0J1_OKm87pR) | Poly by Google |
-| Logic Gate Plus | [Simple computer](https://poly.pizza/m/doMMnviJrGi) | Robert Schlyter |
+| Node Editor | [Simple computer](https://poly.pizza/m/doMMnviJrGi) | Robert Schlyter |
 
 They are fetched and converted by `tools/make-block-mesh.py` rather than
 committed, so the licence stays with its source.

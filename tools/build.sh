@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 #
-# Compiles the mod into TimerPlus.dll, using Besiege's OWN C# compiler rather
+# Compiles the mod into NodeEditor.dll, using Besiege's OWN C# compiler rather
 # than an installed toolchain.
 #
 #   ./tools/build.sh            build the mod's assembly
 #   ./tools/build.sh --check    compile to a temp file only, do not install
 #
-# Mod.xml loads TimerPlus.dll directly, so the mod ships as a prebuilt assembly
+# Mod.xml loads NodeEditor.dll directly, so the mod ships as a prebuilt assembly
 # rather than a <ScriptAssembly> the game compiles at load. It has to: a
 # ScriptAssembly is compiled during the mod LOAD phase, before any other mod's
 # assembly is in the AppDomain, so it cannot reference UI Factory at all. It is
@@ -22,9 +22,9 @@
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SRC_DIR="$REPO_DIR/TimerPlus/TimerPlusScripts"
-BUILD_DIR="${TMPDIR:-/tmp}/besiege-timerplus-build"
-OUT="$REPO_DIR/TimerPlus/TimerPlus.dll"
+SRC_DIR="$REPO_DIR/NodeEditor/NodeEditorScripts"
+BUILD_DIR="${TMPDIR:-/tmp}/besiege-nodeeditor-build"
+OUT="$REPO_DIR/NodeEditor/NodeEditor.dll"
 
 CHECK_ONLY=0
 if [[ "${1:-}" == "--check" ]]; then
@@ -41,7 +41,7 @@ fi
 # inside keeps the assembly's own name, which is what an assembly is identified
 # by once it is loaded.
 mkdir -p "$BUILD_DIR/tmp.$$"
-TMP_OUT="$BUILD_DIR/tmp.$$/TimerPlus.dll"
+TMP_OUT="$BUILD_DIR/tmp.$$/NodeEditor.dll"
 trap 'rm -rf "$BUILD_DIR/tmp.$$"' EXIT
 
 find_besiege() {
@@ -77,7 +77,7 @@ export MONOETC="$DATA/Mono/etc"
 # UI Factory is needed to *build*, but not to run: the panel is a soft dependency
 # and the block falls back to Besiege's own mapper when it is absent. The
 # compiler still has to resolve the types, so its assemblies go on the reference
-# path -- see TimerPlus/TimerPlusScripts/UIF.cs for how the fallback is arranged.
+# path -- see NodeEditor/NodeEditorScripts/UIF.cs for how the fallback is arranged.
 find_uifactory() {
     if [[ -n "${UIFACTORY_DIR:-}" ]]; then echo "$UIFACTORY_DIR"; return; fi
     local roots=("$BESIEGE/../../workshop/content/346010/2913469777"
@@ -133,8 +133,8 @@ if [[ ! -f "$XMLCHECK" || "$REPO_DIR/tools/tests/XmlCheck.cs" -nt "$XMLCHECK" ]]
     fi
 fi
 set +e
-TARGET_ASM="$XMLCHECK" "$BUILD_DIR/monohost" "$REPO_DIR/TimerPlus"/*.xml \
-    "$SRC_DIR/TimerPlusModule.cs" "$SRC_DIR/LogicGatePlusModule.cs" \
+TARGET_ASM="$XMLCHECK" "$BUILD_DIR/monohost" "$REPO_DIR/NodeEditor"/*.xml \
+    "$SRC_DIR/TimerPlusModule.cs" "$SRC_DIR/NodeEditorModule.cs" \
     "$REPO_DIR/tools/make-block-mesh.py"
 xml_rc=$?
 set -e
@@ -218,7 +218,7 @@ fi
 TABLECHECK="$BUILD_DIR/tmp.$$/tablecheck.exe"
 set +e
 "$HOST" -target:exe -out:"$TABLECHECK" -lib:"$MANAGED" -lib:"$BUILD_DIR/tmp.$$" \
-    -r:System.dll -r:UnityEngine.dll -r:Assembly-CSharp.dll -r:TimerPlus.dll \
+    -r:System.dll -r:UnityEngine.dll -r:Assembly-CSharp.dll -r:NodeEditor.dll \
     "$REPO_DIR/tools/tests/TableCheck.cs" >/dev/null
 table_rc=$?
 set -e

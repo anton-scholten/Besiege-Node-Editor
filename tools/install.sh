@@ -13,14 +13,14 @@
 # Besiege reads mods once at startup, so restart the game afterwards.
 # Set BESIEGE_DIR if the install is not auto-detected.
 #
-# The folder Besiege loads is TimerPlus/, not the repository root: that subfolder
+# The folder Besiege loads is NodeEditor/, not the repository root: that subfolder
 # is the whole of what gets uploaded to the Workshop, and everything beside it --
 # sources, tools, docs -- is not part of the mod.
 
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MOD_NAME="TimerPlus"
+MOD_NAME="NodeEditor"
 SRC="$REPO_DIR/$MOD_NAME"
 
 MODE="link"
@@ -62,6 +62,17 @@ fi
 MODS="$BESIEGE/Besiege_Data/Mods"
 DEST="$MODS/$MOD_NAME"
 
+# The mod folder used to be TimerPlus/. A symlink left under that name points at
+# a folder that is gone, and a copy left under it is a second mod with the same
+# <ID>; take away the link, and name the copy rather than delete it unasked.
+OLD="$MODS/TimerPlus"
+if [[ -L "$OLD" ]]; then
+    rm "$OLD"
+    echo "Removed the old symlink $OLD"
+elif [[ -d "$OLD" ]]; then
+    echo "Note: $OLD is this mod under its old name; delete it." >&2
+fi
+
 if [[ "$MODE" == "uninstall" ]]; then
     if [[ -L "$DEST" ]]; then
         rm "$DEST"
@@ -79,8 +90,8 @@ if [[ $BUILD -eq 1 ]]; then
     "$REPO_DIR/tools/build.sh"
 fi
 
-if [[ ! -f "$SRC/TimerPlus.dll" ]]; then
-    echo "TimerPlus/TimerPlus.dll is missing; run ./tools/build.sh first." >&2
+if [[ ! -f "$SRC/NodeEditor.dll" ]]; then
+    echo "NodeEditor/NodeEditor.dll is missing; run ./tools/build.sh first." >&2
     exit 1
 fi
 
@@ -92,7 +103,7 @@ mkdir -p "$MODS"
 if [[ "$MODE" == "copy" ]]; then
     cp -r "$SRC" "$DEST"
     # The sources are not part of the mod: Besiege reads only what Mod.xml names.
-    rm -rf "$DEST/TimerPlusScripts"
+    rm -rf "$DEST/NodeEditorScripts"
     echo "Copied mod to $DEST"
 else
     ln -s "$SRC" "$DEST"

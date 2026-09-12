@@ -38,7 +38,7 @@ has moved rather than like a name clash.
 ### `Convert` is the same trap from the other direction
 
 The class that turns this mod's table into real timer blocks was called
-`Convert`. It compiled inside `namespace TimerPlusMod` and broke the same
+`Convert`. It compiled inside `namespace NodeEditorMod` and broke the same
 build-time test, this time against **`System.Convert`**:
 
 ```

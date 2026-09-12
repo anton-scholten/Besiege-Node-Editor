@@ -2,8 +2,9 @@
 
 ## 0.1.0
 
-First version. Two blocks, each holding a table of up to thirty-two rows:
-**Timer Plus** for Besiege's timers and **Logic Gate Plus** for its logic gates.
+First version, named **Node Editor** in Besiege's mods menu. Two blocks, each
+holding a table of up to thirty-two rows: **Timer Plus** for Besiege's timers and
+**Node Editor**, which the mod is named for, for its logic gates.
 
 **Added**
 
@@ -56,7 +57,7 @@ First version. Two blocks, each holding a table of up to thirty-two rows:
 - Without UI Factory the block still works: its controls appear in Besiege's own
   block mapper and the panel quietly never builds.
 
-- **Logic Gate Plus.** The same table for Besiege's logic gate: two inputs, the
+- **Node Editor.** The same table for Besiege's logic gate: two inputs, the
   gate, its one switch and the key it presses. Every one of the twelve gates is the
   game's own, read out of `LogicGate` and checked against its truth tables, its
   latches, its counter and its one-tick edge — so a converted machine runs the same
@@ -133,7 +134,7 @@ First version. Two blocks, each holding a table of up to thirty-two rows:
 - **Two rows pressing the same key at once raise one press.** Besiege
   reference-counts an emulated key; this is the game's behaviour and a real pair of
   timer blocks does the same.
-- **Logic Gate Plus does not burn out.** Besiege can burn a gate out for pulsing
+- **Node Editor does not burn out.** Besiege can burn a gate out for pulsing
   too fast -- five changes of output on consecutive ticks, and only for a gate
   whose answer can reach its own inputs -- and a row does not. Everything else
   about a row is the game's own gate, argument for argument: the state machine,

@@ -1,0 +1,104 @@
+﻿<Mod>
+	<Name>Node Editor</Name>
+	<Author>wizz6rd</Author>
+	<Version>0.1.0</Version>
+
+	<Description>
+	Two blocks, each of which is up to thirty-two of Besiege's own.
+
+	Timer Plus is up to thirty-two of Besiege's timer blocks. Each row of its
+	table is a timer with the same settings the game's own has -- activation key
+	or variable, hold to run, allow stop, loop, wait, emulation duration and the
+	key or variable it presses -- and the rows can be sorted by any column. A
+	button at the bottom converts the table into that many real timer blocks,
+	laid out on one horizontal plane and handed over as a selection.
+
+	Node Editor is the same table for Besiege's logic gates: two inputs, the
+	gate, its one switch and the key it presses, a row apiece -- and a board to
+	wire those rows on as nodes, timers among them.
+
+	Block models by Poly by Google and Robert Schlyter, from Poly Pizza, under
+	CC-BY 3.0. The settings
+	panel needs UI Factory (Workshop item 2913469777); without it the block falls
+	back to Besiege's own block mapper.
+	</Description>
+
+	<!-- The node editor's own hotkeys. Declared here so Besiege puts them in its
+	     controls screen and the player can rebind them like any other.
+
+	     The modifier is the 1 key rather than Control on purpose: Besiege's own
+	     copy and paste are Ctrl+C and Ctrl+V, the game gets the keyboard at the
+	     same time this does, and a board paste that also duplicated the block
+	     under it is not a paste anybody asked for. -->
+	<Keys>
+		<Key name="board-copy" defaultModifier="Alpha1" defaultTrigger="C" />
+		<Key name="board-paste" defaultModifier="Alpha1" defaultTrigger="V" />
+		<Key name="board-select-all" defaultModifier="Alpha1" defaultTrigger="A" />
+	</Keys>
+
+	<Icon name="NodeEditor_icon" />
+	<Debug>false</Debug>
+	<MultiplayerCompatible>true</MultiplayerCompatible>
+
+	<Assemblies>
+		<Assembly path="NodeEditor.dll" />
+	</Assemblies>
+
+	<Blocks>
+		<Block path="TimerPlus.xml" />
+		<Block path="NodeEditor.xml" />
+	</Blocks>
+
+	<Resources>
+		<Mesh name="TimerPlus_mesh" path="TimerPlus.obj" />
+		<Texture name="TimerPlus_texture" path="TimerPlus.png" />
+		<Mesh name="NodeEditor_mesh" path="NodeEditor.obj" />
+		<Texture name="NodeEditor_texture" path="NodeEditor.png" />
+		<Texture name="NodeEditor_icon" path="Thumbnail.png" />
+
+		<!-- The table's three switch columns are headed with a picture rather
+		     than a letter. Drawn by tools/make-ui-icons.py from the artwork in
+		     tools/icons; loaded by name in Glyphs.cs. -->
+		<Texture name="NodeEditor_hold" path="Hold.png" />
+		<Texture name="NodeEditor_stop" path="Stop.png" />
+		<Texture name="NodeEditor_loop" path="Loop.png" />
+
+		<!-- The node editor's own two: the comment node's picture in its palette,
+		     and the pin that holds the board open once the block's menu has gone.
+		     Same pipeline as the three above. -->
+		<Texture name="NodeEditor_bubble" path="Bubble.png" />
+		<Texture name="NodeEditor_pin" path="Pin.png" />
+		<Texture name="NodeEditor_timer" path="Timer.png" />
+
+		<!-- The node editor's drawn glyphs. Every one of them used to be drawn a
+		     pixel at a time when the game first asked for it, which was a stall on
+		     the first block opened; they are made by tools/make-glyphs.py now and
+		     loaded by name in Glyphs.cs. -->
+		<Texture name="NodeEditor_gate_not" path="glyph-not.png" />
+		<Texture name="NodeEditor_gate_and" path="glyph-and.png" />
+		<Texture name="NodeEditor_gate_or" path="glyph-or.png" />
+		<Texture name="NodeEditor_gate_nor" path="glyph-nor.png" />
+		<Texture name="NodeEditor_gate_nand" path="glyph-nand.png" />
+		<Texture name="NodeEditor_gate_xor" path="glyph-xor.png" />
+		<Texture name="NodeEditor_gate_xnor" path="glyph-xnor.png" />
+		<Texture name="NodeEditor_gate_random" path="glyph-random.png" />
+		<Texture name="NodeEditor_gate_srlatch" path="glyph-srlatch.png" />
+		<Texture name="NodeEditor_gate_dlatch" path="glyph-dlatch.png" />
+		<Texture name="NodeEditor_gate_counter" path="glyph-counter.png" />
+		<Texture name="NodeEditor_gate_edge" path="glyph-edge.png" />
+		<Texture name="NodeEditor_ring" path="glyph-ring.png" />
+		<Texture name="NodeEditor_dot" path="glyph-dot.png" />
+		<Texture name="NodeEditor_plate" path="glyph-plate.png" />
+		<Texture name="NodeEditor_arrow" path="glyph-arrow.png" />
+		<Texture name="NodeEditor_grid" path="glyph-grid.png" />
+		<Texture name="NodeEditor_dash" path="glyph-dash.png" />
+		<Texture name="NodeEditor_dashdown" path="glyph-dashdown.png" />
+		<Texture name="NodeEditor_bars" path="glyph-bars.png" />
+	</Resources>
+
+<!-- This value is automatically generated. Do not change it or you may break machine&level save files. -->
+
+
+<!-- This value is automatically generated. Do not change it or you may break machine&level save files. -->
+<ID>5e4cf293-3cb4-494d-8009-fce53ade8e4a</ID>
+</Mod>
