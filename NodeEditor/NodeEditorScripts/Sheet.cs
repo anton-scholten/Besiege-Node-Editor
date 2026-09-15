@@ -4,15 +4,8 @@ using UnityEngine.EventSystems;
 
 namespace NodeEditorMod
 {
-    /// <summary>
-    /// The board behind the nodes: dragged to pan, wheeled to zoom, right-clicked
-    /// for the palette.
-    ///
-    /// One component rather than three, because all three are the same question --
-    /// what the pointer is doing over the empty part of the board -- and uGUI hands
-    /// each of them to whatever is under the pointer, which for empty board is
-    /// this.
-    /// </summary>
+    /// <summary>The empty board behind the nodes: drag to box-select or pan, wheel
+    /// to zoom, right-click for the palette.</summary>
     public class Sheet : MonoBehaviour, IBeginDragHandler, IDragHandler,
                          IEndDragHandler, IScrollHandler, IPointerClickHandler
     {
@@ -41,10 +34,7 @@ namespace NodeEditorMod
 
         public void OnBeginDrag(PointerEventData move)
         {
-            // The left button draws a box over what it wants; the middle one moves
-            // the view. That is the way round every other editor has it, and the
-            // way round a hand expects: a marquee is the common gesture and a pan
-            // is the deliberate one.
+            // Left draws a selection box and middle pans, as in other editors.
             boxing = move.button == PointerEventData.InputButton.Left;
             holding = move.button == PointerEventData.InputButton.Middle
                    && Local(move, out last);
@@ -53,9 +43,7 @@ namespace NodeEditorMod
                 Local(move, out last);
             }
             pressed = last;
-            // For as long as the drag lasts, whether or not the pointer stays over
-            // the window: a marquee or a pan carried past the edge is still this
-            // window's drag, and the game would otherwise take it up as its own.
+            // Held for the whole drag, even past the window's edge.
             grip = ZoomGuard.Grip(boxing || holding, grip);
         }
 

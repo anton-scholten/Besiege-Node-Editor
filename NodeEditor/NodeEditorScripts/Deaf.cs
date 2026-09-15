@@ -4,19 +4,9 @@ using UnityEngine.UI;
 
 namespace NodeEditorMod
 {
-    /// <summary>
-    /// Keeps a text box deaf to a click that was meant for whatever it sits on.
-    ///
-    /// The node editor picks nodes out with control or shift held, and a field
-    /// under the pointer takes that click for itself: the caret lands in it and
-    /// the next keystroke is typed rather than doing whatever it was meant to do.
-    /// uGUI gives the field the focus in the frame the click lands and again as the
-    /// event system settles, so this holds it off for a few frames rather than for
-    /// one.
-    ///
-    /// Armed by the click and not by the modifier being held: shift is also how a
-    /// capital letter is typed, and a field somebody is already typing in should go
-    /// on taking it.
+    /// <summary>Keeps a text box from taking a modifier-click meant for the node
+    /// under it, for a few frames. Armed by the click, since shift also types
+    /// capitals.
     /// </summary>
     public class Deaf : MonoBehaviour
     {

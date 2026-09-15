@@ -3,9 +3,8 @@ using UnityEngine.EventSystems;
 
 namespace NodeEditorMod
 {
-    // Grows what it is pointed at while the pointer is on it, the way Besiege's
-    // own buttons do. UI Factory's controls bring their own version of this; the
-    // hand-built selector does not, so it gets this one.
+    // Grows what it is pointed at while hovered, as Besiege's buttons do, for
+    // controls built by hand.
     public class Swell : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
         private const float Speed = 14f;

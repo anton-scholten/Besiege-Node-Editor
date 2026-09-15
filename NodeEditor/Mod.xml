@@ -4,23 +4,24 @@
 	<Version>0.1.0</Version>
 
 	<Description>
-	Two blocks, each of which is up to thirty-two of Besiege's own.
+	Two blocks, each of which is many of Besiege's own.
 
-	Timer Plus is up to thirty-two of Besiege's timer blocks. Each row of its
+	Timer Plus is up to a thousand of Besiege's timer blocks. Each row of its
 	table is a timer with the same settings the game's own has -- activation key
 	or variable, hold to run, allow stop, loop, wait, emulation duration and the
 	key or variable it presses -- and the rows can be sorted by any column. A
 	button at the bottom converts the table into that many real timer blocks,
 	laid out on one horizontal plane and handed over as a selection.
 
-	Node Editor is the same table for Besiege's logic gates: two inputs, the
+	Computer is the same table, up to a thousand rows, for Besiege's logic
+	gates: two inputs, the
 	gate, its one switch and the key it presses, a row apiece -- and a board to
 	wire those rows on as nodes, timers among them.
 
 	Block models by Poly by Google and Robert Schlyter, from Poly Pizza, under
 	CC-BY 3.0. The settings
-	panel needs UI Factory (Workshop item 2913469777); without it the block falls
-	back to Besiege's own block mapper.
+	panel needs UI Factory (Workshop item 2913469777): without it the blocks
+	still run the rows they hold, but the rows cannot be edited.
 	</Description>
 
 	<!-- The node editor's own hotkeys. Declared here so Besiege puts them in its
@@ -46,14 +47,14 @@
 
 	<Blocks>
 		<Block path="TimerPlus.xml" />
-		<Block path="NodeEditor.xml" />
+		<Block path="Computer.xml" />
 	</Blocks>
 
 	<Resources>
 		<Mesh name="TimerPlus_mesh" path="TimerPlus.obj" />
 		<Texture name="TimerPlus_texture" path="TimerPlus.png" />
-		<Mesh name="NodeEditor_mesh" path="NodeEditor.obj" />
-		<Texture name="NodeEditor_texture" path="NodeEditor.png" />
+		<Mesh name="Computer_mesh" path="Computer.obj" />
+		<Texture name="Computer_texture" path="Computer.png" />
 		<Texture name="NodeEditor_icon" path="Thumbnail.png" />
 
 		<!-- The table's three switch columns are headed with a picture rather

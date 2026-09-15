@@ -6,41 +6,23 @@ using UnityEngine.UI;
 namespace NodeEditorMod
 {
     /// <summary>
-    /// A word or two explaining a control, in Besiege's own tooltip panel, shown
-    /// while the pointer is over it.
-    ///
-    /// One panel, on the canvas, moved to whatever is hovered -- rather than a
-    /// panel per control, which is how UI Factory's own
-    /// <c>Besiege.UI.Bridge.Tooltip</c> is arranged. Two things about this panel
-    /// make that the wrong shape here:
-    ///
-    /// * the table **scrolls**, and its rows are shown and hidden a whole row at a
-    ///   time as they leave the frame, so a tooltip parented into a row would be
-    ///   clipped with it and would have to be positioned again every frame;
-    /// * uGUI draws siblings in order, so a tooltip belonging to one row and
-    ///   drawn over the row above it is at the mercy of which row it lives in.
-    ///
-    /// On the canvas, above everything, neither question arises. The artwork is
-    /// still UI Factory's -- the same prefab the game's own tooltips are drawn
-    /// with -- so it looks like the rest of the interface.
+    /// A control's tooltip, in UI Factory's tooltip artwork. One panel on its own
+    /// canvas, moved to whatever is hovered: a panel inside a scrolling table row
+    /// would be clipped with the row and drawn under the rows after it.
     /// </summary>
     public class Tip : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
     {
-        /// <summary>Air between the control and the point of the tooltip. None:
-        /// the point rests against the edge of what it explains, which is what
-        /// says which control that is -- the same as the sibling Clippy mod.</summary>
+        /// <summary>No gap: the point touches the control it explains.</summary>
         private const float Gap = 0f;
 
-        /// <summary>How near the bottom of the canvas a control has to be before
-        /// the tooltip goes above it instead. Below is the side it is drawn on
-        /// where there is room, which is Besiege's own habit.</summary>
+        /// <summary>Below the control, unless it is this near the canvas
+        /// bottom.</summary>
         private const float BottomRoom = 90f;
 
         private string text;
 
-        /// <summary>What this control says. Assigning it while the tooltip is up
-        /// rewrites it, which is what a control whose meaning changes -- the
-        /// key/variable button -- wants.</summary>
+        /// <summary>What this control says; rewritten live if the tip is
+        /// showing.</summary>
         public string Text
         {
             get { return text; }
@@ -56,7 +38,8 @@ namespace NodeEditorMod
 
         private static Tip showing;
 
-        /// <summary>Hangs a tip on a control. Null or empty text removes it.</summary>
+        /// <summary>Hangs a tip on a control. Null or empty text removes
+        /// it.</summary>
         public static void On(GameObject control, string words)
         {
             if (control == null)
@@ -110,13 +93,8 @@ namespace NodeEditorMod
         /// over the right control.</summary>
         public static class Tips
         {
-            /// <summary>
-            /// The tooltip's own canvas, above every window this mod draws.
-            ///
-            /// It used to live on whichever window claimed it last, which put it
-            /// under any window drawn over that one -- a tip from the block panel
-            /// appearing behind the board editor. A canvas of its own, sorted above
-            /// both, cannot be behind anything of ours.
+            /// <summary>The tooltip's own canvas, sorted above every window of this
+            /// mod.
             /// </summary>
             private static Canvas own;
 
@@ -131,9 +109,8 @@ namespace NodeEditorMod
             /// control it explains.</summary>
             private const float Drift = 7f;
 
-            // The tooltip's own shape, taken from the sibling Clippy mod so the two
-            // read as the same interface: sixteen point, capitals, air either side,
-            // and a line that wraps rather than a panel that runs off the screen.
+            // From the sibling Clippy mod: sixteen point, capitals, padded,
+            // wrapping.
             private const int FontSize = 15;
 
             /// <summary>Air either side of the words. Tight: a tooltip is read at a
@@ -141,12 +118,8 @@ namespace NodeEditorMod
             private const float Padding = 8f;
             private const float MaxWidth = 340f;
 
-            /// <summary>The canvas every tooltip is drawn on. Set once, by the
-            /// panel that builds it.</summary>
-            /// <summary>
-            /// The canvas tooltips are drawn on. Made here rather than borrowed:
-            /// see <see cref="own"/>. The argument is kept for the caller that
-            /// wants its own home, and ignored while ours exists.
+            /// <summary>Kept for callers; tips draw on their own canvas (<see
+            /// cref="own"/>).
             /// </summary>
             public static void Home(RectTransform on)
             {
@@ -160,9 +133,8 @@ namespace NodeEditorMod
                     return;
                 }
                 canvas = on;
-                // Its home changed, so the panel built on the old one is taken
-                // down rather than dropped: the old canvas is still there, and a
-                // tooltip left showing on it stays on screen for good.
+                // Home changed: take the old panel down, or it stays on screen for
+                // good.
                 if (panel != null)
                 {
                     panel.gameObject.SetActive(false);
@@ -177,7 +149,8 @@ namespace NodeEditorMod
             }
 
             /// <summary>Over everything else of ours: the panel is 2400 and the
-            /// board editor 2500, and uGUI's own Dropdown canvas is 30000.</summary>
+            /// board editor 2500, and uGUI's own Dropdown canvas is
+            /// 30000.</summary>
             private const int Order = 2900;
 
             private static void Mine()
@@ -225,27 +198,21 @@ namespace NodeEditorMod
                     return;
                 }
 
-                // Besiege writes its interface in capitals, and matching that is
-                // most of what makes a panel read as the game's own -- the sibling
-                // Clippy mod puts every tip through the same call.
+                // Capitals, as Besiege writes its interface.
                 label.text = words.ToUpperInvariant();
                 if (cap != null)
                 {
-                    // preferredWidth is the width of the longest line laid out
-                    // without wrapping, so this holds a long tip to the measure and
-                    // leaves a short one alone.
+                    // preferredWidth is the unwrapped longest line: caps long tips,
+                    // leaves short ones.
                     cap.preferredWidth =
                         Mathf.Min(label.preferredWidth, MaxWidth - Padding * 2f);
                 }
-                // uGUI draws siblings in order, and the window is spawned fresh
-                // every time the table is rebuilt -- which puts it after a tooltip
-                // built before it, and so over the top of one. Last again on every
-                // showing, and it is in front of whatever is there now.
+                // Last sibling on every showing, so a window rebuilt since is not
+                // drawn over it.
                 panel.SetAsLastSibling();
                 panel.gameObject.SetActive(true);
-                // The prefab sizes itself to its words through a ContentSizeFitter,
-                // and the size is wanted now rather than at the next layout pass --
-                // the placement below is measured against it.
+                // The prefab sizes itself with a ContentSizeFitter, and the size is
+                // needed now.
                 LayoutRebuilder.ForceRebuildLayoutImmediate(panel);
 
                 Vector2 middle;
@@ -260,13 +227,9 @@ namespace NodeEditorMod
                 float top = middle.y + half;
                 float bottom = middle.y - half;
 
-                // Measured off the whole panel rather than its own rect. The
-                // prefab's bubble is a child stretched past the root -- twenty
-                // units each side and nine above and below -- and the point is a
-                // child of that, hung outside it again. Placing the root's edge
-                // against the control therefore puts the bubble over the control
-                // by whatever those two overhang, which is what had a heading's
-                // tooltip covering the heading.
+                // Measured off the whole panel: the bubble and point overhang the
+                // root's rect, and placing the root put the bubble over the
+                // control.
                 Bounds box = Extent();
                 bool above = bottom - Gap - box.size.y < -room.y * 0.5f
                           && middle.y < room.y * 0.5f - BottomRoom;
@@ -293,23 +256,17 @@ namespace NodeEditorMod
                 Aim(middle.x - x);
             }
 
-            /// <summary>What the panel covers, point and bubble included, in its
-            /// own coordinates -- so the middle of it is not the middle of the rect
-            /// its position is written in.</summary>
+            /// <summary>What the panel covers, bubble and point included, in its
+            /// own coordinates.</summary>
             private static Bounds Extent()
             {
                 return RectTransformUtility.CalculateRelativeRectTransformBounds(
                     panel, panel);
             }
 
-            /// <summary>
-            /// Where a control sits in canvas coordinates, and half its height.
-            ///
-            /// Through screen space rather than by walking the transforms: the
-            /// control is several parents deep inside a scrolling view and the
-            /// canvas is not its ancestor's ancestor in any way worth relying on.
-            /// The camera is null throughout because the canvas is an overlay.
-            /// </summary>
+            /// <summary>A control's middle in canvas coordinates and half its
+            /// height, through screen space (overlay canvas, null
+            /// camera).</summary>
             private static bool Frame(RectTransform over, out Vector2 middle, out float half)
             {
                 middle = Vector2.zero;
@@ -341,10 +298,8 @@ namespace NodeEditorMod
                 {
                     return;
                 }
-                // Anchored to the bottom of the panel and turned over when the panel
-                // is above what it explains, to the top and upright when below. The
-                // same two assignments Besiege.UI.Bridge.Tooltip's own OnValidate
-                // makes; done here because this panel is not driven by that handler.
+                // Anchored to the panel's bottom and flipped when above, to its top
+                // when below: what Besiege.UI.Bridge.Tooltip.OnValidate does.
                 Vector2 edge = above ? new Vector2(0.5f, 0f) : new Vector2(0.5f, 1f);
                 triangle.anchorMin = edge;
                 triangle.anchorMax = edge;
@@ -364,15 +319,9 @@ namespace NodeEditorMod
                     new Vector2(Mathf.Clamp(offset, -reach, reach), 0f);
             }
 
-            /// <summary>
-            /// Air either side of the words.
-            ///
-            /// Through the layout group's padding, because the prefab carries a
-            /// <c>VerticalLayoutGroup</c> and a <c>ContentSizeFitter</c> and sizes
-            /// itself to its contents -- a width written onto it is discarded at
-            /// the next layout pass, silently. Padding is the only instruction a
-            /// self-sizing panel takes.
-            /// </summary>
+            /// <summary>Padding either side of the words, through the layout group:
+            /// the prefab's ContentSizeFitter discards any width written to
+            /// it.</summary>
             private static void Breathe(GameObject made)
             {
                 VerticalLayoutGroup group = made.GetComponent<VerticalLayoutGroup>();
@@ -412,15 +361,11 @@ namespace NodeEditorMod
                     // back at the next language change, are both in the way.
                     label.text = "";
                     label.fontSize = FontSize;
-                    // Two ways to a second line: a break written into the tip, for
-                    // an aside that reads better under what it qualifies, and
-                    // wrapping, for anything too long for one line at all.
+                    // A line break for an aside; wrapping for anything too long.
                     label.horizontalOverflow = HorizontalWrapMode.Wrap;
                     label.verticalOverflow = VerticalWrapMode.Overflow;
-                    // The label sizes itself through a ContentSizeFitter of its
-                    // own, so a width written onto its rect is discarded; a
-                    // LayoutElement is the one thing a fitter defers to, and it is
-                    // what holds a long tip to a readable measure.
+                    // A LayoutElement is what a ContentSizeFitter defers to: it
+                    // holds long tips to a readable width.
                     cap = label.gameObject.GetComponent<LayoutElement>();
                     if (cap == null)
                     {
@@ -437,7 +382,8 @@ namespace NodeEditorMod
                 triangle = found == null ? null : found.GetComponent<RectTransform>();
 
                 // The panel is over the whole window, so nothing it covers should
-                // stop answering the pointer -- including the control that opened it.
+                // stop answering the pointer -- including the control that opened
+                // it.
                 Graphic[] parts = made.GetComponentsInChildren<Graphic>(true);
                 for (int i = 0; i < parts.Length; i++)
                 {

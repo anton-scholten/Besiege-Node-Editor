@@ -5,18 +5,9 @@ using UnityEngine.UI;
 namespace NodeEditorMod
 {
     /// <summary>
-    /// Thin wrapper over UI Factory 3 (https://gitlab.com/dagriefaa/ui-factory-3),
-    /// Workshop item 2913469777, which ships Besiege's real interface as Unity
-    /// prefabs. Instantiating those is the only way a mod panel can look like part
-    /// of the game: Besiege's own panel materials are reachable only from inside a
-    /// custom mapper selector, and `InternalModding` is blacklisted.
-    ///
-    /// UI Factory is a **soft** dependency. Without it the block falls back to
-    /// Besiege's own mapper and the panel simply never appears. That costs one
-    /// rule: every mention of `Besiege.UI` in this mod lives in this file. A type
-    /// that cannot be resolved fails as the method mentioning it is compiled, so
-    /// confining the mentions here means one guarded call decides whether the
-    /// panel can exist at all -- see <see cref="Available"/>.
+    /// Thin wrapper over UI Factory 3 (Workshop 2913469777), which ships Besiege's
+    /// real interface as prefabs. A soft dependency: every mention of `Besiege.UI`
+    /// lives in this file, behind the one guarded check, <see cref="Available"/>.
     /// </summary>
     public static class UIF
     {
@@ -40,13 +31,9 @@ namespace NodeEditorMod
         /// </summary>
         public const string SliderPrefab = "Slider";
 
-        /// <summary>
-        /// The tooltip panel on its own -- background, label and pointing triangle,
-        /// with no behaviour on it. UI Factory splits the two halves; the other one,
-        /// `Besiege.UI.Bridge.Tooltip`, decides when to show a panel and is not used
-        /// here (see <see cref="Tip"/> for why). Note the registered name really is
-        /// "Vis Only" while the asset it comes from is named "(Visual)".
-        /// </summary>
+        /// <summary>The tooltip panel alone, with no behaviour (see <see
+        /// cref="Tip"/>). Registered as "Vis Only", though the asset is named
+        /// "(Visual)".</summary>
         public const string TooltipPrefab = "Text Tooltip (Vis Only)";
 
         /// <summary>The lettering colour for an answer.</summary>
@@ -56,14 +43,11 @@ namespace NodeEditorMod
         /// row that is following something else.</summary>
         public static readonly Color QuietInk = new Color(0.72f, 0.72f, 0.74f, 1f);
 
-        /// <summary>Besiege's red, which is what the game paints the option in
-        /// force. Kept here rather than read from `Besiege.UI.Consts` so the
-        /// panel's colours are not another thing that has to resolve first.</summary>
+        /// <summary>Besiege's red, for the option in force.</summary>
         public static readonly Color Hot = new Color(0.92f, 0.13f, 0.29f, 1f);
 
-        /// <summary>The panel's own dark plate, for something drawn on top of the
-        /// window rather than in it -- the variable list. Near enough the window's
-        /// own background to belong to it, opaque enough to read words on.</summary>
+        /// <summary>The panel's dark plate, for something drawn over a
+        /// window.</summary>
         public static readonly Color Shade = new Color(0.10f, 0.13f, 0.17f, 0.97f);
 
         /// <summary>The cyan Besiege uses for a reset, and here for a row that is
@@ -73,14 +57,8 @@ namespace NodeEditorMod
         private static bool asked;
         private static bool available;
 
-        /// <summary>
-        /// Whether UI Factory is installed and has finished loading its bundle.
-        ///
-        /// This is the guarded call site the whole soft dependency rests on.
-        /// Touching `Besiege.UI` at all is what fails when the mod is absent, and
-        /// it fails as the *calling* method is compiled -- so the try has to be
-        /// here, one call away from any of the panel's own code.
-        /// </summary>
+        /// <summary>Whether UI Factory is loaded. A missing `Besiege.UI` fails as
+        /// the calling method compiles, so the try has to be here.</summary>
         public static bool Available
         {
             get
@@ -105,14 +83,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// Whether tooltips are wanted at all.
-        ///
-        /// `Besiege.UI.Bridge.Tooltip.TooltipsActive` is a static `Func&lt;bool&gt;`
-        /// that switches every tooltip in the game off at once. This panel does not
-        /// use that handler, but it should answer to the same switch -- a player who
-        /// has turned tooltips off has turned them off.
-        /// </summary>
+        /// <summary>Whether tooltips are on, by the game's own switch
+        /// (`Besiege.UI.Bridge.Tooltip.TooltipsActive`).</summary>
         public static bool TooltipsWanted
         {
             get
@@ -129,9 +101,9 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>Besiege's own lettering, for the controls this mod builds
-        /// itself. Null without UI Factory, which every caller answers with Unity's
-        /// built-in Arial.</summary>
+        /// <summary>Besiege's lettering; null without UI Factory, where callers use
+        /// Arial.
+        /// </summary>
         public static Font Font
         {
             get
@@ -141,15 +113,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// Instantiates one of UI Factory's prefabs, with its translators already
-        /// stripped. Returns null and says why rather than throwing into a caller
-        /// that is halfway through building a window.
-        /// </summary>
-        /// <summary>How many prefabs have been spawned, for the one line this mod
-        /// logs about how long its first window took to build. A prefab is the
-        /// expensive part of building one, and knowing how many were made is what
-        /// says whether a stall is this mod's or the game's.</summary>
+        /// <summary>How many prefabs have been spawned, logged with the first
+        /// window's build time.</summary>
         public static int Spawned;
 
         public static GameObject Spawn(string prefab, Transform parent)
@@ -168,21 +133,10 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// Switches off every Translator in a spawned prefab.
-        ///
-        /// One would put the prefab's own wording back at the next language
-        /// change, and -- fatally -- its `Start` calls `Recaption`, which throws on
-        /// a label with no localisation key. That is every label a mod writes, and
-        /// it takes the whole panel build with it. The whole hierarchy including
-        /// inactive objects, since a Translator is not always on the object
-        /// carrying the Text.
-        ///
-        /// Disabled rather than destroyed: Unity does not call `Start` on a
-        /// component that is off, which is the whole of what has to be prevented,
-        /// and `DestroyImmediate` on every label of every prefab is a real part of
-        /// what building a window costs.
-        /// </summary>
+        /// <summary>Switches off every Translator in a spawned prefab: its `Start`
+        /// calls `Recaption`, which throws on a label with no localisation key.
+        /// Disabling is enough to stop `Start`, and cheaper than
+        /// destroying.</summary>
         public static void Untranslate(GameObject spawned)
         {
             if (spawned == null)
@@ -204,13 +158,9 @@ namespace NodeEditorMod
             catch (Exception) { }
         }
 
-        /// <summary>
-        /// Takes a control's own hover swell away. A hovered control grows about
-        /// 15%, which is right for a button and wrong for a table cell: it carries
-        /// the lettering sideways into the next column instead of lighting the cell
-        /// up. Destroyed rather than disabled, so turning a row's swells back on
-        /// does not bring this one with them.
-        /// </summary>
+        /// <summary>Removes a control's hover swell, which pushes a table cell's
+        /// lettering into the next column. Destroyed, so re-enabling swells leaves
+        /// it gone.</summary>
         public static void NoSwell(GameObject control)
         {
             if (control == null)
@@ -229,23 +179,13 @@ namespace NodeEditorMod
             catch (Exception) { }
         }
 
-        /// <summary>
-        /// Anchors a rect to its parent's top-left corner and puts it at x, y with
-        /// y running downward, which is how the whole panel lays out.
-        /// </summary>
-        /// <summary>
-        /// A control's own lettering, pinned to it and written.
-        ///
-        /// Every window in this mod wants the same four things of a prefab's label
-        /// and used to do them three times over: pin it to the control it belongs
-        /// to -- the prefab's caption is a fixed width, so on a narrower control it
-        /// overhangs its neighbour and takes the clicks meant for it -- stop it
-        /// answering the pointer, style it, and shrink it to fit.
-        /// </summary>
-        /// <param name="floor">The smallest the lettering may shrink to, or zero
-        /// to leave its size alone.</param>
-        /// <param name="make">Whether to build a label where the control has none.
-        /// A drawn plate has none; a UI Factory prefab always does.</param>
+        /// <summary>A control's label: pinned to the control, off the pointer,
+        /// styled, and shrunk to fit if asked.</summary>
+        /// <param name="floor">The smallest it may shrink to; zero leaves the size
+        /// alone.
+        /// </param>
+        /// <param name="make">Whether to build a label where the control has
+        /// none.</param>
         public static Text Label(GameObject control, string text, Color colour,
                                  TextAnchor align, int floor, bool make)
         {
@@ -280,29 +220,43 @@ namespace NodeEditorMod
             return label;
         }
 
-        /// <summary>
-        /// Grows a control's lettering while the pointer is on it, the way
-        /// Besiege's own buttons do.
-        ///
-        /// The lettering rather than the plate, so a row of controls keeps its
-        /// spacing. UI Factory's own version of this is taken off by
-        /// <see cref="NoSwell"/> -- it scales the whole control, and a control
-        /// scaled inside a table overlaps its neighbour.
-        /// </summary>
-        public static void Grow(GameObject control, Transform grows, float by)
+        /// <summary>Grows a control's lettering while hovered, as Besiege's buttons
+        /// do. The lettering, not the control, so a row keeps its
+        /// spacing.</summary>
+        public static void Grow(GameObject control, Component grows, float by)
         {
             if (control == null || grows == null)
             {
                 return;
             }
             Swell swell = control.AddComponent<Swell>();
-            swell.grows = grows;
+            swell.grows = grows.transform;
             swell.grown = by;
         }
 
-        public static void Grow(GameObject control, Transform grows)
+        public static void Grow(GameObject control, Component grows)
         {
             Grow(control, grows, 1.12f);
+        }
+
+        /// <summary>A time as the tables show one: up to two decimals.</summary>
+        public static string Seconds(float value)
+        {
+            return value.ToString("0.##",
+                                  System.Globalization.CultureInfo.InvariantCulture);
+        }
+
+        /// <summary>A plain coloured rectangle, placed in its parent.</summary>
+        public static GameObject Plate(Transform host, float x, float y, float w,
+                                       float h, Color colour)
+        {
+            GameObject go = new GameObject("Plate");
+            go.transform.SetParent(host, false);
+            go.AddComponent<RectTransform>();
+            Image image = go.AddComponent<Image>();
+            image.color = colour;
+            Fit(go.GetComponent<RectTransform>(), x, y, w, h);
+            return go;
         }
 
         public static void Fit(RectTransform rect, float x, float y, float w, float h)
@@ -318,14 +272,8 @@ namespace NodeEditorMod
             rect.anchoredPosition = new Vector2(x, -y);
         }
 
-        /// <summary>
-        /// Gives a label UI Factory's font if it has none, and settles the rest of
-        /// its drawing.
-        ///
-        /// The Input Field prefab's own text and placeholder come out of the bundle
-        /// with no font at all, and a Text with no font draws nothing -- so the box
-        /// reads as one that swallows typing rather than one that failed to paint.
-        /// </summary>
+        /// <summary>Styles a label, giving it Besiege's font if it has none: the
+        /// Input Field prefab's labels come without one and draw nothing.</summary>
         public static void Style(Text label, Color colour, TextAnchor align)
         {
             if (label == null)
@@ -346,15 +294,8 @@ namespace NodeEditorMod
             label.verticalOverflow = VerticalWrapMode.Overflow;
         }
 
-        /// <summary>
-        /// Lets a label shrink to fit its own box rather than spill out of it.
-        ///
-        /// A table cell holds whatever somebody typed -- a variable name is not a
-        /// length this can choose -- and an overflowing Text is drawn straight
-        /// across the next column, where it also reads as that column's value.
-        /// Shrinking is the honest failure: a long name in a narrow cell is small
-        /// rather than somewhere else.
-        /// </summary>
+        /// <summary>Lets a label shrink to fit its box rather than spill into the
+        /// next column.</summary>
         public static void Shrink(Text label, int floor)
         {
             if (label == null)

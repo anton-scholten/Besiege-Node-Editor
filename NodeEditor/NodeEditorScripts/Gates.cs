@@ -3,24 +3,17 @@ using UnityEngine;
 namespace NodeEditorMod
 {
     /// <summary>
-    /// Besiege's own logic gate, as a state machine with no Unity object in it.
-    ///
-    /// Read out of `LogicGate` with `peek.sh dump`, the way <see cref="Clock"/>
-    /// was read out of `TimerBlock`, and for the same reason: the convert button
-    /// only means anything if a row behaves exactly like the block it turns into.
-    ///
-    /// The game calls its `UpdateState` twice a frame -- once with the keyboard's
-    /// edges from `UpdateBlock`, once with the emulated ones from
-    /// `EmulationUpdateBlock` -- and then asks `EvaluateEmulation` on the
-    /// emulation tick for the one answer that goes out of the block.
-    /// <see cref="Advance"/> and <see cref="Answer"/> are those two.
+    /// Besiege's logic gate as a state machine with no Unity object in it, read out
+    /// of `LogicGate` so a row behaves as the block it exports to. The game runs
+    /// `UpdateState` twice a frame (keyboard, then emulated edges) and
+    /// `EvaluateEmulation` once a tick: <see cref="Advance"/> and <see
+    /// cref="Answer"/>.
     /// </summary>
     public static class Gates
     {
-        // The gates, in the order Besiege's own `GateType` declares them, which is
-        // also the order of its menu: the block casts the menu's value straight to
-        // the enum. Constants rather than an enum because declaring one segfaults
-        // Besiege's C# compiler.
+        // The gates in `GateType` order, which is the menu's: the block casts the
+        // menu value to the enum. Constants, as an enum segfaults Besiege's
+        // compiler.
         public const int Not = 0;
         public const int And = 1;
         public const int Or = 2;
@@ -36,30 +29,16 @@ namespace NodeEditorMod
 
         public const int Count = 12;
 
-        /// <summary>
-        /// Not a gate: a timer, which a row can be as well. Besiege's own timer
-        /// block, run by <see cref="Clock"/> exactly as a Timer Plus row runs it,
-        /// started by the row's input A and pressing what the row presses.
-        ///
-        /// Numbered after the gates rather than among them, so every gate keeps the
-        /// number Besiege's menu gives it and a save keeps meaning the same gate.
-        /// <see cref="Count"/> still counts gates alone; <see cref="Kinds"/> is how
-        /// many things a row's menu offers.
-        /// </summary>
+        /// <summary>A timer rather than a gate, run by <see cref="Clock"/>.
+        /// Numbered after the gates, so a saved gate number keeps its meaning. <see
+        /// cref="Count"/> counts gates; <see cref="Kinds"/> counts menu
+        /// entries.</summary>
         public const int Timer = 12;
 
         public const int Kinds = 13;
 
-        /// <summary>
-        /// What Besiege calls each gate, in the order its own menu lists them --
-        /// which is the order of `GateType`, because the block casts the menu's
-        /// value straight to the enum.
-        ///
-        /// The words are the game's, looked up by the same translation ids
-        /// `LogicGate.Awake` builds its menu from, so a table and the block it
-        /// stands in for say the same thing in the same language. The list below is
-        /// the fallback for when that lookup is not available.
-        /// </summary>
+        /// <summary>Each gate's translation id, in menu order, as `LogicGate.Awake`
+        /// builds its menu; the names below are the fallback.</summary>
         private static readonly int[] Ids =
         {
             3811, 3810, 3812, 3813, 3816, 3814, 3815, 4253, 4246, 4247, 4248, 4595
@@ -110,13 +89,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// Whether a gate reads its second input at all.
-        ///
-        /// Besiege's own `UpdateHidden` takes the B key out of the mapper for
-        /// exactly these three, which is where this list comes from rather than
-        /// from reasoning about what a gate ought to need.
-        /// </summary>
+        /// <summary>Whether a gate reads input B. The three it does not are the
+        /// three Besiege's `UpdateHidden` hides B for.</summary>
         public static bool UsesB(int gate)
         {
             // A timer has one key that starts it, and that is input A.
@@ -130,14 +104,8 @@ namespace NodeEditorMod
             return gate == EdgeDetect;
         }
 
-        /// <summary>
-        /// Whether the switch does anything at all for this gate.
-        ///
-        /// Toggle mode is read only by the combinational gates and inverted only
-        /// by the edge detector, so the memory gates -- random, the two latches
-        /// and the counter -- have neither, and Besiege shows neither control for
-        /// them.
-        /// </summary>
+        /// <summary>Whether the switch does anything: combinational gates use
+        /// toggle mode, the edge detector inverted, memory gates neither.</summary>
         public static bool UsesMode(int gate)
         {
             return gate <= Xnor || gate == EdgeDetect;
@@ -154,41 +122,24 @@ namespace NodeEditorMod
             return Inverts(gate) ? "I" : "T";
         }
 
-        /// <summary>
-        /// What the game hands its state machine as "held": a key that has just
-        /// gone down counts as held, and whatever the emulation says is ORed in on
-        /// both passes -- `aHeld = aPressed || aKey.IsHeld` in `UpdateBlock`, then
-        /// `aHeld || emuAHeld` at the call.
-        /// </summary>
+        /// <summary>"Held" as the game hands it over: a fresh press counts, and
+        /// emulation is ORed in on both passes.</summary>
         public static bool Holding(bool pressed, bool held, bool emulated)
         {
             return pressed || held || emulated;
         }
 
-        /// <summary>
-        /// And what it hands over as "released", on the keyboard pass: only where
-        /// the key is not held at all. A key bound to two codes reports a release
-        /// while the other is still down, and an edge detector that answered that
-        /// would fire while its input was still on.
-        /// </summary>
+        /// <summary>"Released" on the keyboard pass: only when no code is held, or
+        /// a key on two codes would fire an edge detector early.</summary>
         public static bool Letting(bool pressed, bool held, bool released)
         {
             return released && !pressed && !held;
         }
 
-        /// <summary>
-        /// One pass of the game's `UpdateState`, which is where a gate's memory
-        /// lives: the latches, the counter and the toggled inputs.
-        ///
-        /// The arguments are the game's own, in its order: the two press edges,
-        /// the two held states, and A's release -- which only the edge detector
-        /// looks at, and only when it is inverted.
-        /// </summary>
-        /// <param name="gate">Which gate, and <paramref name="mode"/> its one
-        /// switch. Passed rather than read off the row's controls, so the state
-        /// machine holds no mapper control and the build can check it without a
-        /// live block -- the same reason <see cref="Clock"/> takes its wait and
-        /// its duration as numbers.</param>
+        /// <summary>One pass of the game's `UpdateState`, where latches, counters
+        /// and toggles live. Arguments in the game's order.</summary>
+        /// <param name="gate">The gate, and <paramref name="mode"/> its switch:
+        /// passed in, so the build can test this without a live block.</param>
         public static void Advance(LogicRow row, int gate, bool mode,
                                    bool pressedA, bool pressedB,
                                    bool heldA, bool heldB, bool releasedA)
@@ -290,13 +241,9 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// What the row presses, once per emulation tick: the game's
-        /// `EvaluateEmulation`.
-        ///
-        /// The edge detector's answer clears the flag as it is read, which is what
-        /// makes it a pulse of exactly one tick.
-        /// </summary>
+        /// <summary>What the row presses this tick: the game's `EvaluateEmulation`.
+        /// Reading the edge detector clears it, so its pulse lasts one
+        /// tick.</summary>
         public static bool Answer(LogicRow row, int gate)
         {
             switch (gate)

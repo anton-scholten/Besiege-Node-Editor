@@ -3,8 +3,9 @@
 ## 0.1.0
 
 First version, named **Node Editor** in Besiege's mods menu. Two blocks, each
-holding a table of up to thirty-two rows: **Timer Plus** for Besiege's timers and
-**Node Editor**, which the mod is named for, for its logic gates.
+holding a table of rows: **Timer Plus**, up to 1024 of Besiege's timers and starting
+with one, and **Computer**, whose node editor the mod is named for, up to 1024 logic
+gates and timers.
 
 **Added**
 
@@ -16,7 +17,8 @@ holding a table of up to thirty-two rows: **Timer Plus** for Besiege's timers an
   mapper, which keeps the block's activation key and its Automatic switch: wait,
   duration, hold to run, allow stop, loop and the emulated key, a row at a time,
   with `+` to add another. Ten rows are shown at once and the rest scroll; `+` and
-  the convert button are pinned along the bottom of the window rather than
+  the **IMPORT**, **PIN BLOCKS** and **EXPORT** buttons, three of a size, are pinned
+  along the bottom of the window rather than
   scrolling with them. Every row is started by the block's own
   key — the mapper above the table is the one place activation is set.
 - **The display flashes red** whenever a row fires — full on the tick, faded out a
@@ -47,17 +49,20 @@ holding a table of up to thirty-two rows: **Timer Plus** for Besiege's timers an
   and shaped like the sibling Clippy mod's — capitals, sixteen point, air either
   side — which is where the three switch columns, headed with a picture apiece, say
   what they are in words.
-- **Pin blocks**, a switch beside the convert button and on by default: each block
-  conversion makes gets one of the game's pins inside it, with nothing bound and
-  its visuals hidden, so a field of them stays where it was put.
-- **Convert to timer blocks**: one of Besiege's own timers per row, laid out on a
+- **Pin blocks**, a switch between import and export and on by default: each block
+  export makes gets one of the game's pins inside it, with nothing bound and its
+  visuals hidden, so a field of them stays where it was put.
+- **Import**: every one of Besiege's timers on the machine as rows, taken off the
+  machine in the same undo step. A block with no rows takes on the activation the
+  timers share; where they differ the button says so.
+- **Export**: one of Besiege's own timers per row, laid out on a
   horizontal plane in the table's own numbering — first to fire at the top left,
   then along and down — and handed over as a selection through the game's own
   additive load, so one undo takes them all back.
 - Without UI Factory the block still works: its controls appear in Besiege's own
   block mapper and the panel quietly never builds.
 
-- **Node Editor.** The same table for Besiege's logic gate: two inputs, the
+- **Computer.** The same table for Besiege's logic gate: two inputs, the
   gate, its one switch and the key it presses. Every one of the twelve gates is the
   game's own, read out of `LogicGate` and checked against its truth tables, its
   latches, its counter and its one-tick edge — so a converted machine runs the same
@@ -82,7 +87,10 @@ holding a table of up to thirty-two rows: **Timer Plus** for Besiege's timers an
   that fill when something lands on them, wires come off by being pulled away -- a
   wire let go on a port is asked of that one port alone, so a second wire drawn into
   the input beside a wire's far end is added rather than moving the first, a wire
-  let go on its own far end comes off, and only the port it left puts it back -- and
+  let go on its own far end comes off, and only the port it left puts it back; an
+  output end holding one wire is dragged from like one holding several, so a second
+  wire can still be drawn out of it; and a wire from one gate into another carries a
+  name only that gate answers to, so two gates on one output stay two wires -- and
   a right-click on the board offers the same list where the pointer is. Nodes can
   be picked out by a click, a modifier-click or a dragged box, moved as a set and
   copied as one; **TIDY** lays the board out and folds ends standing for the same
@@ -108,11 +116,12 @@ holding a table of up to thirty-two rows: **Timer Plus** for Besiege's timers an
   edit. A gate removed, here or in the table, takes its own wires with it and comes
   back with them on that one press. A gesture the board cannot carry out says so in
   a word over the thing refused: a wire from an end straight into an output, a name
-  a second end already stands for, a gate on a block whose thirty-two rows are
+  a second end already stands for, a gate on a block whose rows are all
   used, a wire that would put a key and a name on one
-  input, and one that would fill an input past the game's own three keys or hundred
+  input, and one that would fill an input past five keys or the game's own hundred
   names -- an input takes as many wires as an answer does and Besiege ORs them, so a
-  gate reading four answers is held while any of the four is up. News about the
+  gate reading four answers is held while any of the four is up, and a gate or timer
+  presses as many outputs as it is wired to, under the same caps. News about the
   board as a whole, an import or a full block, sits in the board's top-left corner
   instead, for four seconds or six for an import. A cell wired to
   several shows the count in the live colour and takes no typing; the board is where
@@ -120,25 +129,48 @@ holding a table of up to thirty-two rows: **Timer Plus** for Besiege's timers an
   one of Besiege's own logic gates and timers on the machine -- an Automatic timer as a
   timer row with nothing on its input -- is read into the block as a row
   and taken off the machine, wiring and all -- a wire is two gates agreeing on a
-  key, so copying the gates copies the circuit -- up to the block's thirty-two
-  rows, with anything over left on the machine for another block to take. One press
+  key, so copying the gates copies the circuit -- up to the block's
+  1024 rows, with anything over left on the machine for another block to take. One press
   of undo puts the blocks back and the rows away. Its three hotkeys -- copy, paste and select
   all -- are in Besiege's controls screen and default to 1+C, 1+V and 1+A -- the
   game itself owns the Control versions.
+- **The board's window moves by its thin border** as well as its title bar.
+  **EXPORT** closes the board. A board left up by **IMPORT** closes when another
+  block's menu opens, unless pinned. The default AND and counter answer `var_1` and
+  `var_2` for real: their names were never applied and fell back to `C`, so the two
+  shared a key and a wire out of either was refused. A row added with `+` no longer
+  copies the output of the row above. Every wire gesture follows one rule -- the port
+  a wire ends on decides, for a drop and a second click alike: a gate input holding
+  one wire no longer hands it over, which moved the wire instead of adding one, and
+  a click can start from an input and can take a wire off. A wire that would
+  put a key and a variable on one gate's answer -- a gate on keys into a named output,
+  a gate carrying names into a key output, or a wire out of a gate on a shared key --
+  is refused with *Can't mix key and variable. Use an OR gate.*, for six seconds. An
+  emptied output goes blank -- its wires kept on a hidden name -- instead of keeping
+  its old binding and refusing gates, and a new output off a gate already feeding
+  another starts blank. An input and an output may share a key or variable.
+  Adding or removing a node on a board of hundreds no longer draws every node after
+  it again, nor rebuilds the table's window, and a gate keeps its colour when one
+  above it goes. A node nobody dropped -- the table's `+`, or a palette button
+  clicked rather than dragged -- lands in the middle of the board's view rather
+  than in a column off its edge, one grid cell right and down for each node
+  already standing there, so a handful added in a row staggers instead of
+  stacking.
 
 **Known and deliberate**
 
-- **Thirty-two rows is a hard cap.** `MKey` is the only mapper type that carries a
-  variable and a mapper control can only be registered in `SafeAwake`, so every
-  row's keys are allocated up front. See [AGENTS.md](AGENTS.md).
+- **Both tables' rows are the block's own data, not mapper controls.** Each block
+  keeps its rows as one text control, a run makes its keys -- Timer Plus's to press,
+  Computer's to press and to listen, filed with the machine's key controller by
+  hand -- and each panel draws only the rows in view, so 1024 rows cost what one
+  does. Without UI Factory neither table's rows can be edited. See
+  [AGENTS.md](AGENTS.md).
 - **Two rows pressing the same key at once raise one press.** Besiege
   reference-counts an emulated key; this is the game's behaviour and a real pair of
   timer blocks does the same.
-- **Node Editor does not burn out.** Besiege can burn a gate out for pulsing
+- **Computer does not burn out.** Besiege can burn a gate out for pulsing
   too fast -- five changes of output on consecutive ticks, and only for a gate
   whose answer can reach its own inputs -- and a row does not. Everything else
   about a row is the game's own gate, argument for argument: the state machine,
   the two passes it runs each tick, and the one fixed step a signal takes to cross
   a gate, so a chain of rows settles at the same rate a row of blocks would.
-- The stock mapper's row-count slider reads `0.00`–`32.00`. It is a slider because
-  Besiege's mapper has no integer control.

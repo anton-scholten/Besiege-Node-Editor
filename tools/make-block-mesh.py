@@ -61,7 +61,7 @@ BLOCKS = {
         "icon": (-83.0, -45.0, 0.0),
         "recolour": {},
     },
-    "NodeEditor": {
+    "Computer": {
         "source": ("doMMnviJrGi", "4f68868e-5e24-48ff-92a5-442c8bf3d0f7",
                    "Simple computer", "Robert Schlyter", "CC-BY 3.0"),
         "span": 1.6,

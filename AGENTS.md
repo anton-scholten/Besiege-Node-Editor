@@ -14,7 +14,7 @@ what gets uploaded to the Workshop. Everything beside it is not part of the mod.
 ```
 NodeEditor/Mod.xml                   manifest: assembly, resources, block list
 NodeEditor/TimerPlus.xml             the Timer Plus block: mesh, colliders, module, icon
-NodeEditor/NodeEditor.xml            the Node Editor block, the same
+NodeEditor/Computer.xml              the Computer block, the same
 NodeEditor/NodeEditor.dll            built by tools/build.sh (checked in, the game loads it)
 NodeEditor/Resources/                the meshes, their textures, the thumbnail, the UI icons
 NodeEditor/NodeEditorScripts/*.cs    mod source; not read by the game
@@ -102,7 +102,7 @@ What depends on what:
   `SafeAwake` and a repaint replaces the material outright. The colours are held
   to the palette `tools/make-block-mesh.py` writes -- run it and it says so.
 - **`Row`** is one row's controls plus its phase; **`Clock`** is the phase machine.
-- **`NodeEditorBehaviour`**, **`LogicRow`**, **`Gates`**, **`LogicTable`** are the
+- **`ComputerBehaviour`**, **`LogicRow`**, **`Gates`**, **`LogicTable`** are the
   same four things for the second block. `Gates` is Besiege's `LogicGate` read out
   with `peek.sh`: `Advance` is its `UpdateState` (the latches, the counter, the
   toggled inputs) and `Answer` is its `EvaluateEmulation`. Both take the gate and
@@ -116,7 +116,7 @@ What depends on what:
   how the game stops a gate driving itself -- so passing the whole block's inputs
   told it to skip them all, and no row could drive another row in the same block:
   every wire the board drew between two of its own gates was dead in a simulation
-  and nowhere else. See `ownKeys` in `NodeEditorBehaviour`, and
+  and nowhere else. See `ownKeys` in `ComputerBehaviour`, and
   notes/03-keys-and-automation.md.
 - **A port holds a list, not a wire.** A gate's input answers to as many names (or
   keycodes) as are wired to it and Besiege ORs them -- `MKey.IsHeld` returns on the
@@ -124,9 +124,33 @@ What depends on what:
   what a port answers to, `Feeds` turns that into the nodes behind it, and `Feeding`
   is only "the first of them, if any". Adding a wire is `Bindings.Added` and taking
   one off is `Bindings.Dropped`; nothing rebinds a whole input any more, or the
-  other wires on it would go with it. The game's caps are `Bindings.MostKeys` (3)
-  and `Bindings.MostNames` (100), and a key answers to codes or to names and never
-  both -- both refusals are said over the port they were dropped on.
+  other wires on it would go with it. The caps are `Bindings.MostKeys` (5 -- past
+  the game mapper's 3, which is the mapper's alone; the comment there says why) and
+  `Bindings.MostNames` (100), and a key answers to codes or to names and never
+  both -- both refusals are said over the port they were dropped on. The same
+  holds for a gate's answer: a wire out of a gate whose every key another node also
+  answers to is refused (`Carried`) -- a reader on a shared key hears all of them,
+  and moving the gate onto a name would cut its output wire -- and so is a gate on
+  keys into a named output or a gate carrying names into a key output. All three
+  say `Editor.KeyAndName`, which tells the player to put an OR gate before the output. A
+  relay done by the block itself (pressing the key for a hidden name) was built and
+  taken out again: it added a step of delay and OR gates on export that nobody drew.
+  A blank output end is one bound to a minted name (`Mine`), which `Shown` shows as
+  empty; emptying an output's cell rebinds it to one (`Rebind`), so its wires stay
+  and any gate can join it. Ends of one kind never share a binding (`Doubled`); an
+  input and an output may, and a rebind skips the other kind in `Elsewhere`. `LogicTable.Add` leaves a new row answering nothing so rows
+  do not share a key by accident, and the default rows' names are `ApplyValue`d in
+  `ComputerBehaviour.Build` -- unapplied, the key's load copy kept `C`, so AND and
+  counter shared it. Every gesture ending a wire on a port -- a drop (`Landed`) or a
+  second click (`Touched`) -- goes through `Editor.Decided`: wired together comes
+  apart, a free pair of the other kinds gets a new wire, anything else nothing. Keep
+  it the one rule; a special case here is how a wire got moved instead of added. What a gate
+  presses is a list the same way: `Join` adds an output's key or name beside the
+  rest, `Drops` and `Repoint` take one off, every key question is "does it hold
+  this code" (`Strikes`, `Bindings.Holds`) rather than "is its first code this", and
+  a gate's `Idle` names -- minted for it, carrying no wire -- are shed when it is
+  given an output, so a gate on one output shows that output in the table rather
+  than a count. Snapshots (`GateData`, `RowData`, the clipboard) carry every keycode.
 - **The board's graph is derived, and indexed for the length of one operation.**
   `Feeding` answers "what feeds this port" by asking every node what it answers to
   and comparing `;`-joined name lists -- a string joined and split per comparison.
@@ -136,6 +160,19 @@ What depends on what:
   `Feeding`/`Presses` consult it when it is up. Nothing between those two calls
   writes a binding, so it cannot go stale, and anything asking outside them takes
   the original loop -- which is still there, and is the definition of the answer.
+- **The board redraws only what changed, and its wires are one mesh.** `Redraw`
+  keeps a node whose `Likeness` -- colour, gate and switch, timer settings, what an
+  end shows, a comment's words and size, which ports are filled -- reads as it did
+  when the node was drawn, and moves it rather than building it again. Anything
+  `Draw` or what it calls reads has to be in `Likeness`, or a kept node goes stale.
+  An end or a comment is also held to being the same `Place` object, because its
+  cell and text box write to that object. Every wire is quads in one `WireMesh`,
+  worked out per wire into a `Trace`: a drag (`Hauling`) works out only the wires
+  on what it moves, and a pan or zoom works out none, since the wires are on the
+  content. The mesh is on the board's own canvas rather than a nested one -- the
+  board clips with a `RectMask2D`, and a nested canvas under panned, scaled content
+  has not been seen to clip right in Unity 5.4. `Reading` is an allocation-free
+  hash of the rows and layout, asked twenty times a second.
 - **`Table`** lifts rows out of their controls as `RowData` so they can be sorted
   and deleted — a row *is* its controls, and reordering rows means moving values
   between them.
@@ -149,7 +186,7 @@ What depends on what:
   and a wire is a row's input bound to the variable another row's answer goes out
   under, so the board is derived from the table on every redraw and an edit on
   either side is an edit to the same thing. A gate's answer is a **generated name**
-  (`ne01_04`) given to it the moment the row exists; nothing on the board types it
+  (`ne_001_004`: the block's prefix, then the lowest free number in three base-36 letters) given to it the moment the row exists; nothing on the board types it
   and nothing shows it. Keys and variables belong to the two ends -- which is why a
   wire out of an *input* end carries that end's own binding rather than a name of
   its own: nothing on a machine raises a variable except a block emulating a key,
@@ -225,7 +262,13 @@ What depends on what:
   so `Conversion.Control` matches either spelling -- asking with the save's alone
   matched nothing and read every gate on the machine as unreadable. The blocks go through `BlockSelectionTool.RemoveBlocks`,
   which hands its undo actions back rather than filing them, so the removal and the
-  block's own edit (`LogicTable.Edited`) are filed together as one step. Wiring
+  block's own edit (`LogicTable.Edited`) are filed together as one step. The
+  removal closes the block's menu, so the board is held up (`lingering`) until a
+  menu opens; on another block, `Editor.Lingered` closes it unless pinned. Putting
+  the menu back from here flickered, so it is not done. EXPORT closes the board.
+  `Conversion.From(TimerPlusBehaviour)` is the timer table's IMPORT: timers only,
+  each a row, filed the same way through `LogicTable.Marked`/`Edited` (which take any
+  `BlockBehaviour`); a block with no rows takes on the activation they share. Wiring
   needs no work: a wire is two blocks bound to one key, and copying both blocks
   copies the wire.
 - **`Variables`** lists the names in use on the machine by walking
@@ -302,46 +345,74 @@ ignore switch, the multi-key list — and the panel is docked under it rather th
 replacing it. The sibling Orchestra mod's instrument blocks are laid out the same
 way; `InstrumentBehaviour.ShowInMapper` says so in a comment at the bottom.
 
-**Do not rename a mapper key.** `"Activate"`, `"AutomaticKey"`, `"RowsKey"`, and
-the per-row `"Emu<n>"`, `"Wait<n>"`, `"Dur<n>"`, `"Hold<n>"`, `"Stop<n>"`,
-`"Loop<n>"` are what a saved machine stores its settings under.
+**Do not rename a mapper key.** Timer Plus's `"Activate"`, `"AutomaticKey"`,
+`"PinKey"` and `"TimersKey"` are what a saved machine stores its settings under.
 Renaming one silently resets that setting on every existing machine. The display
-names beside them are only labels and are free to change.
+names beside them are only labels and are free to change. The rows themselves are
+the text in `"TimersKey"` (`Table.Save`/`Load`): change that format only by bumping
+its `timers 1` header and still reading the old one.
 
-**Do not rename the logic block's mapper keys either** -- `"A<n>"`, `"B<n>"`,
-`"Gate<n>"`, `"Mode<n>"`, `"Out<n>"`, its timer rows' `"Wait<n>"`, `"Dur<n>"`,
-`"Hold<n>"`, `"Stop<n>"`, `"Loop<n>"`, or either block's `"PinKey"` -- or change `<ID>2</ID>` in
-`NodeEditor.xml`, for the same reasons.
-
-**Do not lower `TimerPlusBehaviour.MaxRows`.** Raising it is safe. Lowering it
-orphans the controls of every row above the new cap, and a machine saved with
-those rows loses them with no error anywhere.
+**Do not rename the logic block's mapper keys either** -- `"PinKey"`,
+`"LayoutKey"`, `"PrefixKey"`, `"GatesKey"` -- or change `<ID>2</ID>` in
+`Computer.xml`, for the same reasons. Its rows are the text in `"GatesKey"`
+(`LogicTable.Save`/`Load`: tab-separated, header `gates 1`), under the same rule
+as Timer Plus's.
 
 **Do not change the `bmt-` names in `Conversion.cs`.** They are Besiege's own, read
 out of `TimerBlock.Awake`, and a typo produces a timer that loads with that
 setting at its default rather than one that fails.
 
-## Why the rows are a fixed number
+## Why the rows are text, not controls
 
-This is the constraint the whole design is built round, so it is worth stating
-plainly before anyone tries to make the table grow.
+`MKey` is the only mapper type that carries a variable, and a mapper control can
+only be registered in `SafeAwake`, so a table of automatable rows used to be a
+fixed pool of controls on every block. Neither table is any more; both were
+confirmed in game.
 
-`MKey` is the **only** mapper type that carries a variable. `MSlider`, `MToggle`,
-`MMenu` and `MValue` have nothing variable-related on them at all — no message, no
-emulation, no selector. So a row that can press a variable has to *be* an `MKey`,
-and a mapper control can only be registered in `SafeAwake`. There is no API for
-adding one to a block that already exists.
+**A key that presses needs nothing.** `KeyInputController.Emulate` never asks
+where the emitting key came from, so a key made at run time presses as a
+registered one does. Pressing a keycode or name nothing on the machine uses throws
+`KeyNotFoundException` inside `Emulate`; both blocks' `Hold` catch it.
 
-Hence: every row's six controls are built for every block, whether the row is in
-use or not, and the row count is a control of its own that says how many of them
-mean anything. An unused row sits at its defaults, and Besiege leaves a
-default-valued control out of the save when `ExcludeDefaultSaveData` is on, so
-thirty-two rows cost nothing in a machine that uses three.
+**A key that listens is filed by hand.** `Machine.InitSimBlock` files a block's
+registered keys with the machine's `KeyInputController`; the same three public
+calls work on any key. `ComputerBehaviour.Listen` finds the controller on
+`BlockBehaviour.ParentMachine` and files every row's inputs in `OnSimulateStart`.
 
-The alternative — keeping the rows in one `MText` and doing the key registration
-by hand — does not work: `Machine.InitSimBlock` files a block's keys with
-`KeyInputController` by walking `MapperTypes`, so a key that is not one is never
-registered and hears nothing.
+**Timer Plus** keeps `RowData`, written as one `MText` (`Table.Save`), read back
+only when that text changes (`TimerPlusBehaviour.Sync`), with a key and a `Row`
+clock made per row when a run starts.
+
+**Computer** keeps `LogicRow`s whose keys, menu, toggles and sliders are made
+with their constructors (`ComputerBehaviour.Made`) and never registered, so the
+board and the table edit them exactly as they did registered controls. What
+changes is committing: a row's control objects are not the block's, so every
+commit path runs `LogicTable.Settle` first -- it drops unregistered objects from
+the changed list and adds `RowsControl`, the rows' text, when the rows changed
+(`ComputerBehaviour.Stored`). `Editor.Commit`, `Panel.Commit` and
+`LogicTable.Applied(block, ...)` do; `Filed` and `Edited` write the rows before
+snapshotting. An undo, a load or another player's edit changes the text, and the
+next `Rows` read rebuilds every row object from it, so nothing may hold a row's
+control across frames -- look rows up by index when a handler fires.
+
+Both blocks build a handful of controls however many rows they have; `MaxRows`
+(1024 each) only keeps a save, a network edit and the board a sensible size.
+
+Both panels build only a window's worth of rows (`Panel.Pool`): `Cells.Index` says
+which row each shows, every handler reads it, and a scroll re-points them.
+Anything indexing `table[i]` as row `i` is a bug.
+
+The board keeps its drawn nodes the same way. `Editor.Redraw` matches what was drawn
+to what is there by identity -- the `LogicRow` or the `Place` (`Identity`,
+`Reuse`) -- so a removal, which renumbers everything after it, and a new gate,
+which renumbers every end, move drawn nodes to their new numbers instead of
+building them again. For that to hold: a node's handlers read its `Tag.Node`,
+never a captured number; the few things holding a number (`Hover.Node`,
+`PortMark.Node`, `under`, `sizing`) are renumbered in `Reuse`; the cross and a
+comment's resizing corner are made with a number and are thrown away on a move.
+A node's colour must not depend on its number either: a gate's seed is kept in
+the layout beside its place (`Wiring.Seeds`, the fifth field of a `g` line) and a
+comment's is its index among the places.
 
 ## Where the behaviour came from
 

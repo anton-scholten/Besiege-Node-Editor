@@ -2,12 +2,8 @@ using UnityEngine;
 
 namespace NodeEditorMod
 {
-    /// <summary>
-    /// One prefix in one place, so this mod's lines can be found in Player.log and
-    /// in the in-game console with `show_logs true`. Grep the log for the tag
-    /// rather than for the mod's name: the loader's own messages name the file and
-    /// the element and never the mod.
-    /// </summary>
+    /// <summary>One prefix for this mod's log lines. Grep for the tag: the loader's
+    /// messages name files, never the mod.</summary>
     public static class Log
     {
         private const string Prefix = "[NodeEditor] ";

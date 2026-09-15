@@ -6,19 +6,11 @@ using UnityEngine.UI;
 namespace NodeEditorMod
 {
     /// <summary>
-    /// The block's table, drawn in Besiege's own interface through UI Factory and
-    /// docked under the block mapper so the two read as one window with a seam.
-    ///
-    /// UI Factory is a soft dependency: without it none of this runs, and the block
-    /// hands its controls back to Besiege's own mapper -- see
-    /// <see cref="TimerPlusBehaviour.ShowStock"/>. Every mention of `Besiege.UI` is
-    /// in <see cref="UIF"/> for that reason.
-    ///
-    /// One instance, on a DontDestroyOnLoad object, watching the mapper. It serves
-    /// whichever Timer Plus block is open, so nothing here holds a control by
-    /// reference across an open: two blocks of the same kind do not share their
-    /// mapper controls, and a row that captured one would show the first block's
-    /// values and write to it.
+    /// The block's table, drawn with UI Factory and docked under Besiege's block
+    /// mapper as its lower half. One instance, serving whichever block is open;
+    /// nothing holds a control across opens, as blocks do not share their mapper
+    /// controls. Without UI Factory it never builds, and blocks keep their stock
+    /// controls.
     /// </summary>
     public class Panel : MonoBehaviour
     {
@@ -26,27 +18,16 @@ namespace NodeEditorMod
         // over a list Besiege spawns.
         private const int CanvasOrder = 2400;
 
-        /// <summary>What the table is drawn at until the mapper has been measured.
-        /// After that it is the mapper's own width, so the two read as one window
-        /// with a seam rather than a panel wider than what it hangs from.</summary>
+        /// <summary>The width until the mapper has been measured; after that, the
+        /// mapper's own.</summary>
         private const float DefaultWidth = 434f;
 
-        /// <summary>
-        /// The narrowest the logic table is drawn.
-        ///
-        /// It has three columns holding a key or a variable name where the timer's
-        /// has two, and a name shrunk to fit is a name read by leaning in. This is
-        /// what leaves each of them room for seven characters at the size the rest
-        /// of the panel is lettered in -- as near the mapper's own width as that
-        /// allows, and the rest of the way is taken out of the number and switch
-        /// columns below rather than off a name. The panel is docked by its left
-        /// edge, so what is over is all on the right.
-        /// </summary>
+        /// <summary>The logic table's narrowest width: room for seven characters in
+        /// each name column, taken out of the number and switch columns.</summary>
         private const float GatesWidth = 434f;
 
-        /// <summary>The key/variable bubble in the logic table, narrower than the
-        /// timer's: three columns wear one where the timer has two, and the four
-        /// units are worth more to the name beside it than to the picture.</summary>
+        /// <summary>The logic table's narrower key/variable bubble, which leaves
+        /// the names more room.</summary>
         private const float GateBubble = 18f;
         private const float Margin = 10f;
         private const float RowHeight = 24f;
@@ -67,29 +48,16 @@ namespace NodeEditorMod
         private static readonly Color GripInk = new Color(1f, 1f, 1f, 0.45f);
 
         /// <summary>
-        /// The height of the strip along the bottom of the window: the rule, the
-        /// "+", the convert button and the line anything has to be said on.
-        ///
-        /// Those are not rows of the table and do not scroll with it -- a table
-        /// with thirty rows in it is exactly when somebody wants the convert button,
-        /// and it was at the bottom of a list they had to scroll to the end of.
-        /// A constant rather than a measurement, so the viewport can be held clear
-        /// of the strip before the strip is built.
-        ///
-        /// The strip has no plate of its own. It had one for a while, to stop rows
-        /// showing through it, and a plate over the window's own plate is the
-        /// window's colour laid down twice -- which reads as a dark band under the
-        /// table rather than part of it. What actually keeps the rows out is the
-        /// clipping: a `RectMask2D` on the viewport, and <see cref="Curtain"/>
-        /// measuring against the viewport rather than the window.
+        /// The fixed strip along the bottom -- rule, "+", buttons -- outside the
+        /// scrolling rows, so it is always in reach. A constant, so the viewport is
+        /// kept clear of it before it is built. No plate of its own: clipping keeps
+        /// the rows out (<see cref="Curtain"/>).
         /// </summary>
         private const float StripHeight = RuleGap + 2f + RowGap
                                         + RowHeight + RowGap
                                         + RowHeight + 4f + Margin;
 
-        /// <summary>How many rows are shown before the table starts scrolling.
-        /// Ten is about as many as the eye takes in at once, and a window taller
-        /// than that under the mapper is a window in the way of the machine.</summary>
+        /// <summary>Rows shown before the table scrolls.</summary>
         private const int RowsShown = 10;
 
         /// <summary>The tallest the window is drawn: the heading, ten rows, and the
@@ -108,9 +76,8 @@ namespace NodeEditorMod
         private const float NumberWidth = 22f;
         private const float ColGap = 3f;
 
-        /// <summary>How big a switch column's picture is drawn. A little taller
-        /// than the lettering beside it: a glyph is thin strokes where a letter is
-        /// solid, and the two only read as one weight if the glyph is bigger.</summary>
+        /// <summary>A switch column's picture size, a little over the lettering so
+        /// thin strokes read at the same weight.</summary>
         private const float GlyphSize = 18f;
 
         /// <summary>The sort mark's size, and how far its point sits in from the
@@ -138,33 +105,14 @@ namespace NodeEditorMod
         private static readonly Vector2 Reference = new Vector2(1920f, 1080f);
         private static readonly Color RuleInk = new Color(0.55f, 0.62f, 0.72f, 0.30f);
 
-        /// <summary>
-        /// True once the panel has drawn a block successfully, which is what tells
-        /// every Timer Plus block to take its controls off Besiege's own mapper --
-        /// and to leave them off. Latched rather than following the panel up and
-        /// down: each change to a `DisplayInMapper` marks the mapper dirty and costs
-        /// it a rebuild of all its widgets, so a flag that went off on every close
-        /// would cost three rebuilds a visit on a block with two hundred controls.
-        ///
-        /// Static because the block asks and there is only ever one panel.
+        /// <summary>Whether the panel has drawn a block, which tells blocks to hide
+        /// their stock controls. Latched: every <c>DisplayInMapper</c> change
+        /// rebuilds the mapper.
         /// </summary>
         public static bool Usable;
 
-        /// <summary>
-        /// Whether the panel draws this block's table, which is what tells a block
-        /// to take its controls off Besiege's own mapper.
-        ///
-        /// Timer Plus only, for now: the logic table's columns are a different
-        /// table, and until the panel can draw one the Node Editor block keeps
-        /// its controls in the mapper where they can at least be reached.
-        /// </summary>
-        /// <summary>
-        /// The table this panel is drawing changed shape somewhere else -- the node
-        /// editor added or deleted a row -- so it has to be built again.
-        ///
-        /// Static because the editor has no reference to the panel and there is
-        /// only ever one of it.
-        /// </summary>
+        /// <summary>The table changed shape elsewhere -- the node editor added or
+        /// deleted a row -- so it is rebuilt.</summary>
         public static void Restack()
         {
             if (only != null)
@@ -185,14 +133,39 @@ namespace NodeEditorMod
             {
                 return;
             }
-            Rebuild();
+            if (!Reshaped())
+            {
+                Rebuild();
+            }
         }
 
-        /// <summary>
-        /// The values changed somewhere else -- the node editor rebinding a key,
-        /// or an undo -- but the table is the same shape, so the cells only have to
-        /// be written again.
-        /// </summary>
+        /// <summary>A table that changed length but still builds as many rows --
+        /// a window's worth -- is resized and pointed again rather than built
+        /// again: rebuilding the window was most of what an add or a delete cost.
+        /// False when it has to be rebuilt.</summary>
+        private bool Reshaped()
+        {
+            int count = Rows;
+            if (scroll == null || scroll.content == null || windowRect == null
+                || table.Count != Mathf.Min(count, RowsShown + 2)
+                || Mathf.Abs(builtWidth - width) > 0.5f)
+            {
+                return false;
+            }
+            float keep = scroll.content.anchoredPosition.y;
+            builtRows = count;
+            FitContent(rowsTop + count * (RowHeight + RowGap) + Margin);
+            Fill();
+            Canvas.ForceUpdateCanvases();
+            Dock();
+            Look(keep);
+            Pool(false);
+            Curtain(true);
+            return true;
+        }
+
+        /// <summary>Values changed elsewhere (the node editor, an undo) but not the
+        /// shape: the cells are written again.</summary>
         public static void Refill()
         {
             if (only != null && only.window != null && only.window.activeSelf)
@@ -206,17 +179,15 @@ namespace NodeEditorMod
             return Usable;
         }
 
-        /// <summary>Set once the panel has given up -- no UI Factory, or a build
-        /// that threw -- so the stock mapper is the only way to set a block and
-        /// keeps its controls for good.</summary>
+        /// <summary>Set once the panel gives up -- no UI Factory, or a build that
+        /// threw -- after which blocks keep their stock controls.</summary>
         public static bool Failed;
 
         private float width = DefaultWidth;
         private Canvas canvas;
 
-        /// <summary>What makes the panel answer the pointer, kept so it can be
-        /// switched off for the length of a drag that began somewhere else -- see
-        /// <see cref="StandOff"/>.</summary>
+        /// <summary>The panel's raycaster, switched off during a drag that began
+        /// elsewhere (<see cref="StandOff"/>).</summary>
         private GraphicRaycaster caster;
         private GameObject window;
         private RectTransform windowRect;
@@ -228,20 +199,17 @@ namespace NodeEditorMod
         private bool ready;
         private bool said;
 
-        /// <summary>The block the table was built for and how many rows it had.
-        /// Both are why a rebuild happens: the geometry is per row count, and the
-        /// bindings are per block.</summary>
+        /// <summary>The Timer Plus block the table was built for, and its row
+        /// count: either changing means a rebuild.</summary>
         private TimerPlusBehaviour served;
 
-        /// <summary>The other block this panel draws a table for. Exactly one of
-        /// the two is ever set: the chrome -- the window, the docking, the frame,
-        /// the strip, the scrollbar -- is the same for both, and only the columns
-        /// differ.</summary>
-        private NodeEditorBehaviour logic;
+        /// <summary>The Computer block shown instead; only one of the two is
+        /// set.
+        /// </summary>
+        private ComputerBehaviour logic;
 
-        /// <summary>Whether the open block is the logic table. Not called
-        /// `Logic`: Besiege has types of that name in the global namespace, and
-        /// this file is compiled inside `NodeEditorMod`.</summary>
+        /// <summary>Whether the open block is a logic table. Not `Logic`: Besiege
+        /// has global types of that name.</summary>
         private bool Gated { get { return logic != null; } }
 
         /// <summary>How many rows the open block has, whichever it is.</summary>
@@ -259,15 +227,17 @@ namespace NodeEditorMod
         private int builtRows = -1;
         private float builtWidth = -1f;
 
+        /// <summary>Where the rows start in the content, under the headings, and
+        /// the scroll the timer table's built rows were last pointed for.</summary>
+        private float rowsTop;
+        private float pooledAt = float.NaN;
+
         /// <summary>True while the panel is writing its controls from the block, so
         /// their own change events do not echo back into it.</summary>
         private bool filling;
 
-        /// <summary>Settings changed here that Besiege has not been told about yet.
-        /// Assigning `MapperType.Value` writes the live value only, so a panel that
-        /// stopped there would be heard now and forgotten on save. Committing
-        /// reserialises the block and adds an undo entry, so a drag writes live
-        /// every frame and commits once, when the mouse comes up.</summary>
+        /// <summary>Controls changed but not committed yet: a drag writes live
+        /// values every frame and commits once, when the button comes up.</summary>
         private readonly List<MapperType> pending = new List<MapperType>();
 
         // ---- the rows, as built ----------------------------------------------
@@ -275,13 +245,17 @@ namespace NodeEditorMod
         private class Cells
         {
             public GameObject Frame;
+
+            /// <summary>Which data row this shows. Fixed in the logic table; in the
+            /// timer table a built row is pointed at whichever row the scroll has
+            /// under it (see `Pool`), so every handler asks this, never a
+            /// captured number.</summary>
+            public int Index = -1;
             public RowNumber Number;
             public InputField Wait;
             public InputField Duration;
 
-            /// <summary>What the two boxes are painted when nothing is selected.
-            /// Read off the prefab as they are built: a colour written back from a
-            /// constant is a guess, and the guess was white.</summary>
+            /// <summary>The boxes' plain colour, read off the prefab.</summary>
             public Color WaitPlain;
             public Color DurationPlain;
             public Toggle Hold;
@@ -297,9 +271,9 @@ namespace NodeEditorMod
             public Text GateName;
             public Toggle ModeBox;
 
-            /// <summary>The bars drawn over input B for a gate that does not read
-            /// it, and over the switch for a gate that has neither of the two the
-            /// switch stands for.</summary>
+            /// <summary>Bars over input B, or the switch, when the gate does not
+            /// read it.
+            /// </summary>
             public RawImage Barred;
             public RawImage ModeBarred;
 
@@ -309,17 +283,18 @@ namespace NodeEditorMod
         }
 
         private readonly List<Cells> table = new List<Cells>();
-        /// <summary>The two buttons' own lettering, which is also where anything
-        /// the panel has to say is said -- see <see cref="Flash"/>.</summary>
+        /// <summary>The buttons' own lettering, which is also where anything the
+        /// panel has to say is said -- see <see cref="Flash"/>.</summary>
         private Text plusLabel;
+        private Text importLabel;
         private Text convertLabel;
 
         /// <summary>Where the "+" and the convert button live: pinned to the bottom
         /// of the window, outside the scrolling view.</summary>
         private Transform fixedStrip;
-        /// <summary>The sort mark on each sortable heading: one triangle, shown on
-        /// the column the table is sorted by and turned over for a descending
-        /// sort.</summary>
+        /// <summary>The sort triangle on each sortable heading, turned over for
+        /// descending.
+        /// </summary>
         private readonly RawImage[] marks = new RawImage[HeadNames.Length];
 
         private int sortColumn = -1;
@@ -396,14 +371,14 @@ namespace NodeEditorMod
                 return;
             }
             TimerPlusBehaviour block = null;
-            NodeEditorBehaviour gates = null;
+            ComputerBehaviour gates = null;
             try
             {
                 BlockMapper mapper = BlockMapper.CurrentInstance;
                 if (mapper != null && mapper.Block != null)
                 {
                     block = mapper.Block.GetComponent<TimerPlusBehaviour>();
-                    gates = mapper.Block.GetComponent<NodeEditorBehaviour>();
+                    gates = mapper.Block.GetComponent<ComputerBehaviour>();
                 }
             }
             catch (Exception) { }
@@ -428,10 +403,8 @@ namespace NodeEditorMod
                 }
                 if (!timed)
                 {
-                    // Once a session, so a report of "opening a block hangs" can be
-                    // answered with how much of it was this mod rather than the
-                    // game's own mapper, which is built before this is called --
-                    // and with how much of that was building controls.
+                    // Logged once a session, to tell this mod's share of a slow
+                    // open from the mapper's.
                     timed = true;
                     Log.Info("first open: "
                              + Mathf.RoundToInt((Time.realtimeSinceStartup - began)
@@ -460,10 +433,9 @@ namespace NodeEditorMod
             catch (Exception e) { Log.Warn("the panel could not close: " + e.Message); }
         }
 
-        /// <summary>The logic table's own open. The same shape as the timer's
-        /// below it: a rebuild when the block or its size changed, then a fill.
-        /// </summary>
-        private void Show(NodeEditorBehaviour block)
+        /// <summary>Opens the logic table: a rebuild when the block or its size
+        /// changed, then a fill.</summary>
+        private void Show(ComputerBehaviour block)
         {
             // Which table it is, before the width is worked out: the logic table
             // has a minimum the timer's does not, and Widen reads it.
@@ -471,16 +443,13 @@ namespace NodeEditorMod
             logic = block;
             served = null;
 
-            // The block takes its number the first time it is opened, and keeps it:
-            // `ne01_`, `ne02_`, whichever is free. Written through the mapper, so
-            // it is saved with the machine like anything else.
+            // The block takes its prefix the first time it is opened -- `ne_001_`,
+            // the lowest free -- and it is saved with the machine.
             MText claimed = block.Claim();
             if (claimed != null)
             {
-                // Applied rather than committed: this is the block numbering
-                // itself, not somebody editing it, and `OnEditField` reserialises
-                // every control on the block and files an undo step for a value
-                // nobody typed. The live value is what a save writes.
+                // Applied, not committed: `OnEditField` would reserialise the block
+                // and file an undo step for a value nobody typed.
                 try { claimed.ApplyValue(); }
                 catch (Exception) { }
             }
@@ -516,11 +485,8 @@ namespace NodeEditorMod
             Dock();
             Curtain(true);
 
-            // The board comes up with the table. A logic block *is* a circuit, and
-            // the table is the same circuit written down -- opening one and having
-            // to ask for the other made the board feel like an extra rather than
-            // the way the block is read. Last, so it claims the shared tooltip and
-            // list after this window has.
+            // The board opens with the table: both are the same circuit. Last, so
+            // it claims the shared tooltip and list.
             if (Editor.Available)
             {
                 Editor.Open(logic);
@@ -572,14 +538,9 @@ namespace NodeEditorMod
             Curtain(true);
         }
 
-        /// <summary>
-        /// Takes the shared tooltip and the shared list, which belong to whichever
-        /// window was opened last.
-        ///
-        /// Claimed on opening rather than every frame: the board editor claims them
-        /// the same way, and two windows both claiming every frame would tear the
-        /// tooltip down and build it again for as long as both were up.
-        /// </summary>
+        /// <summary>Takes the shared tooltip and list, which belong to the window
+        /// opened last. On opening only: two windows claiming every frame would
+        /// keep rebuilding them.</summary>
         private void Claim()
         {
             if (canvas == null)
@@ -621,18 +582,15 @@ namespace NodeEditorMod
                     return false;
                 }
                 windowRect = window.GetComponent<RectTransform>();
-                // Owned rather than inherited: a prefab's rect can be anchored any
-                // way its author liked, and the docking below measures from the
-                // middle of the screen.
+                // Anchored to the screen's middle, which the docking measures from.
                 windowRect.anchorMin = new Vector2(0.5f, 0.5f);
                 windowRect.anchorMax = new Vector2(0.5f, 0.5f);
                 windowRect.pivot = new Vector2(0.5f, 0.5f);
 
                 Untitle();
                 content = ScrollContent();
-                // Above the window, on the canvas: a tooltip parented into the
-                // scrolling content would be clipped with the row it explains and
-                // drawn under whichever row came after it.
+                // The tooltip lives on the canvas: inside the scrolling content it
+                // would be clipped.
                 Tip.Tips.Home(canvas.GetComponent<RectTransform>());
 
                 Fixed();
@@ -659,11 +617,9 @@ namespace NodeEditorMod
             {
                 return true;
             }
-            // Its own canvas, not UI Factory's shared one and not a bare
-            // GameObject. The Window's viewport clips with a stencil Mask and so
-            // does Besiege's chat window; two masks at the same depth cut holes in
-            // each other. A bare parent would have a zero-sized rect, which an
-            // on-screen clamp reads as "this can never fit".
+            // A canvas of its own: two stencil masks at one depth (the viewport's,
+            // the chat window's) cut holes in each other, and a bare parent has no
+            // size to clamp to.
             GameObject go = new GameObject("NodeEditorCanvas");
             go.transform.SetParent(transform, false);
             canvas = go.AddComponent<Canvas>();
@@ -674,22 +630,16 @@ namespace NodeEditorMod
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = Reference;
             scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            // UI Factory authors against 1920x1080 matching on height. Anything else
-            // draws the game's own widgets at the wrong size beside the game's own
-            // interface, which is the one thing borrowing them was to prevent.
+            // UI Factory is authored for 1920x1080, matched on height.
             scaler.matchWidthOrHeight = 1f;
 
             caster = go.AddComponent<GraphicRaycaster>();
             return true;
         }
 
-        /// <summary>
-        /// The panel has no title of its own -- it is the mapper's lower half -- so
-        /// the Window prefab's TopBar goes, and with it the drag handle and the
-        /// close cross that would shut only this half. The ScrollView is anchored
-        /// below the bar, so hiding the bar alone leaves a bar's worth of empty
-        /// frame at the top and it has to be stretched over the whole window.
-        /// </summary>
+        /// <summary>Removes the Window prefab's title bar -- the panel is the
+        /// mapper's lower half -- and stretches the scroll view over the
+        /// space.</summary>
         private void Untitle()
         {
             Transform bar = Attach.Find(window.transform, "TopBar");
@@ -713,13 +663,8 @@ namespace NodeEditorMod
             rect.offsetMax = Vector2.zero;
         }
 
-        /// <summary>
-        /// The Window prefab is a frame plus a full ScrollRect over
-        /// Viewport/Content. Rows put on the window itself are drawn behind the
-        /// scroll view and never seen, and the scroll view is left holding the
-        /// prefab's own 500-unit placeholder -- an empty window with a scrollbar
-        /// beside it.
-        /// </summary>
+        /// <summary>The Window prefab's scroll content: rows must go in there, or
+        /// they are drawn behind the scroll view.</summary>
         private Transform ScrollContent()
         {
             scroll = window.GetComponentInChildren<ScrollRect>(true);
@@ -739,9 +684,7 @@ namespace NodeEditorMod
             Clip();
             Rail();
 
-            // The wheel over the panel scrolls this and zooms the camera at the
-            // same time, because nothing told Besiege not to. Enter and exit reach
-            // the whole chain of parents, so one guard on the window covers every
+            // One guard on the window stops the wheel zooming the camera over any
             // row in it.
             if (window.GetComponent<ZoomGuard>() == null)
             {
@@ -750,40 +693,10 @@ namespace NodeEditorMod
             return scroll.content;
         }
 
-        /// <summary>
-        /// The prefab's Viewport carries the Mask that should clip the rows, and it
-        /// arrives anchored to a corner at zero size, so it clips nothing at all.
-        /// Sizing it is still not enough on its own -- see <see cref="Curtain"/>,
-        /// which is what actually keeps a row inside the frame -- but a viewport
-        /// with a real rect is what everything else measures against.
-        /// </summary>
-        /// <summary>
-        /// Holds the scrolling view inside the window and above the strip, and
-        /// clips whatever hangs out of it.
-        ///
-        /// The viewport is found rather than assumed. `ScrollRect.viewport` is
-        /// allowed to be null -- uGUI then scrolls inside the ScrollRect's own rect
-        /// -- and the prefab's need not be called "Viewport". Getting this wrong is
-        /// invisible until something has to be kept out of a part of the window:
-        /// with no viewport there is nothing to clip against, nothing to shorten,
-        /// and <see cref="Curtain"/> falls back to the whole window, so rows scroll
-        /// straight over the buttons along the bottom.
-        /// </summary>
-        /// <summary>
-        /// The frame the rows scroll inside: ours, made here, with the prefab's
-        /// content moved into it.
-        ///
-        /// Asking the ScrollRect for its viewport does not work. It is allowed to
-        /// be null -- uGUI then scrolls inside the ScrollRect's own rect -- and the
-        /// prefab's need not be named anything in particular; every attempt to find
-        /// it and shorten it left the ScrollRect believing its frame was the whole
-        /// window, which is how rows ended up over the strip and how the last rows
-        /// could not be scrolled to at all.
-        ///
-        /// A frame of our own is the end of that. It is the window less the strip
-        /// and less the bar's gutter, so how far the list scrolls is exactly how
-        /// much of it does not fit, and the bar hides itself when all of it does.
-        /// </summary>
+        /// <summary>The frame the rows scroll inside, made here with the prefab's
+        /// content moved in: the prefab's viewport may be null or named anything,
+        /// which let rows run over the strip. This one is the window less the strip
+        /// and the scrollbar.</summary>
         private void Clip()
         {
             GameObject go = new GameObject("Frame");
@@ -798,10 +711,8 @@ namespace NodeEditorMod
             // more thing sharing a stencil buffer with the window's own.
             go.AddComponent<RectMask2D>();
 
-            // The wheel. It reaches the hovered object and then its parents, and
-            // the ScrollRect is not among them -- this frame is the panel's own and
-            // hangs off the window. A plate to be hovered at all, invisible, and
-            // behind everything in the frame because children are raycast first.
+            // An invisible plate so the frame gets the wheel; behind everything in
+            // it, since children are raycast first.
             Image sheet = go.AddComponent<Image>();
             sheet.color = new Color(0f, 0f, 0f, 0f);
             Wheel wheel = go.AddComponent<Wheel>();
@@ -817,15 +728,8 @@ namespace NodeEditorMod
             rows.sizeDelta = new Vector2(0f, rows.sizeDelta.y);
         }
 
-        /// <summary>
-        /// The bar down the right of the table.
-        ///
-        /// Built rather than borrowed. The Window prefab brings one, but it is
-        /// anchored to the whole window and the strip along the bottom is not part
-        /// of the list -- and a prefab's rect, reshaped from outside, is a thing
-        /// that keeps coming back. This one is ours, it stops where the list stops,
-        /// and it is the only bar the ScrollRect knows about.
-        /// </summary>
+        /// <summary>The scrollbar, built rather than borrowed: the prefab's spans
+        /// the whole window, strip and all.</summary>
         private void Rail()
         {
             if (scroll.verticalScrollbar != null)
@@ -889,6 +793,7 @@ namespace NodeEditorMod
             pickFocus = 0;
             table.Clear();
             plusLabel = null;
+            importLabel = null;
             convertLabel = null;
             pinBox = null;
             boardBox = null;
@@ -911,21 +816,15 @@ namespace NodeEditorMod
             content = null;
             builtRows = -1;
             builtWidth = -1f;
+            pooledAt = float.NaN;
         }
 
         // ---- geometry --------------------------------------------------------
 
         private float Full { get { return width - Margin * 2f - BarGutter; } }
 
-        /// <summary>
-        /// Where the table starts and how wide it is.
-        ///
-        /// The logic table is drawn tighter than the timer's: it has six columns
-        /// where the timer has seven narrower ones, and every unit of margin is a
-        /// unit a variable name does not get. The left inset is a hair rather than
-        /// a margin, and the right one is the scrollbar and no more -- the bar is
-        /// eight wide, inset five, and three clear of the last column.
-        /// </summary>
+        /// <summary>Where the table starts and how wide it is. The logic table is
+        /// drawn tighter, since every unit of margin comes out of a name.</summary>
         private float Edge { get { return Gated ? 4f : Margin; } }
 
         private float Wide
@@ -936,23 +835,15 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// Where each column starts and how wide it is. The number and the three
-        /// switches are fixed; what is left is shared between the two times and the
-        /// key -- a variable name needs the room and a time needs four characters
-        /// and no more.
-        /// </summary>
+        /// <summary>Where each column starts and how wide it is: the number and
+        /// switches are fixed, the rest shared by the times and the key.</summary>
         private void Columns(out float[] x, out float[] w)
         {
             if (Gated)
             {
-                // The number, one switch, and four columns that hold a name: two
-                // inputs, the gate and the key. The gate takes a little less than
-                // the keys -- "SR LATCH" is the longest thing it ever says, and a
-                // variable name has no length this can choose.
-                // Tighter than the timer's number and switch columns: a number of
-                // two digits and one tick box need less than they were given, and
-                // every unit taken off them is a unit a variable name keeps.
+                // The number, one switch and four name columns (two inputs, gate,
+                // key); the gate a little narrower, "SR LATCH" being its longest.
+                // Number and switch kept tight.
                 float number = NumberWidth - 2f;
                 float mode = SwitchWidth - 2f;
                 float room = Mathf.Max(200f,
@@ -971,11 +862,8 @@ namespace NodeEditorMod
 
             float fixedWidth = NumberWidth + SwitchWidth * 3f + ColGap * 6f;
             float rest = Mathf.Max(160f, Full - fixedWidth);
-            // The two times take more than the key does. A heading grows under the
-            // pointer, and "DURATION" grown by a tenth has to stay inside its own
-            // column. What is left goes to the key, which needs enough of it for a
-            // variable name -- a name a character longer than the column is a name
-            // shrunk until it is not read at a glance.
+            // The times get more than the key, since "DURATION" grows on hover and
+            // must stay in its column. The rest goes to the key.
             float num = rest * 0.31f;
             float emu = rest - num * 2f;
 
@@ -997,37 +885,32 @@ namespace NodeEditorMod
             Columns(out x, out w);
 
             y = Gated ? LogicHeader(y, x, w) : Header(y, x, w);
+            rowsTop = y;
 
             table.Clear();
             int count = Rows;
-            for (int i = 0; i < count; i++)
+            // A window's worth of rows and two to spare, however long the table:
+            // which rows they show follows the scroll (see `Pool`). The content is
+            // as tall as every row would be, so the scrollbar is the table's.
+            int built = Mathf.Min(count, RowsShown + 2);
+            float at = y;
+            for (int i = 0; i < built; i++)
             {
-                table.Add(Gated ? LogicRowCells(i, ref y, x, w)
-                                : BuildRow(i, ref y, x, w));
+                table.Add(Gated ? LogicRowCells(i, ref at, x, w)
+                                : BuildRow(i, ref at, x, w));
             }
-
-            return y + Margin;
+            return y + count * (RowHeight + RowGap) + Margin;
         }
 
-        /// <summary>
-        /// What each column is headed with. The number column is headed with
-        /// nothing: a column of small numbers down the left of a table of times
-        /// has already said what it is, and a heading on it would be one more
-        /// thing to read.
-        ///
-        /// The three switch columns are headed with a picture instead -- see
-        /// <see cref="Glyphs"/>. The name is still here because it is what the
-        /// heading falls back to when the pictures could not be loaded.
-        /// </summary>
+        /// <summary>Column headings; the number column has none. The switch columns
+        /// show a picture, with these names as the fallback.</summary>
         private static readonly string[] HeadNames =
         {
             "", "WAIT", "DURATION", "H", "S", "L", "EMULATE"
         };
 
-        /// <summary>
-        /// What each heading says on hover. This is where the three switch columns
-        /// give their names, a picture in a twenty-six unit column having no room
-        /// for a word beside it.
+        /// <summary>Heading tooltips, which is where the pictured switch columns
+        /// are named.
         /// </summary>
         private static readonly string[] HeadTips =
         {
@@ -1041,16 +924,8 @@ namespace NodeEditorMod
         };
 
 
-        /// <summary>
-        /// The column headings.
-        ///
-        /// Only the two times sort. A column of tick boxes is already an answer to
-        /// "which of these loop" -- three ticks in a column of thirty-two rows are
-        /// read off faster than a sort is clicked -- and a table in keycode-name
-        /// order answers a question nobody asks. So the other headings are labels,
-        /// with the button's own click feedback taken off them so they do not offer
-        /// something that does not happen.
-        /// </summary>
+        /// <summary>The column headings. Only the two times sort; the rest are
+        /// labels, with their click feedback taken off.</summary>
         private float Header(float y, float[] x, float[] w)
         {
             // From one: the number column is headed with nothing at all.
@@ -1062,11 +937,9 @@ namespace NodeEditorMod
                     continue;
                 }
                 UIF.Fit(go.GetComponent<RectTransform>(), x[c], y, w[c], HeadHeight);
-                // The prefab's own swell grows the whole heading, which on a
-                // column this narrow carries the word into its neighbour; ours
-                // grows the lettering in place. It also stops the press animation
-                // shrinking the click target out from under the pointer, which on
-                // a small control eats the click outright.
+                // The prefab's swell grows the whole heading into its neighbour,
+                // and its press animation shrinks the target mid-click; ours grows
+                // the lettering in place.
                 UIF.NoSwell(go);
 
                 bool sorts = c == CWait || c == CDuration;
@@ -1080,7 +953,7 @@ namespace NodeEditorMod
                     Text label = Pin(go, HeadNames[c], UIF.Ink);
                     if (sorts)
                     {
-                        Grow(go, label);
+                        UIF.Grow(go, label);
                         marks[c] = Mark(go);
                     }
                 }
@@ -1099,9 +972,8 @@ namespace NodeEditorMod
                 }
                 else
                 {
-                    // Left in place rather than destroyed, so the heading keeps the
-                    // plate the others are drawn on; it just no longer lights up
-                    // under the pointer.
+                    // Kept rather than destroyed, so the heading keeps its plate
+                    // but does not light up.
                     click.enabled = false;
                 }
             }
@@ -1109,15 +981,9 @@ namespace NodeEditorMod
             return y;
         }
 
-        /// <summary>
-        /// The sort mark on a sortable heading: a triangle at the right-hand end,
-        /// hidden until the table is sorted by that column.
-        ///
-        /// Its own object rather than a character on the end of the heading, so
-        /// ascending and descending are one picture two ways up rather than two
-        /// letters of different sizes -- and so the heading's own words do not
-        /// shift sideways when the mark appears.
-        /// </summary>
+        /// <summary>A heading's sort mark: a triangle at its right end, hidden
+        /// until sorted by. One picture turned over, so the words do not
+        /// shift.</summary>
         private static RawImage Mark(GameObject heading)
         {
             Texture picture = Glyphs.Arrow;
@@ -1130,9 +996,7 @@ namespace NodeEditorMod
             RectTransform rect = go.AddComponent<RectTransform>();
             rect.anchorMin = new Vector2(1f, 0.5f);
             rect.anchorMax = new Vector2(1f, 0.5f);
-            // Pivoted in its middle, not on its edge: the turn for a descending
-            // sort is about the pivot, and a mark pivoted on its edge swings out
-            // to one side instead of turning over where it stands.
+            // Pivoted in its middle, so turning it over leaves it where it stands.
             rect.pivot = new Vector2(0.5f, 0.5f);
             rect.anchoredPosition = new Vector2(-(MarkInset + MarkSize * 0.5f), 0f);
             rect.sizeDelta = new Vector2(MarkSize, MarkSize);
@@ -1155,15 +1019,8 @@ namespace NodeEditorMod
             return null;
         }
 
-        /// <summary>
-        /// Puts a picture in a heading, in place of its lettering.
-        ///
-        /// A <c>RawImage</c> rather than an <c>Image</c>: the resource system hands
-        /// over a <c>Texture</c>, and a Sprite would have to be made from it and
-        /// owned by somebody. Square and inset, so three of them read as one size
-        /// whatever shape the artwork is, and tinted like the lettering it stands
-        /// in for -- the artwork is white, so the tint is the colour.
-        /// </summary>
+        /// <summary>A picture in place of a heading's lettering: square, inset, and
+        /// tinted as the lettering was.</summary>
         private static void Draw(GameObject control, Texture picture)
         {
             Text label = control.GetComponentInChildren<Text>(true);
@@ -1188,9 +1045,7 @@ namespace NodeEditorMod
             drawn.raycastTarget = false;
         }
 
-        /// <summary>What the logic table's columns are headed with, and what each
-        /// says on hover. The number column is headed with nothing, as the timer's
-        /// is.</summary>
+        /// <summary>The logic table's headings and their tooltips.</summary>
         private static readonly string[] GateHeads =
         {
             "", "INPUT A", "INPUT B", "GATE", "M", "OUTPUT"
@@ -1222,7 +1077,7 @@ namespace NodeEditorMod
                 Text label = Pin(go, GateHeads[c], UIF.Ink);
                 if (sorts)
                 {
-                    Grow(go, label);
+                    UIF.Grow(go, label);
                     marks[c] = Mark(go);
                 }
                 Tip.On(go, GateHeadTips[c]);
@@ -1245,9 +1100,8 @@ namespace NodeEditorMod
             return y;
         }
 
-        /// <summary>
-        /// One row of the logic table: two inputs, the gate, its one switch and the
-        /// key it presses.
+        /// <summary>One logic row: two inputs, the gate, its switch and the key it
+        /// presses.
         /// </summary>
         private Cells LogicRowCells(int index, ref float y, float[] x, float[] w)
         {
@@ -1258,11 +1112,11 @@ namespace NodeEditorMod
             frame.AddComponent<RectTransform>();
             UIF.Fit(frame.GetComponent<RectTransform>(), 0f, y, width, RowHeight);
             cells.Frame = frame;
+            cells.Index = index;
             Transform host = frame.transform;
 
             cells.Number = RowNumber.Make(host, x[CNumber], 0f, w[CNumber], RowHeight);
-            int which = index;
-            cells.Number.Clicked = delegate { Delete(which); };
+            cells.Number.Clicked = delegate { Delete(cells.Index); };
             cells.Number.Watch(frame);
 
             cells.InA = KeyCell.Make(host, x[LInputA], 0f, w[LInputA], RowHeight,
@@ -1274,9 +1128,7 @@ namespace NodeEditorMod
                                      GateBubble);
             cells.InB.Row = index;
             cells.InB.Changed = GateKeyChanged;
-            // Drawn over input B for a gate that reads only one, and switched off
-            // for one that reads both. Built here rather than when it is first
-            // wanted: a row's gate changes under the pointer.
+            // Built with the row: a row's gate can change under the pointer.
             cells.Barred = Bars(cells.InB.gameObject);
 
             cells.Gate = UIF.Spawn(UIF.ButtonPrefab, host);
@@ -1286,16 +1138,15 @@ namespace NodeEditorMod
                         w[LGate], RowHeight);
                 UIF.NoSwell(cells.Gate);
                 cells.GateName = Pin(cells.Gate, "", UIF.Ink);
-                Grow(cells.Gate, cells.GateName);
-                int at = index;
+                UIF.Grow(cells.Gate, cells.GateName);
                 Button click = cells.Gate.GetComponent<Button>();
                 if (click != null)
                 {
-                    click.onClick.AddListener(delegate { PickGate(at); });
+                    click.onClick.AddListener(delegate { PickGate(cells.Index); });
                 }
             }
 
-            cells.ModeBox = Box(host, x[LMode], w[LMode], index);
+            cells.ModeBox = Box(host, x[LMode], w[LMode], cells);
             if (cells.ModeBox != null)
             {
                 cells.ModeName = cells.ModeBox.GetComponentInChildren<Text>(true);
@@ -1306,18 +1157,15 @@ namespace NodeEditorMod
                                          GateBubble);
             cells.Emulate.Row = index;
             cells.Emulate.Changed = GateKeyChanged;
+            cells.Emulate.Answers = true;
 
             y += RowHeight + RowGap;
             return cells;
         }
 
-        /// <summary>
-        /// The diagonal bars that say a cell is not read.
-        ///
-        /// Drawn over the cell rather than by hiding it: the key is still there and
-        /// still saved, and a gate switched back to one that reads B should find
-        /// what it was given. An empty space would say the setting was lost.
-        /// </summary>
+        /// <summary>Bars over a cell that is not read. Drawn over rather than
+        /// hidden: the value is still saved, and a gate that reads it again finds
+        /// it.</summary>
         private static RawImage Bars(GameObject over)
         {
             if (over == null)
@@ -1349,9 +1197,7 @@ namespace NodeEditorMod
         {
             Cells cells = new Cells();
 
-            // One object holding the whole row, so the panel's own clipping has a
-            // single thing to decide about and the cells inside it never argue with
-            // it over who is showing.
+            // One object per row, so clipping decides once for the whole row.
             GameObject frame = new GameObject("Row" + index);
             frame.transform.SetParent(content, false);
             frame.AddComponent<RectTransform>();
@@ -1361,37 +1207,30 @@ namespace NodeEditorMod
             Transform host = frame.transform;
 
             // Written by Fill, which is where the wait order is worked out.
+            cells.Index = index;
             cells.Number = RowNumber.Make(host, x[CNumber], 0f, w[CNumber], RowHeight);
-            int which = index;
-            cells.Number.Clicked = delegate { Delete(which); };
+            cells.Number.Clicked = delegate { Delete(cells.Index); };
             cells.Number.Watch(frame);
 
-
-            cells.Wait = Number(host, x[CWait], w[CWait], index, true);
-            cells.Duration = Number(host, x[CDuration], w[CDuration], index, false);
+            cells.Wait = Number(host, x[CWait], w[CWait], cells, true);
+            cells.Duration = Number(host, x[CDuration], w[CDuration], cells, false);
             cells.WaitPlain = Plain(cells.Wait);
             cells.DurationPlain = Plain(cells.Duration);
-            cells.Hold = Box(host, x[CHold], w[CHold], index);
-            cells.Stop = Box(host, x[CStop], w[CStop], index);
-            cells.Loop = Box(host, x[CLoop], w[CLoop], index);
+            cells.Hold = Box(host, x[CHold], w[CHold], cells);
+            cells.Stop = Box(host, x[CStop], w[CStop], cells);
+            cells.Loop = Box(host, x[CLoop], w[CLoop], cells);
 
             cells.Emulate = KeyCell.Make(host, x[CEmulate], 0f, w[CEmulate], RowHeight);
             cells.Emulate.Row = index;
             cells.Emulate.Changed = RowKeyChanged;
+            cells.Emulate.Answers = true;
 
             y += RowHeight + RowGap;
             return cells;
         }
 
-        /// <summary>
-        /// The strip along the bottom of the window, outside the scrolling view:
-        /// the rule that closes the table off, the "+" that adds a row, the convert
-        /// button and the message line.
-        ///
-        /// Parented to the window rather than to the scrolling content, and the
-        /// viewport is held clear of it in <see cref="Clip"/>, so the two never
-        /// overlap however many rows there are.
-        /// </summary>
+        /// <summary>The strip along the bottom, outside the scrolling view: the
+        /// rule, "+", the convert button and messages.</summary>
         private void Fixed()
         {
             GameObject go = new GameObject("Fixed");
@@ -1419,7 +1258,7 @@ namespace NodeEditorMod
                 UIF.Fit(go.GetComponent<RectTransform>(), Edge, y, Wide, RowHeight);
                 UIF.NoSwell(go);
                 plusLabel = Pin(go, "+", UIF.Ink);
-                Grow(go, plusLabel);
+                UIF.Grow(go, plusLabel);
                 Button click = go.GetComponent<Button>();
                 if (click != null)
                 {
@@ -1429,27 +1268,19 @@ namespace NodeEditorMod
             return y + RowHeight + RowGap;
         }
 
-        /// <summary>How much of the bottom row the pin switch takes, the convert
-        /// button having the rest. The convert button carries the longer caption
-        /// and grows it on hover, so it is given the room to.</summary>
-        private const float PinShare = 0.24f;
-
         private float Footer(float y)
         {
             float tall = RowHeight + 4f;
             if (Gated)
             {
-                // The logic table's pin switch and convert button live in the node
-                // editor's title bar, as PIN BLOCKS and EXPORT beside IMPORT: the
-                // way out onto the machine next to the way in. What is left here
-                // is the switch that opens it -- a switch rather than a button,
-                // because it says whether the editor is up.
+                // The logic table's pin switch and export are on the node editor's
+                // title bar; here is only the switch that opens the editor.
                 GameObject board = UIF.Spawn(UIF.TogglePrefab, fixedStrip);
                 if (board != null)
                 {
                     UIF.Fit(board.GetComponent<RectTransform>(), Edge, y, Wide, tall);
                     UIF.NoSwell(board);
-                    Grow(board, Pin(board, "NODE EDITOR", UIF.Ink));
+                    UIF.Grow(board, Pin(board, "NODE EDITOR", UIF.Ink));
                     boardBox = board.GetComponent<Toggle>();
                     if (boardBox != null)
                     {
@@ -1458,18 +1289,32 @@ namespace NodeEditorMod
                 }
                 return y + tall;
             }
-            float pinWide = Wide * PinShare;
+            // Three of a size: import, the pin switch, export -- the switch
+            // between the two, as it is about what export makes.
+            float third = (Wide - ColGap * 2f) / 3f;
 
-            // The switch first, on the left, because it is a thing the convert
-            // button does rather than a thing of its own.
+            GameObject import = UIF.Spawn(UIF.ButtonPrefab, fixedStrip);
+            if (import != null)
+            {
+                UIF.Fit(import.GetComponent<RectTransform>(), Edge, y, third, tall);
+                UIF.NoSwell(import);
+                importLabel = Pin(import, "IMPORT", UIF.Ink);
+                UIF.Grow(import, importLabel);
+                Button click = import.GetComponent<Button>();
+                if (click != null)
+                {
+                    click.onClick.AddListener(DoImport);
+                }
+            }
+
             GameObject pin = UIF.Spawn(UIF.TogglePrefab, fixedStrip);
             if (pin != null)
             {
-                UIF.Fit(pin.GetComponent<RectTransform>(), Edge, y,
-                        pinWide - ColGap, tall);
+                UIF.Fit(pin.GetComponent<RectTransform>(), Edge + third + ColGap, y,
+                        third, tall);
                 UIF.NoSwell(pin);
                 Text label = Pin(pin, "PIN BLOCKS", UIF.Ink);
-                Grow(pin, label);
+                UIF.Grow(pin, label);
                 pinBox = pin.GetComponent<Toggle>();
                 if (pinBox != null)
                 {
@@ -1480,11 +1325,11 @@ namespace NodeEditorMod
             GameObject go = UIF.Spawn(UIF.ButtonPrefab, fixedStrip);
             if (go != null)
             {
-                UIF.Fit(go.GetComponent<RectTransform>(), Edge + pinWide, y,
-                        Wide - pinWide, tall);
+                UIF.Fit(go.GetComponent<RectTransform>(), Edge + (third + ColGap) * 2f,
+                        y, third, tall);
                 UIF.NoSwell(go);
-                convertLabel = Pin(go, "CONVERT TO TIMER BLOCKS", UIF.Ink);
-                Grow(go, convertLabel);
+                convertLabel = Pin(go, "EXPORT", UIF.Ink);
+                UIF.Grow(go, convertLabel);
                 Button click = go.GetComponent<Button>();
                 if (click != null)
                 {
@@ -1510,11 +1355,8 @@ namespace NodeEditorMod
             Editor.Toggle(logic);
         }
 
-        /// <summary>
-        /// Keeps the switch showing whether the editor is actually up: it can be
-        /// closed by its own cross or by Escape, and a switch that said otherwise
-        /// would need clicking twice.
-        /// </summary>
+        /// <summary>Keeps the switch in step with the editor, which can also close
+        /// by its own cross or by Escape.</summary>
         private void Watching()
         {
             if (boardBox == null || logic == null)
@@ -1570,31 +1412,16 @@ namespace NodeEditorMod
             return label;
         }
 
-        /// <summary>
-        /// A prefab's caption, pinned to its own control and made deaf. The Text
-        /// Button's label is a child authored at a fixed width for the prefab's own
-        /// size, so on a narrow control it overhangs its neighbour and wins the
-        /// clicks meant for it.
-        /// </summary>
+        /// <summary>A prefab's caption, pinned to its own control and deaf: the
+        /// fixed-width label overhangs a narrow control and steals its neighbour's
+        /// clicks.</summary>
         private static Text Pin(GameObject control, string text, Color colour)
         {
             return UIF.Label(control, text, colour, TextAnchor.MiddleCenter, 8,
                              false);
         }
 
-        /// <summary>
-        /// Puts the hover swell on a control's lettering rather than on the control.
-        /// A hovered control grows about 15%, which is right for a button and wrong
-        /// for a table cell: it carries the word into the next column, and the press
-        /// animation shrinks the click target out from under the pointer, so the
-        /// outer few percent of the control never fires at all.
-        /// </summary>
-        private static void Grow(GameObject control, Text label)
-        {
-            UIF.Grow(control, label == null ? null : label.transform);
-        }
-
-        private Toggle Box(Transform host, float x, float w, int index)
+        private Toggle Box(Transform host, float x, float w, Cells cells)
         {
             GameObject go = UIF.Spawn(UIF.TogglePrefab, host);
             if (go == null)
@@ -1609,15 +1436,14 @@ namespace NodeEditorMod
             Toggle toggle = go.GetComponent<Toggle>();
             if (toggle != null)
             {
-                int at = index;
                 float where = x;
                 toggle.onValueChanged.AddListener(
-                    delegate(bool on) { Flipped(at, where, on); });
+                    delegate(bool on) { Flipped(cells.Index, where, on); });
             }
             return toggle;
         }
 
-        private InputField Number(Transform host, float x, float w, int index, bool wait)
+        private InputField Number(Transform host, float x, float w, Cells cells, bool wait)
         {
             GameObject go = UIF.Spawn(UIF.InputPrefab, host);
             if (go == null)
@@ -1636,15 +1462,15 @@ namespace NodeEditorMod
                     ghost.text = "0";
                 }
                 field.contentType = InputField.ContentType.DecimalNumber;
-                int at = index;
+                Marquee.On(field);
                 bool which = wait;
                 // onEndEdit, not onValueChanged: the latter would apply the 2 of a
                 // 25 while it is still being typed.
-                field.onEndEdit.AddListener(delegate(string typed) { Typed(at, which, typed); });
+                field.onEndEdit.AddListener(
+                    delegate(string typed) { Typed(cells.Index, which, typed); });
 
-                // A sheet over the box, so the number can be dragged as well as
-                // typed -- the sibling SpecialEffects mod's value fields, and the
-                // whole of why it is a sheet is in ValueField.
+                // A sheet over the box, so the number can be dragged too (see
+                // ValueField).
                 GameObject drag = new GameObject("Drag");
                 drag.transform.SetParent(field.transform, false);
                 RectTransform sheet = drag.AddComponent<RectTransform>();
@@ -1657,8 +1483,8 @@ namespace NodeEditorMod
 
                 ValueField value = drag.AddComponent<ValueField>();
                 value.field = field;
-                value.dragged = delegate(float pixels) { Scrub(at, which, pixels); };
-                value.picking = delegate(Vector2 screen) { Pick(at, which, screen); };
+                value.dragged = delegate(float pixels) { Scrub(cells.Index, which, pixels); };
+                value.picking = delegate(Vector2 screen) { Pick(cells.Index, which, screen); };
                 value.picked = delegate { Picked(); };
             }
             return field;
@@ -1677,14 +1503,13 @@ namespace NodeEditorMod
         private bool reaching;
         private Vector2 reachAt;
 
-        /// <summary>The box the reach started from, which is the one that takes the
-        /// keyboard when it ends: a selection is made to be typed into, and asking
-        /// for a click on a box that is already lit would be asking twice.</summary>
+        /// <summary>The box a reach started from, which takes the keyboard when it
+        /// ends.
+        /// </summary>
         private InputField pickBox;
 
-        /// <summary>Frames left to insist on that. A field settles its own caret in
-        /// its LateUpdate, and which of the two runs first is not ours to
-        /// decide.</summary>
+        /// <summary>Frames left to insist on that selection: the field settles its
+        /// caret in its own LateUpdate.</summary>
         private int pickFocus;
 
         /// <summary>How near the top or bottom of the frame the pointer has to be
@@ -1700,14 +1525,8 @@ namespace NodeEditorMod
             return plate == null ? Color.white : plate.color;
         }
 
-        /// <summary>
-        /// What a selected box is tinted: the colour the field itself highlights
-        /// selected text with, which is the grey somebody already knows means
-        /// "this, and what you type next replaces it".
-        ///
-        /// Its own alpha is for text drawn over a box; the box keeps the alpha it
-        /// was drawn with.
-        /// </summary>
+        /// <summary>A selected box's tint: the field's own text-selection colour,
+        /// at the box's alpha.</summary>
         private static Color Chosen(InputField box, Color plain)
         {
             if (box == null)
@@ -1718,10 +1537,8 @@ namespace NodeEditorMod
             return new Color(grey.r, grey.g, grey.b, plain.a);
         }
 
-        /// <summary>
-        /// The pointer has reached out of a box, up or down its own column. Selects
-        /// every row between the one the drag started on and the one it is over.
-        /// </summary>
+        /// <summary>A drag reaching up or down a column: selects every row between
+        /// where it started and the pointer.</summary>
         private void Pick(int index, bool wait, Vector2 screen)
         {
             if (served == null || table.Count == 0)
@@ -1737,7 +1554,8 @@ namespace NodeEditorMod
                 pickWait = wait;
                 pickFrom = index;
                 pickTo = index;
-                pickBox = wait ? table[index].Wait : table[index].Duration;
+                Cells from = CellFor(index);
+                pickBox = from == null ? null : (wait ? from.Wait : from.Duration);
             }
             int over = Under(screen);
             pickTo = over < 0 ? pickTo : over;
@@ -1770,9 +1588,8 @@ namespace NodeEditorMod
         /// <summary>Frames the selected box is given the keyboard for.</summary>
         private const int Insisting = 3;
 
-        /// <summary>Holds the whole of the box's value selected for a few frames
-        /// after a reach, so the first thing typed replaces it rather than landing
-        /// beside it.</summary>
+        /// <summary>Holds a reached box fully selected for a few frames, so typing
+        /// replaces its value.</summary>
         private void Keyboard()
         {
             if (pickFocus <= 0 || pickBox == null)
@@ -1786,9 +1603,7 @@ namespace NodeEditorMod
             }
             pickBox.selectionAnchorPosition = 0;
             pickBox.selectionFocusPosition = pickBox.text.Length;
-            // Those two setters move the caret and the anchor and nothing else --
-            // they do not mark the caret graphic dirty, so the highlight that shows
-            // a selection is never rebuilt without this.
+            // Those setters do not redraw the selection highlight; this does.
             pickBox.ForceLabelUpdate();
         }
 
@@ -1812,19 +1627,19 @@ namespace NodeEditorMod
                 && index <= Mathf.Max(pickFrom, pickTo);
         }
 
-        /// <summary>Tints the boxes that are selected and clears the ones that are
-        /// not. Every box every time: a row that has just left the selection has to
-        /// be put back, and there are thirty-two of them at the most.</summary>
+        /// <summary>Tints the selected boxes and clears the rest, every box every
+        /// time.
+        /// </summary>
         private void Highlight()
         {
             for (int i = 0; i < table.Count; i++)
             {
                 Cells row = table[i];
-                Tint(row.Wait, InPick(i, true) ? Chosen(row.Wait, row.WaitPlain)
-                                               : row.WaitPlain);
+                Tint(row.Wait, InPick(row.Index, true) ? Chosen(row.Wait, row.WaitPlain)
+                                                       : row.WaitPlain);
                 Tint(row.Duration,
-                     InPick(i, false) ? Chosen(row.Duration, row.DurationPlain)
-                                      : row.DurationPlain);
+                     InPick(row.Index, false) ? Chosen(row.Duration, row.DurationPlain)
+                                              : row.DurationPlain);
             }
         }
 
@@ -1837,12 +1652,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// Which row the pointer is over, or -1 if it is over none of them.
-        ///
-        /// Through the window's own rect, the same way <see cref="Curtain"/>
-        /// measures: the rows are several parents deep inside a frame that scrolls,
-        /// and their anchored positions say nothing about where they are on screen.
+        /// <summary>The row under the pointer, or -1, measured through the window's
+        /// rect.
         /// </summary>
         private int Under(Vector2 screen)
         {
@@ -1850,51 +1661,11 @@ namespace NodeEditorMod
             {
                 return -1;
             }
-            Vector2 local;
-            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                    windowRect, screen, null, out local))
-            {
-                return -1;
-            }
-            int nearest = -1;
-            float best = 0f;
-            Vector3[] corners = new Vector3[4];
-            for (int i = 0; i < table.Count; i++)
-            {
-                RectTransform row = table[i].Frame == null
-                    ? null : table[i].Frame.transform as RectTransform;
-                if (row == null)
-                {
-                    continue;
-                }
-                row.GetWorldCorners(corners);
-                float bottom = windowRect.InverseTransformPoint(corners[0]).y;
-                float top = windowRect.InverseTransformPoint(corners[1]).y;
-                if (local.y <= top && local.y >= bottom)
-                {
-                    return i;
-                }
-                // Past the end of the list in either direction: the nearest row is
-                // what the pointer means, which is what lets a reach run off the
-                // top or the bottom and take everything with it.
-                float away = local.y > top ? local.y - top : bottom - local.y;
-                if (nearest < 0 || away < best)
-                {
-                    nearest = i;
-                    best = away;
-                }
-            }
-            return nearest;
+            return RowAt(screen);
         }
 
-        /// <summary>
-        /// Scrolls the list while a reach is held near the top or the bottom of the
-        /// frame, so a selection can be longer than the window.
-        ///
-        /// Driven from LateUpdate rather than from the drag: a pointer held still at
-        /// the edge sends no drag events, and holding still at the edge is exactly
-        /// how somebody asks for this.
-        /// </summary>
+        /// <summary>Scrolls while a reach is held near the frame's top or bottom.
+        /// From LateUpdate: a pointer held still sends no drag events.</summary>
         private void Reach()
         {
             if (!reaching || scroll == null || scroll.content == null
@@ -1926,6 +1697,7 @@ namespace NodeEditorMod
             Vector2 at = scroll.content.anchoredPosition;
             scroll.content.anchoredPosition =
                 new Vector2(at.x, Mathf.Clamp(at.y + step, 0f, span));
+            Pool(false);
             Curtain(false);
             int over = Under(reachAt);
             if (over >= 0)
@@ -1935,37 +1707,28 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>How much of a second a pixel of drag is worth. A slider's whole
-        /// range per two hundred and fifty pixels, which is the rate the sibling
-        /// SpecialEffects mod's value fields use.</summary>
+        /// <summary>Seconds per pixel of drag: a slider's range per 250 pixels, as
+        /// the SpecialEffects mod's fields use.</summary>
         private const float DragPerPixel = 0.004f;
 
-        /// <summary>
-        /// A number dragged rather than typed.
-        ///
-        /// Written straight to the control and shown at once, and queued for the
-        /// commit that happens when the mouse comes up -- a drag writes live every
-        /// frame and reserialises the block once, the same as a slider being
-        /// dragged in Besiege's own mapper.
+        /// <summary>A number dragged: written live, committed when the button comes
+        /// up.
         /// </summary>
         private void Scrub(int index, bool wait, float pixels)
         {
-            if (served == null || index >= served.Rows.Count)
+            if (served == null)
             {
                 return;
             }
-            Row row = served.Rows[index];
-            if (!row.Ready)
+            List<RowData> rows = served.Data;
+            if (index < 0 || index >= rows.Count)
             {
                 return;
             }
-            MSlider slider = wait ? row.Wait : row.Duration;
-            float step = pixels * (slider.Max - slider.Min) * DragPerPixel;
+            float step = pixels * SliderSpan * DragPerPixel;
 
-            // A drag over a selection moves every row of it by the same amount
-            // rather than to the same value: the rows were given their spacing on
-            // purpose, and a drag is an adjustment where a typed number is a
-            // decision.
+            // Over a selection, every row moves by the same amount and keeps its
+            // spacing.
             bool many = InPick(index, wait);
             int first = many ? Mathf.Min(pickFrom, pickTo) : index;
             int last = many ? Mathf.Max(pickFrom, pickTo) : index;
@@ -1974,62 +1737,215 @@ namespace NodeEditorMod
                 // Touching a cell outside the selection is leaving it.
                 Unpick();
             }
-            for (int i = first; i <= last && i < served.Rows.Count; i++)
+            for (int i = first; i <= last && i < rows.Count; i++)
             {
-                Row one = served.Rows[i];
-                if (!one.Ready)
+                RowData one = rows[i];
+                // Never below nought: a wait or a duration below zero is not a
+                // thing, and nothing above sixty stops one.
+                float value = Mathf.Max(0f, (wait ? one.Wait : one.Duration) + step);
+                if (wait)
                 {
-                    continue;
+                    one.Wait = value;
                 }
-                MSlider each = wait ? one.Wait : one.Duration;
-                float value = each.Value + step;
-                // Never below the slider's own floor: a wait or a duration below
-                // zero is not a thing, whatever the slider will take above its top.
-                each.Value = value < each.Min ? each.Min : value;
-                Queue(each);
-                InputField shown = wait ? table[i].Wait : table[i].Duration;
+                else
+                {
+                    one.Duration = value;
+                }
+                Cells cells = CellFor(i);
+                InputField shown = cells == null ? null
+                    : (wait ? cells.Wait : cells.Duration);
                 if (shown != null)
                 {
-                    // Written even while the box has focus, which is the one place
-                    // that is right: the value is moving under the pointer and the
-                    // box is what shows it.
-                    shown.text = Spell(each.Value);
+                    // Written even while focused: the value is moving under the
+                    // pointer.
+                    shown.text = UIF.Seconds(value);
                 }
             }
+            served.Store(rows);
+            Queue(served.TableControl);
             // The numbers down the left are the wait order, and a wait being
             // dragged is that order changing under the hand.
             Numbers();
         }
 
-        private Image Plate(Transform host, float x, float y, float w, float h, Color colour)
+        /// <summary>The seconds a drag is measured against: the range of Besiege's
+        /// own timer slider.</summary>
+        private const float SliderSpan = 60f;
+
+        // ---- the timer table's built rows -----------------------------------
+
+        /// <summary>
+        /// Points the timer table's built rows at the data rows the scroll has in
+        /// view, and writes them: a window's worth of rows are built whatever the
+        /// table's length, so a long table opens and scrolls as fast as a short one.
+        /// Only when the scroll moved, unless forced.
+        /// </summary>
+        private void Pool(bool force)
         {
-            GameObject go = new GameObject("Plate");
-            go.transform.SetParent(host, false);
-            Image image = go.AddComponent<Image>();
-            UIF.Fit(go.GetComponent<RectTransform>(), x, y, w, h);
-            image.color = colour;
-            image.raycastTarget = false;
-            return image;
+            if ((Gated ? logic == null : served == null) || scroll == null
+                || scroll.content == null
+                || table.Count == 0)
+            {
+                return;
+            }
+            float at = scroll.content.anchoredPosition.y;
+            if (!force && Mathf.Abs(at - pooledAt) < Slop)
+            {
+                return;
+            }
+            pooledAt = at;
+            float step = RowHeight + RowGap;
+            int first = Mathf.Clamp(Mathf.FloorToInt((at - rowsTop) / step), 0,
+                                    Mathf.Max(0, Rows - table.Count));
+            bool moving = false;
+            for (int k = 0; k < table.Count; k++)
+            {
+                if (table[k].Index != first + k)
+                {
+                    // Whatever the row is in the middle of -- a number typed, a key
+                    // being bound -- is finished for the row it was showing.
+                    Let(table[k]);
+                    moving = true;
+                }
+            }
+            if (!moving && !force)
+            {
+                return;
+            }
+            filling = true;
+            try
+            {
+                for (int k = 0; k < table.Count; k++)
+                {
+                    Cells cells = table[k];
+                    int index = first + k;
+                    if (cells.Index == index && !force)
+                    {
+                        continue;
+                    }
+                    cells.Index = index;
+                    if (cells.Emulate != null)
+                    {
+                        cells.Emulate.Row = index;
+                    }
+                    if (cells.InA != null)
+                    {
+                        cells.InA.Row = index;
+                    }
+                    if (cells.InB != null)
+                    {
+                        cells.InB.Row = index;
+                    }
+                    UIF.Fit(cells.Frame.transform as RectTransform, 0f,
+                            rowsTop + index * step, width, RowHeight);
+                    if (Gated)
+                    {
+                        List<LogicRow> gates = logic.Rows;
+                        if (index < gates.Count)
+                        {
+                            GateRow(cells, gates[index]);
+                        }
+                    }
+                    else
+                    {
+                        List<RowData> rows = served.Data;
+                        if (index < rows.Count)
+                        {
+                            FillRow(cells, rows[index]);
+                        }
+                    }
+                }
+            }
+            finally
+            {
+                filling = false;
+            }
+            Numbers();
+            Highlight();
+        }
+
+        /// <summary>Writes one built row from its data row.</summary>
+        private static void FillRow(Cells cells, RowData row)
+        {
+            if (cells.Emulate != null)
+            {
+                cells.Emulate.Load(row.EmulateVariable, row.EmulateKeys, true);
+            }
+            Set(cells.Wait, row.Wait);
+            Set(cells.Duration, row.Duration);
+            if (cells.Hold != null) cells.Hold.isOn = row.Hold;
+            if (cells.Stop != null) cells.Stop.isOn = row.Stop;
+            if (cells.Loop != null) cells.Loop.isOn = row.Loop;
+        }
+
+        /// <summary>The built row showing a data row, or null when it is scrolled
+        /// out of view.</summary>
+        private Cells CellFor(int index)
+        {
+            for (int i = 0; i < table.Count; i++)
+            {
+                if (table[i].Index == index)
+                {
+                    return table[i];
+                }
+            }
+            return null;
+        }
+
+        /// <summary>Ends a typing or a binding in a built row, which writes it into
+        /// the row it was for.</summary>
+        private static void Let(Cells cells)
+        {
+            if (cells.Emulate != null)
+            {
+                cells.Emulate.Let();
+            }
+            if (cells.InA != null)
+            {
+                cells.InA.Let();
+            }
+            if (cells.InB != null)
+            {
+                cells.InB.Let();
+            }
+            if (cells.Wait != null && cells.Wait.isFocused)
+            {
+                cells.Wait.DeactivateInputField();
+            }
+            if (cells.Duration != null && cells.Duration.isFocused)
+            {
+                cells.Duration.DeactivateInputField();
+            }
+        }
+
+        /// <summary>The timer row under the pointer, or the nearest end of the
+        /// table, from the content's own offsets: most rows are not built.</summary>
+        private int RowAt(Vector2 screen)
+        {
+            RectTransform rows = content as RectTransform;
+            Vector2 point;
+            if (rows == null || Rows == 0
+                || !RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                       rows, screen, null, out point))
+            {
+                return -1;
+            }
+            // Down from the content's top edge, which is its pivot.
+            int index = Mathf.FloorToInt((-point.y - rowsTop) / (RowHeight + RowGap));
+            return Mathf.Clamp(index, 0, Rows - 1);
         }
 
         private float Rule(float y)
         {
-            Plate(fixedStrip, Edge, y + RuleGap * 0.5f, Wide, 2f, RuleInk);
+            UIF.Plate(fixedStrip, Edge, y + RuleGap * 0.5f, Wide, 2f, RuleInk)
+                .GetComponent<Image>().raycastTarget = false;
             return y + RuleGap + 2f + RowGap;
         }
 
         // ---- reading the block -----------------------------------------------
 
-        /// <summary>
-        /// Writes every cell from the block. On every open, and after any edit that
-        /// rearranges the rows.
-        ///
-        /// Every cell is written every time, not only the ones that might have
-        /// changed. A window kept and reused for the next block of the same shape
-        /// would otherwise show the previous block's values, which is a bug that
-        /// looks like a save fault and is an identity fault -- two blocks of the
-        /// same kind do not share their mapper controls.
-        /// </summary>
+        /// <summary>Writes every cell from the block, every time: a window reused
+        /// for another block would otherwise show the last one's values.</summary>
         private void Fill()
         {
             if (Gated)
@@ -2041,24 +1957,11 @@ namespace NodeEditorMod
             {
                 return;
             }
+            // Every built row pointed and written, then the rest.
+            Pool(true);
             filling = true;
             try
             {
-                for (int i = 0; i < table.Count && i < served.Rows.Count; i++)
-                {
-                    Row row = served.Rows[i];
-                    Cells cells = table[i];
-                    if (!row.Ready)
-                    {
-                        continue;
-                    }
-                    cells.Emulate.Show(row.Emulate);
-                    Set(cells.Wait, row.Wait.Value);
-                    Set(cells.Duration, row.Duration.Value);
-                    if (cells.Hold != null) cells.Hold.isOn = row.Hold.IsActive;
-                    if (cells.Stop != null) cells.Stop.isOn = row.Stop.IsActive;
-                    if (cells.Loop != null) cells.Loop.isOn = row.Loop.IsActive;
-                }
                 Numbers();
                 Heads();
                 ShowPin();
@@ -2069,59 +1972,16 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// The logic table's fill. Every cell every time, for the reason the
-        /// timer's does it: a window kept for the next block of the same shape
-        /// would otherwise show the last one's values.
+        /// <summary>The logic table's fill: every cell every time, for the same
+        /// reason.
         /// </summary>
         private void GateFill()
         {
+            // Every built row pointed and written, then the rest.
+            Pool(true);
             filling = true;
             try
             {
-                for (int i = 0; i < table.Count && i < logic.Rows.Count; i++)
-                {
-                    LogicRow row = logic.Rows[i];
-                    Cells cells = table[i];
-                    if (!row.Ready)
-                    {
-                        continue;
-                    }
-                    int gate = row.Gate;
-                    cells.InA.Show(row.InputA);
-                    cells.InB.Show(row.InputB);
-                    cells.Emulate.Show(row.Emulate);
-                    if (cells.GateName != null)
-                    {
-                        cells.GateName.text = Gates.Names[gate];
-                    }
-                    if (cells.ModeBox != null)
-                    {
-                        cells.ModeBox.isOn = row.Switch;
-                    }
-                    if (cells.Barred != null)
-                    {
-                        cells.Barred.gameObject.SetActive(!Gates.UsesB(gate));
-                    }
-                    if (cells.ModeName != null)
-                    {
-                        cells.ModeName.text = Gates.ModeLetter(gate);
-                    }
-                    if (cells.ModeBarred != null)
-                    {
-                        // Barred *and* switched off, not merely barred: a switch
-                        // this gate never reads is one a click should not move.
-                        bool has = Gates.UsesMode(gate);
-                        cells.ModeBarred.gameObject.SetActive(!has);
-                        cells.ModeBox.interactable = has;
-                    }
-                    if (cells.Number != null)
-                    {
-                        // Row order, not a rank: a gate has no order of its own,
-                        // and the number is here to be pointed at.
-                        cells.Number.Number = (i + 1).ToString();
-                    }
-                }
                 Heads();
                 ShowPin();
             }
@@ -2131,9 +1991,52 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>Puts the block's pin setting on the switch that shows it.
-        /// Inside a fill, so writing it back does not answer for the player.
-        /// </summary>
+        /// <summary>Writes one built logic row from its row.</summary>
+        private static void GateRow(Cells cells, LogicRow row)
+        {
+            if (!row.Ready)
+            {
+                return;
+            }
+            int gate = row.Gate;
+            cells.InA.Show(row.InputA);
+            // No count on an input the gate does not read: see KeyCell.Show.
+            cells.InB.Show(row.InputB, Gates.UsesB(gate));
+            cells.Emulate.Show(row.Emulate);
+            if (cells.GateName != null)
+            {
+                cells.GateName.text = Gates.Names[gate];
+            }
+            if (cells.ModeBox != null)
+            {
+                cells.ModeBox.isOn = row.Switch;
+            }
+            if (cells.Barred != null)
+            {
+                cells.Barred.gameObject.SetActive(!Gates.UsesB(gate));
+            }
+            if (cells.ModeName != null)
+            {
+                cells.ModeName.text = Gates.ModeLetter(gate);
+            }
+            if (cells.ModeBarred != null)
+            {
+                // Barred *and* switched off, not merely barred: a switch this gate
+                // never reads is one a click should not move.
+                bool has = Gates.UsesMode(gate);
+                cells.ModeBarred.gameObject.SetActive(!has);
+                cells.ModeBox.interactable = has;
+            }
+            if (cells.Number != null)
+            {
+                // Row order, not a rank: a gate has no order of its own, and the
+                // number is here to be pointed at.
+                cells.Number.Number = (cells.Index + 1).ToString();
+            }
+        }
+
+        /// <summary>Shows the block's pin setting on its switch, inside a fill so
+        /// it is not taken for the player's.</summary>
         private void ShowPin()
         {
             if (pinBox == null)
@@ -2155,65 +2058,51 @@ namespace NodeEditorMod
                 // whoever is typing.
                 return;
             }
-            field.text = Spell(value);
+            field.text = UIF.Seconds(value);
         }
 
-        /// <summary>A time as a cell shows it: two decimals, and no trailing
-        /// zeroes past what a wait is ever set to.</summary>
-        private static string Spell(float value)
-        {
-            return value.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
-        }
-
-        /// <summary>
-        /// Numbers the rows by when they fire: the shortest wait is timer 1,
-        /// whatever order the rows happen to be in.
-        ///
-        /// A rank rather than a row index, so the number answers the question
-        /// somebody reading the table is actually asking -- which of these goes
-        /// first. Sorting by WAIT therefore puts the numbers in order and every
-        /// other sort scatters them, which is the point: the number is the one
-        /// column that does not move when the rows do.
-        ///
-        /// Ties keep the row order, so two rows on the same wait are numbered top
-        /// to bottom rather than arbitrarily. An insertion sort over the indices,
-        /// which is stable and is as much machinery as thirty-two rows deserve.
-        /// </summary>
+        /// <summary>Numbers the rows by firing order -- the shortest wait is 1 --
+        /// with ties in row order.</summary>
         private void Numbers()
         {
-            int count = Mathf.Min(table.Count, served.Rows.Count);
+            if (served == null)
+            {
+                return;
+            }
+            List<RowData> rows = served.Data;
+            int count = rows.Count;
+            if (ranks.Length != count)
+            {
+                ranks = new int[count];
+            }
             int[] order = new int[count];
             for (int i = 0; i < count; i++)
             {
                 order[i] = i;
             }
-            for (int i = 1; i < count; i++)
+            // Ties in row order, so the sort itself need not be stable.
+            Array.Sort(order, delegate(int a, int b)
             {
-                int moving = order[i];
-                float wait = Wait(moving);
-                int at = i;
-                while (at > 0 && Wait(order[at - 1]) > wait)
-                {
-                    order[at] = order[at - 1];
-                    at--;
-                }
-                order[at] = moving;
-            }
+                int by = rows[a].Wait.CompareTo(rows[b].Wait);
+                return by != 0 ? by : a.CompareTo(b);
+            });
             for (int rank = 0; rank < count; rank++)
             {
-                RowNumber cell = table[order[rank]].Number;
-                if (cell != null)
+                ranks[order[rank]] = rank + 1;
+            }
+            for (int i = 0; i < table.Count; i++)
+            {
+                Cells cells = table[i];
+                if (cells.Number != null && cells.Index >= 0 && cells.Index < count)
                 {
-                    cell.Number = (rank + 1).ToString();
+                    cells.Number.Number = ranks[cells.Index].ToString();
                 }
             }
         }
 
-        private float Wait(int row)
-        {
-            Row one = served.Rows[row];
-            return one.Ready ? one.Wait.Value : 0f;
-        }
+        /// <summary>Each row's place in firing order, over the whole table: the
+        /// rows built are only some of it.</summary>
+        private int[] ranks = new int[0];
 
         /// <summary>Marks the heading of the column the table was last sorted
         /// by. Only the two that sort have a heading to mark.</summary>
@@ -2245,34 +2134,33 @@ namespace NodeEditorMod
 
         // ---- what the logic table's controls do -------------------------------
 
-        /// <summary>One of a logic row's three keys changed. Which one it is comes
-        /// from the cell the panel built it into, so a row does not have to carry a
-        /// column number about with it.</summary>
+        /// <summary>One of a logic row's three keys changed; the cell says
+        /// which.</summary>
         private void GateKeyChanged(KeyCell cell)
         {
             if (filling || logic == null || cell.Row < 0
-                || cell.Row >= logic.Rows.Count || cell.Row >= table.Count)
+                || cell.Row >= logic.Rows.Count)
             {
                 return;
             }
             LogicRow row = logic.Rows[cell.Row];
-            if (!row.Ready)
+            Cells shown = CellFor(cell.Row);
+            if (!row.Ready || shown == null)
             {
                 return;
             }
-            Cells shown = table[cell.Row];
             MKey key = cell == shown.InA ? row.InputA
                      : (cell == shown.InB ? row.InputB : row.Emulate);
             Apply(key, cell);
             Queue(key);
         }
 
-        /// <summary>Offers the twelve gates, in the game's own order, and the timer
-        /// after them. The timer's wait, duration and switches are set on the node
-        /// editor's timer node.</summary>
+        /// <summary>Offers the twelve gates in the game's order, then the
+        /// timer.</summary>
         private void PickGate(int index)
         {
-            if (logic == null || index >= logic.Rows.Count || index >= table.Count)
+            Cells cells = CellFor(index);
+            if (logic == null || index < 0 || index >= logic.Rows.Count || cells == null)
             {
                 return;
             }
@@ -2281,8 +2169,8 @@ namespace NodeEditorMod
             {
                 names.Add(Gates.Names[g]);
             }
-            RectTransform under = table[index].Gate == null
-                ? null : table[index].Gate.transform as RectTransform;
+            RectTransform under = cells.Gate == null
+                ? null : cells.Gate.transform as RectTransform;
             int at = index;
             Choices.Open(under, names, delegate(string picked)
             {
@@ -2310,27 +2198,36 @@ namespace NodeEditorMod
 
         private void RowKeyChanged(KeyCell cell)
         {
-            if (filling || served == null || cell.Row < 0 || cell.Row >= served.Rows.Count)
+            if (filling || served == null)
             {
                 return;
             }
-            Row row = served.Rows[cell.Row];
-            if (!row.Ready)
+            List<RowData> rows = served.Data;
+            if (cell.Row < 0 || cell.Row >= rows.Count)
             {
                 return;
             }
-            Apply(row.Emulate, cell);
-            Queue(row.Emulate);
+            RowData row = rows[cell.Row];
+            // The cell's mode decides: a variable cell with nothing typed is
+            // unbound, not its old keycode.
+            if (cell.UsesVariable)
+            {
+                row.EmulateVariable = Bindings.Tidied(cell.Variable);
+                row.EmulateKeys = new KeyCode[0];
+            }
+            else
+            {
+                row.EmulateVariable = null;
+                row.EmulateKeys = cell.Code != KeyCode.None
+                    ? new KeyCode[] { cell.Code } : new KeyCode[0];
+            }
+            served.Store(rows);
+            Queue(served.TableControl);
         }
 
-        /// <summary>
-        /// Writes a cell through to the key it stands for.
-        ///
-        /// The cell's *mode* decides, not which of its two values happens to be
-        /// set: a cell switched to a variable with nothing typed into it yet is an
-        /// unbound key, and must not fall back to whatever keycode it was showing
-        /// a moment ago.
-        /// </summary>
+        /// <summary>Writes a cell through to its key. The cell's mode decides: a
+        /// variable cell with nothing typed is unbound, not its old
+        /// keycode.</summary>
         private static void Apply(MKey key, KeyCell cell)
         {
             if (cell.UsesVariable)
@@ -2355,10 +2252,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <param name="where">Which switch column this box is in, as the x it was
-        /// built at. The three are told apart by position because the columns they
-        /// stand for are no longer anything <see cref="Table"/> knows about: they
-        /// do not sort, so they have no column number.</param>
+        /// <param name="where">Which switch column, as the x it was built at: these
+        /// columns do not sort, so they have no column number.</param>
         private void Flipped(int index, float where, bool on)
         {
             if (filling)
@@ -2367,9 +2262,8 @@ namespace NodeEditorMod
             }
             if (Gated)
             {
-                // The logic table has one switch a row, so there is nothing to tell
-                // apart: which of the game's two controls it stands for is the
-                // gate's business, not the panel's.
+                // The logic table has one switch a row; which game control it means
+                // is up to the gate.
                 if (index >= logic.Rows.Count || !logic.Rows[index].Ready)
                 {
                     return;
@@ -2378,35 +2272,45 @@ namespace NodeEditorMod
                 Queue(logic.Rows[index].Mode);
                 return;
             }
-            if (served == null || index >= served.Rows.Count)
+            if (served == null)
             {
                 return;
             }
-            Row row = served.Rows[index];
-            if (!row.Ready)
+            List<RowData> rows = served.Data;
+            if (index < 0 || index >= rows.Count)
             {
                 return;
             }
+            RowData row = rows[index];
             float[] x, w;
             Columns(out x, out w);
-            MToggle toggle = where <= x[CHold] ? row.Hold
-                : (where <= x[CStop] ? row.Stop : row.Loop);
-            toggle.IsActive = on;
-            Queue(toggle);
+            if (where <= x[CHold])
+            {
+                row.Hold = on;
+            }
+            else if (where <= x[CStop])
+            {
+                row.Stop = on;
+            }
+            else
+            {
+                row.Loop = on;
+            }
+            served.Store(rows);
+            Queue(served.TableControl);
         }
 
         private void Typed(int index, bool wait, string text)
         {
-            if (filling || served == null || index >= served.Rows.Count)
+            if (filling || served == null)
             {
                 return;
             }
-            Row row = served.Rows[index];
-            if (!row.Ready)
+            List<RowData> rows = served.Data;
+            if (index < 0 || index >= rows.Count)
             {
                 return;
             }
-            MSlider slider = wait ? row.Wait : row.Duration;
 
             float value;
             if (!float.TryParse(text, System.Globalization.NumberStyles.Float,
@@ -2415,40 +2319,42 @@ namespace NodeEditorMod
             {
                 // Not a number: put the real value back, so the box never keeps
                 // something the block does not hold.
-                Set(wait ? table[index].Wait : table[index].Duration, slider.Value);
+                Cells own = CellFor(index);
+                if (own != null)
+                {
+                    Set(wait ? own.Wait : own.Duration,
+                        wait ? rows[index].Wait : rows[index].Duration);
+                }
                 return;
             }
-            // Negative seconds are not a time. The upper end is deliberately open:
-            // the slider is declared unclamped, exactly as Besiege's own timer
-            // declares its two, so an event four minutes in is one row rather than
-            // a chain of them.
-            //
-            // Rounded to what the cell can show, so that what is stored is what is
-            // written back below -- otherwise typing 0.055 leaves a box reading
-            // 0.06 over a block holding 0.055, and the next person to touch it
-            // stores the 0.06 they were shown. Ten milliseconds is half a tick, so
-            // nothing the timer can resolve is lost.
+            // No negative seconds, and no upper bound, as Besiege's timer. Rounded
+            // to what the box shows -- half a tick at most -- so what is stored is
+            // what is shown.
             value = Mathf.Max(0f, Mathf.Round(value * 100f) / 100f);
 
-            // One value into every row of a standing selection. That is what the
-            // selection is for: reaching down a column and typing once is the whole
-            // of "give these eight the same wait".
+            // One value into every row of a standing selection.
             int first = InPick(index, wait) ? Mathf.Min(pickFrom, pickTo) : index;
             int last = InPick(index, wait) ? Mathf.Max(pickFrom, pickTo) : index;
-            for (int i = first; i <= last && i < served.Rows.Count; i++)
+            for (int i = first; i <= last && i < rows.Count; i++)
             {
-                Row one = served.Rows[i];
-                if (!one.Ready)
+                if (wait)
                 {
-                    continue;
+                    rows[i].Wait = value;
                 }
-                MSlider each = wait ? one.Wait : one.Duration;
-                each.Value = value;
-                Queue(each);
+                else
+                {
+                    rows[i].Duration = value;
+                }
                 // Written back, so a rejected value changes in front of whoever
                 // typed it rather than silently.
-                Set(wait ? table[i].Wait : table[i].Duration, value);
+                Cells cells = CellFor(i);
+                if (cells != null)
+                {
+                    Set(wait ? cells.Wait : cells.Duration, value);
+                }
             }
+            served.Store(rows);
+            Queue(served.TableControl);
             Unpick();
             if (wait)
             {
@@ -2489,12 +2395,12 @@ namespace NodeEditorMod
                 if (LogicTable.Add(logic, gateTouched) < 0)
                 {
                     Flash(plusLabel, "REACHED THE "
-                          + NodeEditorBehaviour.MaxRows + " GATES LIMIT",
+                          + ComputerBehaviour.MaxRows + " GATES LIMIT",
                           UIF.Hot);
                     return;
                 }
                 Commit(gateTouched);
-                Rebuild();
+                Refresh();
                 return;
             }
             if (served == null)
@@ -2510,7 +2416,7 @@ namespace NodeEditorMod
                 return;
             }
             Commit(touched);
-            Rebuild();
+            Refresh();
         }
 
         private void Delete(int index)
@@ -2518,10 +2424,8 @@ namespace NodeEditorMod
             if (Gated)
             {
                 List<MapperType> gateTouched = new List<MapperType>();
-                // The whole block as it stands, so that one press of undo puts the
-                // row back where it was in the list, with its wires, and with its
-                // place on the board -- rather than a field of it per press, which
-                // is what a control-at-a-time edit costs.
+                // The whole block, so one undo restores the row, its wires and its
+                // board place.
                 BlockInfo before = LogicTable.Marked(logic);
                 LogicTable.Erase(logic, index, gateTouched);
                 Shifted(index, gateTouched);
@@ -2529,14 +2433,14 @@ namespace NodeEditorMod
                 {
                     // Written without filing anything: this edit's undo step is
                     // filed whole below, and `Commit` would file one per control.
-                    LogicTable.Applied(gateTouched);
+                    LogicTable.Applied(logic, gateTouched);
                     LogicTable.Filed(logic, before);
                 }
                 else
                 {
                     Commit(gateTouched);
                 }
-                Rebuild();
+                Refresh();
                 return;
             }
             if (served == null)
@@ -2546,17 +2450,11 @@ namespace NodeEditorMod
             List<MapperType> touched = new List<MapperType>();
             Table.Remove(served, index, touched);
             Commit(touched);
-            Rebuild();
+            Refresh();
         }
 
-        /// <summary>
-        /// The board's layout follows the rows: a row taken out of the list takes
-        /// its place on the board with it, and everything after it moves up one.
-        ///
-        /// Without this the node editor's positions stay where they were while the
-        /// rows under them shift, and every gate after the one deleted is drawn
-        /// where its neighbour used to sit.
-        /// </summary>
+        /// <summary>Moves board positions along with the rows when one is deleted,
+        /// or every later gate is drawn where its neighbour was.</summary>
         private void Shifted(int index, List<MapperType> touched)
         {
             if (logic == null || logic.LayoutControl == null)
@@ -2569,42 +2467,81 @@ namespace NodeEditorMod
             touched.Add(logic.LayoutControl);
         }
 
-        /// <summary>The timer table's convert button. The logic table's is the
-        /// node editor's EXPORT.</summary>
+        /// <summary>The timer table's IMPORT: every timer on the machine as rows,
+        /// taken off the machine in the same undo step as the rows' edit.</summary>
+        private void DoImport()
+        {
+            if (served == null)
+            {
+                return;
+            }
+            TimerPlusBehaviour block = served;
+            try
+            {
+                BlockInfo before = LogicTable.Marked(block.BlockBehaviour);
+                int left;
+                bool differ;
+                List<UndoAction> undo;
+                int took = Conversion.From(block, out left, out undo, out differ);
+                UndoAction edit = LogicTable.Edited(block.BlockBehaviour, before);
+                if (edit != null)
+                {
+                    undo.Add(edit);
+                }
+                Machine machine = Machine.Active();
+                if (undo.Count > 0 && machine != null && machine.UndoSystem != null)
+                {
+                    machine.UndoSystem.AddActions(undo);
+                }
+                // Logged as well: taking the timers off closes the mapper, and this
+                // panel with it.
+                Log.Info(took + " timer(s) imported" + (left > 0 ? ", " + left
+                         + " left on the machine" : "") + (differ
+                         ? "; they did not all start the way the block does" : "."));
+                Flash(importLabel, took + (differ ? " IN, CHECK ACTIVATE" : " IMPORTED"),
+                      differ ? UIF.Hot : UIF.Live);
+                Rebuild();
+            }
+            catch (Exception e)
+            {
+                Flash(importLabel, e.Message.ToUpperInvariant(), UIF.Hot);
+                Log.Warn("import failed: " + e);
+            }
+        }
+
+        /// <summary>The timer table's EXPORT. The logic table's is the node
+        /// editor's.</summary>
         private void DoConvert()
         {
             if (served == null)
             {
                 return;
             }
+            if (served.Count == 0)
+            {
+                // Nothing to make blocks of is the table being empty, not the
+                // export going wrong: say which.
+                Flash(convertLabel, "NO TIMERS\nTO EXPORT", UIF.Hot);
+                return;
+            }
             try
             {
                 int made = Conversion.Into(served);
-                // Logged as well as said: the new blocks become the selection,
-                // which closes the block mapper, which takes this panel with it --
-                // so the line under the button is gone before it can be read. What
-                // the player actually sees is the timers arriving under the move
-                // tool, which is the same answer the load screen gives.
+                // Logged as well: selecting the new blocks closes the mapper, and
+                // this panel with it.
                 Log.Info(made + " timer block(s) added from the table.");
                 Flash(convertLabel,
                       made + (made == 1 ? " TIMER ADDED" : " TIMERS ADDED"), UIF.Live);
             }
             catch (Exception e)
             {
-                Flash(convertLabel, "COULD NOT CONVERT", UIF.Hot);
+                Flash(convertLabel, "COULD NOT EXPORT", UIF.Hot);
                 Log.Warn("convert failed: " + e);
             }
         }
 
-        /// <summary>
-        /// Says something on the button it is about, for a few seconds, and then
-        /// puts the button's own word back.
-        ///
-        /// It was a line of its own along the bottom of the panel, which cost a
-        /// row of height on every block for something shown a few seconds a
-        /// session. On the button, the message is where the click that caused it
-        /// was, and the panel is a row shorter.
-        /// </summary>
+        /// <summary>Says something on the button it is about for a few seconds,
+        /// then puts the button's own word back.</summary>
         private void Flash(Text label, string words, Color colour)
         {
             if (label == null)
@@ -2638,18 +2575,14 @@ namespace NodeEditorMod
             flashing = null;
         }
 
-        /// <summary>
-        /// The row count changed, so the table's geometry has. Rebuilt rather than
-        /// grown: the rows are laid out against a count and there is no cheaper
-        /// honest way to add one in the middle of that.
-        /// </summary>
+        /// <summary>The row count changed, so the table's geometry is
+        /// rebuilt.</summary>
         private void Rebuild()
         {
             TimerPlusBehaviour block = served;
-            NodeEditorBehaviour gates = logic;
-            // Where the list was looked at. A row added or deleted somewhere above
-            // the fold should not carry the view back to the top -- the row being
-            // worked on is the one on screen.
+            ComputerBehaviour gates = logic;
+            // Keep the scroll position: an edit above the fold should not jump to
+            // the top.
             float keep = scroll != null && scroll.content != null
                 ? scroll.content.anchoredPosition.y : 0f;
             Teardown();
@@ -2665,15 +2598,11 @@ namespace NodeEditorMod
             Canvas.ForceUpdateCanvases();
             Dock();
             Look(keep);
+            Pool(false);
             Curtain(true);
         }
 
-        /// <summary>
-        /// Puts the view back where it was, as far as the list still goes.
-        ///
-        /// Clamped rather than remembered exactly: deleting the last rows makes the
-        /// list shorter than the offset it was scrolled to, and a ScrollRect left
-        /// past its own end shows empty space until something nudges it.
+        /// <summary>Restores the scroll position, clamped to the list's new length.
         /// </summary>
         private void Look(float keep)
         {
@@ -2709,11 +2638,17 @@ namespace NodeEditorMod
             pending.Clear();
         }
 
-        private static void Commit(List<MapperType> changed)
+        private void Commit(List<MapperType> changed)
         {
             if (changed == null)
             {
                 return;
+            }
+            // A logic row's controls are the block's own data, committed as its
+            // text (see `LogicTable.Settle`).
+            if (logic != null)
+            {
+                LogicTable.Settle(logic, changed);
             }
             for (int i = 0; i < changed.Count; i++)
             {
@@ -2721,10 +2656,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// Writes a setting through the mapper, so it survives a save and can be
-        /// undone. `ApplyValue` is the fallback where that machinery is not up.
-        /// </summary>
+        /// <summary>Writes a setting through the mapper, so it is saved and
+        /// undoable; `ApplyValue` where that is not up.</summary>
         private static void Commit(MapperType changed)
         {
             if (changed == null)
@@ -2747,8 +2680,7 @@ namespace NodeEditorMod
 
         // ---- every frame -----------------------------------------------------
 
-        /// <summary>Whether the board's window has been built ahead of time. The
-        /// biggest single thing this mod builds, and nothing is waiting on it while
+        /// <summary>Whether the board's window has been built ahead of time, while
         /// the game is still in its menus.</summary>
         private bool warmedBoard;
 
@@ -2759,18 +2691,15 @@ namespace NodeEditorMod
                 // Last of the warming: the board's window, which is the biggest
                 // single thing this mod builds.
                 warmedBoard = true;
-                // The list's canvas as well: the first one opened in a session was
-                // placed against a canvas Unity had not laid out yet, and landed
-                // away from the box that opened it.
+                // The list's canvas too: the first list of a session was placed
+                // against a canvas not laid out yet.
                 Choices.Ready();
                 Editor.Warm();
             }
             if (!ready)
             {
-                // UI Factory loads its bundle a moment after the mod does, so "not
-                // yet" is not "not installed". Asked on a slow tick rather than
-                // every frame: while it is genuinely absent, each ask costs a caught
-                // TypeLoadException.
+                // UI Factory loads a moment after the mod. Asked once a second:
+                // while it is absent, each ask costs a caught TypeLoadException.
                 if (Failed || Time.unscaledTime < askAt)
                 {
                     return;
@@ -2789,28 +2718,10 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// In LateUpdate: the mapper is dragged by its own behaviour, so a panel
-        /// placed in Update is placed against where the mapper was. Reconciled every
-        /// frame rather than left to onMapperClose, which does not fire for every
-        /// way a mapper goes away -- clicking off the block, or the block being
-        /// deselected -- and the panel was then left hanging over the world.
-        /// </summary>
-        /// <summary>
-        /// Keeps the panel out of a drag that started somewhere else.
-        ///
-        /// Besiege drags its own mapper by the mouse, and its handling stops the
-        /// moment the pointer is over another interface -- so dragging the window
-        /// down, over this panel, took the pointer off the game's own window and
-        /// the drag stopped dead with the window part-way. The block mapper alone
-        /// does not show it, because the mapper is tall enough that the pointer
-        /// stays on it.
-        ///
-        /// A press that does not land on this window means the gesture is somebody
-        /// else's for as long as the button is down, so the raycaster goes off and
-        /// nothing here is under the pointer at all. A press that lands on the
-        /// window is ours and is left alone.
-        /// </summary>
+        /// <summary>Keeps the panel out of a drag that started elsewhere --
+        /// Besiege's mapper drag stops over another interface -- by switching the
+        /// raycaster off for a press that misses this window, until the button
+        /// comes up.</summary>
         private void StandOff()
         {
             if (caster == null)
@@ -2828,13 +2739,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// Whether the pointer is over anything of the panel's.
-        ///
-        /// The window, and the list a cell opens -- which hangs outside the window
-        /// by design, and which a raycaster switched off for the length of a press
-        /// would otherwise make unclickable below the window's own bottom edge.
-        /// </summary>
+        /// <summary>Whether the pointer is over the window, or the list a cell
+        /// opened, which hangs outside it.</summary>
         private bool Under()
         {
             if (window == null || !window.activeSelf || windowRect == null)
@@ -2850,15 +2756,9 @@ namespace NodeEditorMod
 
         private void LateUpdate()
         {
-            // Tab hides Besiege's own interface, and this panel is the lower half
-            // of the block mapper -- half a mapper left hanging over a hidden HUD
-            // is exactly what Tab is pressed to get rid of.
-            //
-            // The canvas, not the window: switching the window off is the path that
-            // hands every control back to the stock mapper, and coming out of Tab
-            // would find the panel gone and the mapper full of rows. Disabling the
-            // canvas draws nothing and changes nothing else -- the tooltip and the
-            // variable list are on it too, so they go with it.
+            // Tab hides Besiege's interface, and this with it. The canvas, not the
+            // window: switching the window off hands controls back to the stock
+            // mapper.
             if (canvas != null)
             {
                 canvas.enabled = !Hidden;
@@ -2877,13 +2777,13 @@ namespace NodeEditorMod
             {
                 Unflash();
             }
-            // A pointer held still at the edge of the frame sends no drag events,
-            // and holding still at the edge is exactly how a reach past the end of
-            // the list is asked for.
+            // A pointer held still at the frame's edge sends no drag events, so
+            // reach from here.
             Reach();
             Keyboard();
             Watching();
             Dock();
+            Pool(false);
             Curtain(false);
         }
 
@@ -2914,7 +2814,7 @@ namespace NodeEditorMod
                 }
                 if (Gated)
                 {
-                    return mapper.Block.GetComponent<NodeEditorBehaviour>() == logic;
+                    return mapper.Block.GetComponent<ComputerBehaviour>() == logic;
                 }
                 return mapper.Block.GetComponent<TimerPlusBehaviour>() == served
                     && served != null;
@@ -3003,16 +2903,9 @@ namespace NodeEditorMod
         private float curtainTall = float.NaN;
         private const float Slop = 0.5f;
 
-        /// <summary>
-        /// The rows are hidden rather than clipped.
-        ///
-        /// The Window's Viewport carries a Mask and sizing it does not make it clip:
-        /// rows scrolled past the top are still drawn over the mapper above, and the
-        /// last one hangs below the frame. Rather than keep guessing at prefab
-        /// internals the panel clips itself -- a row is drawn only while all of it is
-        /// inside the frame, so nothing is ever cut in half and nothing reaches
-        /// outside, which is what a list of whole rows should look like anyway.
-        /// </summary>
+        /// <summary>Hides rows rather than clipping them: a row shows only while it
+        /// is wholly inside the frame, as the prefab's mask does not
+        /// clip.</summary>
         private void Curtain(bool force)
         {
             if (scroll == null || scroll.content == null || content == null
@@ -3030,12 +2923,9 @@ namespace NodeEditorMod
             curtainAt = at;
             curtainTall = tall;
 
-            // Measured against the window, through the transforms, rather than
-            // against the ScrollRect's viewport. A viewport may be missing, may be
-            // named anything, and may be the ScrollRect's own rect -- and each of
-            // those was a way for a row to be counted as on screen while it was
-            // over the strip along the bottom. The window is none of those things,
-            // and the strip is measured from its bottom edge.
+            // Measured against the window: a viewport may be missing or be the
+            // ScrollRect's own rect, which counted rows over the strip as on
+            // screen.
             float half = tall * 0.5f;
             float floor = -half + StripHeight;
             Vector3[] corners = new Vector3[4];
@@ -3061,15 +2951,9 @@ namespace NodeEditorMod
 
         // ---- where the mapper is ---------------------------------------------
 
-        /// <summary>
-        /// Besiege's mapper window in screen pixels.
-        ///
-        /// The window is the TALLEST renderer named "Background" -- they all share
-        /// its width, and only the frame reaches the bottom edge. Two plausible
-        /// alternatives are wrong and both have been shipped by other mods:
-        /// "WideShadow" is an eleventh wider and sits higher, and "Visual" is a
-        /// 93-pixel button.
-        /// </summary>
+        /// <summary>Besiege's mapper window in screen pixels: the tallest renderer
+        /// named "Background" -- not "WideShadow", nor the button
+        /// "Visual".</summary>
         private bool MapperFrame(out Rect frame)
         {
             frame = new Rect();
@@ -3129,11 +3013,8 @@ namespace NodeEditorMod
                             Mathf.Abs(b.x - a.x), Mathf.Abs(b.y - a.y));
         }
 
-        /// <summary>
-        /// The mapper is drawn in the world, so only the camera whose culling mask
-        /// includes its layer knows where on screen it lands. The topmost such
-        /// camera: the interface is drawn last.
-        /// </summary>
+        /// <summary>The topmost camera drawing the mapper's layer: the mapper is
+        /// drawn in the world.</summary>
         private Camera MapperCamera(int layer)
         {
             if (mapperEye != null && (mapperEye.cullingMask & (1 << layer)) != 0)

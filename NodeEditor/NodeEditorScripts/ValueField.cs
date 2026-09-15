@@ -6,40 +6,23 @@ namespace NodeEditorMod
 {
     /// <summary>
     /// A transparent sheet over a number box. A drag that stays on the box selects
-    /// text, the way any text box does; a drag that leaves it changes the value. A
-    /// click puts the caret where it landed and a double-click takes the lot.
-    ///
-    /// Lifted from the sibling SpecialEffects mod, where every one of the notes
-    /// below was paid for once already.
-    ///
-    /// It has to be a sheet rather than a component on the field itself: uGUI hands
-    /// a drag to the first handler at or above the object the pointer pressed, so
-    /// whichever of the two decides has to be the lower one. The sheet decides, and
-    /// passes what it does not want down to the field.
-    ///
-    /// The pointer-down has to be handled here as well, and it is not obvious why.
-    /// `StandaloneInputModule.ProcessMousePress` records the press as whatever
-    /// `ExecuteHierarchy` finds for `IPointerDownHandler`; on release it dispatches
-    /// the click only if that object is also what `GetEventHandler` finds for
-    /// `IPointerClickHandler`. With no down handler here the press resolves to the
-    /// InputField above and the click to this sheet, the two do not match, and the
-    /// click is never dispatched at all -- no `OnPointerClick`, so no click count
-    /// and no double-click. Handling the down and forwarding it makes both resolve
-    /// to the sheet, and the field still gets its caret.
+    /// text; leaving by a side changes the value, by the top or bottom reaches
+    /// along the column. A click places the caret, a double-click selects all. From
+    /// the sibling SpecialEffects mod. It handles pointer-down as well: without it
+    /// the press resolves to the field and the click to the sheet, and no click is
+    /// ever sent.
     /// </summary>
     public class ValueField : MonoBehaviour, IPointerDownHandler, IPointerUpHandler,
         IBeginDragHandler, IDragHandler, IEndDragHandler, IPointerClickHandler
     {
         public UnityEngine.UI.InputField field;
 
-        /// <summary>Pixels dragged sideways, handed to whoever owns the number.
-        /// Only ever called once the drag has left the box by its left or right
-        /// edge.</summary>
+        /// <summary>Pixels dragged sideways, once the drag has left by a
+        /// side.</summary>
         public Action<float> dragged;
 
-        /// <summary>Where the pointer is, while a drag that left by the top or the
-        /// bottom edge. That one is not a value at all -- it is a reach up or down
-        /// the column, and what it means is the panel's business.</summary>
+        /// <summary>The pointer during a drag that left by the top or bottom: a
+        /// reach along the column, which the panel handles.</summary>
         public Action<Vector2> picking;
 
         /// <summary>That reach ended.</summary>
@@ -51,27 +34,20 @@ namespace NodeEditorMod
         private const int Scrubbing = 1;
         private const int Picking = 2;
 
-        /// <summary>How far the pointer may wander before a click counts as a drag.
-        /// Without it a hand that moves one pixel between press and release turned a
-        /// click into a drag: the field never took focus, so the caret came and
-        /// went, and the value was nudged by whatever that pixel was worth.</summary>
+        /// <summary>How far the pointer may move before a click is a drag: a pixel
+        /// of wobble used to turn clicks into value nudges.</summary>
         private const float Slack = 4f;
 
-        /// <summary>How far past the box's own edge the pointer goes before the drag
-        /// stops being a selection and starts being a value. Enough that reaching
-        /// the last character does not tip it over by accident, little enough to be
-        /// a deliberate flick.</summary>
+        /// <summary>How far past the box's edge a drag stops selecting and starts
+        /// changing the value.</summary>
         private const float Leeway = 4f;
 
-        /// <summary>Decided once per gesture and kept: which edge the drag left by
-        /// settles what it is until the button comes up, wherever the pointer
-        /// wanders back to. Handing it back and forth at the boundary is
-        /// unusable.</summary>
+        /// <summary>What the gesture is, decided once by the edge it left
+        /// by.</summary>
         private int mode;
 
-        /// <summary>Whether the gesture that is ending was a value drag. The click
-        /// that comes after one must not be read as a double-click and select
-        /// everything.</summary>
+        /// <summary>Whether the ending gesture changed the value, so its click is
+        /// not taken as a double-click.</summary>
         private bool scrubbed;
 
         public void OnPointerDown(PointerEventData press)
@@ -88,11 +64,26 @@ namespace NodeEditorMod
         {
             mode = Nothing;
             scrubbed = false;
+            // Left button only: the middle button pans (a `Pan` beside this), and
+            // must not scrub the value.
+            ignoring = move.button != PointerEventData.InputButton.Left;
+            if (ignoring)
+            {
+                return;
+            }
             Pass(move, ExecuteEvents.beginDragHandler);
         }
 
+        /// <summary>Set for the length of a drag with any button but the left.
+        /// </summary>
+        private bool ignoring;
+
         public void OnDrag(PointerEventData move)
         {
+            if (ignoring)
+            {
+                return;
+            }
             if (mode == Nothing)
             {
                 mode = Left(move);
@@ -103,10 +94,8 @@ namespace NodeEditorMod
                 return;
             }
 
-            // Whatever the drag selected on its way off the box is not wanted -- a
-            // highlighted number under a value that is moving reads as a mistake.
-            // Every frame, not once: the value is rewritten as it is dragged, and
-            // the field re-selects when its text changes under a live drag.
+            // Clear what the drag selected on its way out, every frame: the field
+            // re-selects when its text changes under a drag.
             if (field != null)
             {
                 field.caretPosition = field.text.Length;
@@ -128,6 +117,11 @@ namespace NodeEditorMod
 
         public void OnEndDrag(PointerEventData move)
         {
+            if (ignoring)
+            {
+                ignoring = false;
+                return;
+            }
             if (mode == Nothing)
             {
                 Pass(move, ExecuteEvents.endDragHandler);
@@ -140,16 +134,9 @@ namespace NodeEditorMod
             mode = Nothing;
         }
 
-        /// <summary>
-        /// Which edge the pointer has left by, by more than <see cref="Leeway"/>:
-        /// the sides mean a value, the top and the bottom mean a reach up or down
-        /// the column. Sideways is tested first, so a diagonal that leaves by a
-        /// corner is read as the value drag it more likely is.
-        ///
-        /// A pointer whose position will not map onto the rect at all counts as
-        /// having left sideways -- that is the older of the two gestures and the
-        /// one a stray pointer should fall into.
-        /// </summary>
+        /// <summary>The edge the pointer left by, past <see cref="Leeway"/>: sides
+        /// mean a value, top and bottom a reach. Sides are tested first, and a
+        /// pointer that will not map counts as sideways.</summary>
         private int Left(PointerEventData move)
         {
             RectTransform rect = transform as RectTransform;
@@ -187,16 +174,14 @@ namespace NodeEditorMod
 
         public void OnPointerClick(PointerEventData click)
         {
-            if (field == null)
+            // A middle click is the start of a pan, not a request to type.
+            if (field == null || click.button != PointerEventData.InputButton.Left)
             {
                 return;
             }
 
-            // Checked before the wander test, not after. A second click on a box the
-            // caret is already in is the one most likely to drift a few pixels --
-            // the hand is not repositioning, it is tapping -- and bailing out on
-            // that is what stopped a double-click selecting anything once the field
-            // had focus. A double-click that wandered is still a double-click.
+            // Before the wander test: the second click of a double-click often
+            // drifts.
             if (click.clickCount >= 2 && !scrubbed)
             {
                 waiting = Patience;
@@ -214,12 +199,9 @@ namespace NodeEditorMod
 
             held = field.text;
 
-            // Not activated here. The sheet handles neither pointer-down nor
-            // selection, so both reach the field on their own -- which is what puts
-            // the caret where the pointer is. Activating it as well queues a second
-            // activation that lands at the end of the frame and drags the caret back
-            // to the start. Watched instead, and only stepped in on if the field
-            // somehow has not taken focus by itself.
+            // Not activated here: the field focuses and places its caret from the
+            // passed-down press, and activating again sends the caret to the start.
+            // Stepped in only if the field has not focused by itself.
             waiting = Patience;
         }
 
@@ -229,15 +211,9 @@ namespace NodeEditorMod
                  < Slack * Slack;
         }
 
-        /// <summary>
-        /// Double-click selects the lot. The field would do this itself, but the
-        /// sheet is what the pointer hits. Not in the click either:
-        /// `ActivateInputField` only asks for focus, and an unfocused field has
-        /// nothing to select.
-        ///
-        /// Asserted over a few frames: the field settles its own caret in its
-        /// LateUpdate, and which of the two runs first is not ours to decide.
-        /// </summary>
+        /// <summary>Frames a double-click's select-all is asserted for: the field
+        /// settles its caret in its own LateUpdate, in no fixed order with
+        /// this.</summary>
         private const int Insist = 3;
 
         /// <summary>Frames a click is given to focus the field by itself before this
@@ -247,9 +223,8 @@ namespace NodeEditorMod
         private int selecting;
         private int waiting;
 
-        /// <summary>The text as it stood when a click asked for focus or a
-        /// selection. The moment it differs, the player is typing and this sheet
-        /// stands off.</summary>
+        /// <summary>The text when a click asked for focus; once it differs the
+        /// player is typing, and this stands off.</summary>
         private string held;
 
         private void LateUpdate()
@@ -259,10 +234,8 @@ namespace NodeEditorMod
                 return;
             }
 
-            // Typing cancels both. Nothing this sheet does may outlive the moment
-            // the player starts entering a value: a select-all asserted over typing
-            // eats every character but the last, because the field is fully selected
-            // again before the next key arrives.
+            // Typing cancels both: a select-all asserted over typing would eat
+            // every letter.
             if ((selecting > 0 || waiting > 0) && held != null && field.text != held)
             {
                 selecting = 0;
@@ -284,17 +257,13 @@ namespace NodeEditorMod
                 return;
             }
 
-            // Anchor and focus, and nothing else. `caretPosition` looks like the
-            // third thing to set and is not: its setter writes both ends at once, so
-            // it collapses the selection that was just made.
+            // Anchor and focus only: `caretPosition` sets both ends and collapses
+            // the selection.
             selecting--;
             field.selectionAnchorPosition = 0;
             field.selectionFocusPosition = field.text.Length;
 
-            // Those two setters move the field's caret and anchor and nothing else:
-            // they do not mark the caret graphic dirty, so the highlight that shows
-            // a selection was never rebuilt and the field looked untouched while
-            // holding a perfectly good selection. This is what redraws it.
+            // Those setters do not redraw the selection highlight; this does.
             field.ForceLabelUpdate();
         }
     }

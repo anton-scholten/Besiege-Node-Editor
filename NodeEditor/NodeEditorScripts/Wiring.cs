@@ -4,24 +4,16 @@ using UnityEngine;
 
 namespace NodeEditorMod
 {
-    /// <summary>
-    /// One thing on the board that is not a row: an input coming in, or an output
-    /// going out.
-    ///
-    /// A gate is a row of the table and carries its own settings; these two are
-    /// bindings with a place on the board and nothing else. What they are wired to
-    /// is not stored either -- a wire *is* a row's input carrying this node's
-    /// binding, which is what makes the board and the table the same thing seen two
-    /// ways.
-    /// </summary>
+    /// <summary>A board node that is not a row: an input, an output or a comment.
+    /// Its wires are not stored; a wire is a row's input carrying this
+    /// binding.</summary>
     public class Place
     {
         public const int Input = 0;
         public const int Output = 1;
 
-        /// <summary>A comment: a note on the board, wired to nothing. It stands for
-        /// no binding at all, which is why everything that walks the graph passes
-        /// over it.</summary>
+        /// <summary>A comment, wired to nothing; walks of the graph skip
+        /// it.</summary>
         public const int Note = 2;
 
         public int Kind;
@@ -45,11 +37,8 @@ namespace NodeEditorMod
             get { return Variable != null || Key != KeyCode.None; }
         }
 
-        /// <summary>What a row's key has to carry for a wire to exist.
-        ///
-        /// Names are compared trimmed: a name typed with a space on the end binds
-        /// the same key as one without, so two ends carrying it are two drawings of
-        /// one end and should fold into each other.</summary>
+        /// <summary>Whether this node stands for that binding. Names compare
+        /// trimmed: a trailing space binds the same key.</summary>
         public bool Same(string variable, KeyCode key)
         {
             if (Variable != null)
@@ -75,16 +64,9 @@ namespace NodeEditorMod
     }
 
     /// <summary>
-    /// Where everything sits on the board, and nothing else.
-    ///
-    /// The graph itself is the table: a gate node is a row, and a wire is a row's
-    /// input carrying the name another row's answer goes out under. So this holds
-    /// only what the table has nowhere to put -- the places -- and is saved as text
-    /// in one mapper control beside the rows.
-    ///
-    /// One line per thing, fields separated by spaces, which is enough for a board
-    /// of a few dozen nodes and can be read in a save. A format somebody can fix by
-    /// hand is worth more here than a compact one.
+    /// Where everything sits on the board, saved as text in one mapper control. The
+    /// graph is the table, so only places live here: a line per node, readable and
+    /// fixable by hand in a save.
     /// </summary>
     public class Wiring
     {
@@ -94,6 +76,10 @@ namespace NodeEditorMod
 
         public readonly List<Place> Places = new List<Place>();
 
+        /// <summary>Row <c>i</c>'s colour seed, kept beside its place so it moves
+        /// with the row: a removal above it does not change its colour.</summary>
+        public readonly List<int> Seeds = new List<int>();
+
         public Vector2 Spot(int row)
         {
             while (Spots.Count <= row)
@@ -102,7 +88,24 @@ namespace NodeEditorMod
                 // ones that have been.
                 Spots.Add(new Vector2(240f, 20f + Spots.Count * 74f));
             }
+            Seeded();
             return Spots[row];
+        }
+
+        public int Seed(int row)
+        {
+            Spot(row);
+            return Seeds[row];
+        }
+
+        /// <summary>A seed for every place: what a row's number gave it before seeds
+        /// were kept.</summary>
+        private void Seeded()
+        {
+            while (Seeds.Count < Spots.Count)
+            {
+                Seeds.Add(Hues.Mix(1, Seeds.Count));
+            }
         }
 
         public void Put(int row, Vector2 at)
@@ -115,32 +118,35 @@ namespace NodeEditorMod
         /// keep following the rows they belong to.</summary>
         public void Forget(int row)
         {
+            Seeded();
             if (row >= 0 && row < Spots.Count)
             {
                 Spots.RemoveAt(row);
+                Seeds.RemoveAt(row);
             }
         }
 
         public string Save()
         {
             System.Text.StringBuilder text = new System.Text.StringBuilder();
+            Seeded();
             for (int i = 0; i < Spots.Count; i++)
             {
+                // The seed last: a layout from before seeds has four fields.
                 text.Append("g ").Append(i).Append(' ')
                     .Append(Whole(Spots[i].x)).Append(' ')
-                    .Append(Whole(Spots[i].y)).Append('\n');
+                    .Append(Whole(Spots[i].y)).Append(' ')
+                    .Append(Seeds[i].ToString(CultureInfo.InvariantCulture))
+                    .Append('\n');
             }
             for (int i = 0; i < Places.Count; i++)
             {
                 Place place = Places[i];
                 if (place.Kind == Place.Note)
                 {
-                    // A comment is a line like the rest, with what it says at the
-                    // end of it -- newlines and all, written as `\n` so one comment
-                    // stays one line of the layout.
-                    // The field before the words is `w`, with the font size run on
-                    // where the comment has been resized -- `w22`. A version that
-                    // knows nothing of sizes skips that field whatever it says.
+                    // A comment's words end its line, newlines written `\n`. The
+                    // field before them is `w`, with the font size run on once
+                    // resized (`w22`).
                     text.Append("n ").Append(Whole(place.X)).Append(' ')
                         .Append(Whole(place.Y)).Append(" w")
                         .Append(place.Size > 0
@@ -164,11 +170,8 @@ namespace NodeEditorMod
             return ((int)value).ToString(CultureInfo.InvariantCulture);
         }
 
-        /// <summary>
-        /// Reads one back. A line this does not understand is skipped rather than
-        /// thrown over: half a board is worth more than none, and an unknown line
-        /// is one a later version of the mod wrote.
-        /// </summary>
+        /// <summary>Reads a layout back, skipping lines it does not understand (a
+        /// later version's) rather than throwing.</summary>
         public static Wiring Load(string text)
         {
             Wiring made = new Wiring();
@@ -195,8 +198,13 @@ namespace NodeEditorMod
                     {
                         made.Spots.Add(Vector2.zero);
                     }
+                    made.Seeded();
                     made.Spots[row] = new Vector2(Number(parts[2], 0),
                                                   Number(parts[3], 0));
+                    if (parts.Length >= 5)
+                    {
+                        made.Seeds[row] = Number(parts[4], made.Seeds[row]);
+                    }
                 }
                 else if (parts[0] == "n" && parts.Length >= 5)
                 {
@@ -217,11 +225,9 @@ namespace NodeEditorMod
                     place.Kind = parts[0] == "i" ? Place.Input : Place.Output;
                     place.X = Number(parts[1], 0);
                     place.Y = Number(parts[2], 0);
-                    // What it stands for is the rest of the line, spaces and all.
-                    // Reading only the next word turned `door open` into `door` on
-                    // every load, and the derivation then made a second end for the
-                    // name the rows still carried -- a duplicate that came back
-                    // however many times it was folded away.
+                    // The binding is the rest of the line: reading one word turned
+                    // `door open` into `door`, and grew a duplicate end on every
+                    // load.
                     string said = Rest(parts, 4);
                     if (said != "-")
                     {
@@ -240,9 +246,8 @@ namespace NodeEditorMod
             return made;
         }
 
-        /// <summary>A comment as one line: its own backslashes doubled, its
-        /// newlines written as `\n`, and an empty one written as a single dash so
-        /// the line still has a field there to read.</summary>
+        /// <summary>A comment as one line: backslashes doubled, newlines as `\n`,
+        /// empty as `-`.</summary>
         private static string Folded(string words)
         {
             if (string.IsNullOrEmpty(words))

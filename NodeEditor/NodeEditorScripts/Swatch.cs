@@ -5,13 +5,9 @@ using UnityEngine.UI;
 namespace NodeEditorMod
 {
     /// <summary>
-    /// One colour to choose: six hex characters, typed or dragged sideways through
-    /// the hues, with the colour itself as a stroke round the box. The box of the
-    /// SpecialEffects spot light's colour row, made to fit over a palette button.
-    ///
-    /// UI Factory has no colour picker and Besiege's own is behind the mapper
-    /// (notes 04). A plain class rather than a component: it owns a few objects
-    /// under whatever it is made on, and nothing about it needs a frame.
+    /// One colour to choose: six hex characters, typed or dragged through the hues,
+    /// with the colour as a stroke round the box (from the SpecialEffects mod). A
+    /// plain class: it owns a few objects and needs no frame.
     /// </summary>
     public class Swatch
     {
@@ -26,30 +22,23 @@ namespace NodeEditorMod
         private Image stroke;
         private Color colour = Color.white;
 
-        /// <summary>Set while this writes to its own box, so the box does not hear
-        /// that as the player typing (notes 04, "Committing a typed value").
+        /// <summary>Set while this writes its own box, so that is not taken as
+        /// typing.
         /// </summary>
         private bool echo;
 
         /// <summary>The clear space at each end of the box.</summary>
         private const float Pad = 3f;
 
-        /// <summary>
-        /// A little more room than the lettering is measured to need.
-        ///
-        /// A field whose text is even a pixel wider than its box scrolls the text
-        /// to keep the caret in view, and a selection dragged across a scrolling
-        /// field trails behind the pointer.
-        /// </summary>
+        /// <summary>Room past the measured lettering: a field even a pixel too
+        /// narrow scrolls its text.</summary>
         private const float Spare = 4f;
 
         /// <summary>The size the lettering is measured at before it is scaled to
         /// fill the box: big enough that rounding does not show.</summary>
         private const int Probe = 40;
 
-        /// <summary>What the widest colour is measured as. A colour of narrower
-        /// characters is a little short of the edge; a wider one never spills.
-        /// </summary>
+        /// <summary>The widest colour, measured to size the lettering.</summary>
         private const string Widest = "DDDDDD";
 
         /// <summary>The same drag through the hues the spot light's boxes have.
@@ -157,19 +146,8 @@ namespace NodeEditorMod
             rect.anchorMax = Vector2.one;
         }
 
-        /// <summary>
-        /// The lettering sized to fill the box: as wide as `#` and six characters
-        /// can be in what the box leaves, and no taller than the box.
-        ///
-        /// Asked of the font rather than guessed -- the generator that lays the
-        /// text out is the only thing that knows how wide a letter is -- at one big
-        /// size, and scaled, since a width is proportional to the size it is set
-        /// at.
-        /// </summary>
-        /// <summary>How wide the box has to be, at a height, for its lettering to
-        /// be as tall as that height lets it and still reach just to both ends --
-        /// for a box with room to spare to be only as wide as what it says.
-        /// </summary>
+        /// <summary>How wide the box must be at a height for its lettering to reach
+        /// both ends, asked of the font.</summary>
         public float Snug(float h)
         {
             float marked;
@@ -223,9 +201,8 @@ namespace NodeEditorMod
             int wide = Mathf.FloorToInt(Probe * room / Mathf.Max(1f, marked + written));
             int tall = Tallest(h);
             int size = Mathf.Clamp(Mathf.Min(wide, tall), 8, 40);
-            // And a little below the middle: the font sits its capitals high in
-            // the line, and at a size that nearly fills the box their tops went
-            // under the coloured stroke along its top edge.
+            // A little below the middle: capitals sit high, and their tops met the
+            // stroke.
             float drop = Mathf.Round(size * 0.12f);
 
             label.fontSize = size;
@@ -253,10 +230,8 @@ namespace NodeEditorMod
             label.rectTransform.offsetMax = new Vector2(-Pad, -drop);
         }
 
-        /// <summary>The colour as a stroke round the inside of the box: the box's
-        /// own sliced sprite with its middle left out, so the corners are the
-        /// box's and the value reads through (notes 04, "Borrowing a prefab's own
-        /// corners").</summary>
+        /// <summary>The colour as a stroke inside the box: the box's own sliced
+        /// sprite without its middle.</summary>
         private static Image Stroke(InputField field)
         {
             GameObject go = new GameObject("Stroke");
@@ -297,9 +272,7 @@ namespace NodeEditorMod
             {
                 Set(parsed);
             }
-            // Written back either way: a short answer read as a long one shows as
-            // what it was read as, and something that is not a colour shows the
-            // colour it did not replace.
+            // Written back either way, so what shows is what was read.
             Show(true);
         }
 

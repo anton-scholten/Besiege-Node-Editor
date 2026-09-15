@@ -2,17 +2,9 @@ using System;
 
 namespace NodeEditorMod
 {
-    /// <summary>
-    /// The node editor's own hotkeys -- copy, paste and select all -- as the player has them
-    /// bound.
-    ///
-    /// Declared in `Mod.xml` under `&lt;Keys&gt;`, which is what puts them in
-    /// Besiege's own controls screen -- so they can be rebound like anything else,
-    /// and this must ask rather than test `Ctrl+C` itself.
-    ///
-    /// Looked up once and kept: the lookup is a dictionary in the mod loader, and
-    /// rebinding changes the key object rather than replacing it.
-    /// </summary>
+    /// <summary>The editor's copy, paste and select-all hotkeys, as the player
+    /// bound them (declared under `&lt;Keys&gt;` in `Mod.xml`). Looked up
+    /// once.</summary>
     public static class Hotkeys
     {
         private static bool asked;

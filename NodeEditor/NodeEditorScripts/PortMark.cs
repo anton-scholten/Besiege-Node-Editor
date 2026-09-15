@@ -4,16 +4,8 @@ using UnityEngine.EventSystems;
 
 namespace NodeEditorMod
 {
-    /// <summary>
-    /// One end of a wire: which node it belongs to, which of its inputs, and
-    /// whether it is the answer coming out or a place for one to go.
-    ///
-    /// It handles the drag itself, which is the whole point of it being here: the
-    /// node underneath is draggable too, and uGUI hands a drag to the first
-    /// handler at or above the object pressed. With no handler on the port, a drag
-    /// from a port moved the node instead -- which is exactly what a wire being
-    /// pulled out of one is not.
-    /// </summary>
+    /// <summary>One end of a wire on a node. It handles its own drag: otherwise
+    /// uGUI hands a drag from the port to the draggable node under it.</summary>
     public class PortMark : MonoBehaviour, IBeginDragHandler, IDragHandler,
                             IEndDragHandler, IPointerClickHandler
     {
@@ -21,19 +13,15 @@ namespace NodeEditorMod
         public int Port;
         public bool Output;
 
-        /// <summary>A wire is being pulled from this port: where the pointer is,
-        /// in screen coordinates, and whether this is the press that began it --
-        /// which is when a wire already on the port is picked up rather than a new
-        /// one started.</summary>
+        /// <summary>A wire is being pulled: where the pointer is, and whether this
+        /// is the press that began it.</summary>
         public Action<PortMark, Vector2, bool> Pulling;
 
         /// <summary>Let go: over another port, or over nothing, and where the
         /// pointer was when it happened.</summary>
         public Action<PortMark, PortMark, Vector2> Landed;
 
-        /// <summary>Clicked rather than dragged from. The port draws itself and
-        /// carries no button of its own -- a plate behind a circle is a second
-        /// thing to look at where there is only one thing to do.</summary>
+        /// <summary>Clicked rather than dragged from.</summary>
         public Action<PortMark> Clicked;
 
         public void OnPointerClick(PointerEventData click)

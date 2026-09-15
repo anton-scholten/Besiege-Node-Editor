@@ -5,18 +5,10 @@ using UnityEngine;
 namespace NodeEditorMod
 {
     /// <summary>
-    /// Puts generated blocks into the machine being built, as a selection the
-    /// player can then move.
-    ///
-    /// This is Besiege's own additive load, step for step:
-    /// `MachineFileBrowserController.LoadAdditive` is what the load screen's "add
-    /// to machine" button runs, and every member it uses is public. Doing the same
-    /// thing means joints, clusters, undo and the selection tool all behave as they
-    /// do for a machine loaded from a file, rather than as they do for blocks a mod
-    /// invented -- and one undo takes the whole conversion away again.
-    ///
-    /// No file is written and nothing is parsed: the blocks go straight in as
-    /// `BlockInfo`, which is what a `.bsg` would have been read into anyway.
+    /// Puts generated blocks into the machine as a selection, step for step as
+    /// `MachineFileBrowserController.LoadAdditive` does, so joints, undo and
+    /// selection behave as for a machine added from a file. No file is involved:
+    /// the blocks go in as `BlockInfo`.
     /// </summary>
     public static class Drop
     {
@@ -54,11 +46,8 @@ namespace NodeEditorMod
             return made == null ? 0 : made.Count;
         }
 
-        /// <summary>
-        /// Hands the new blocks to the selection tool, so the player is holding
-        /// them and can put them where they want. The move tool is chosen for the
-        /// same reason the load screen chooses it: a selection nobody can drag is
-        /// not one worth making.
+        /// <summary>Selects the new blocks with the move tool up, as the load
+        /// screen does.
         /// </summary>
         private static void Select(Machine machine,
                                    Dictionary<Guid, BlockBehaviour> made,

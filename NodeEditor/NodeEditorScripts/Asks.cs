@@ -4,14 +4,8 @@ using UnityEngine.EventSystems;
 
 namespace NodeEditorMod
 {
-    /// <summary>
-    /// A right-click on a control that has a list to offer as well as a click of
-    /// its own -- the node editor's COLOR selector.
-    ///
-    /// Beside the control's own `Button` rather than instead of it: uGUI hands a
-    /// click to every click handler on the object it lands on, and a `Button`
-    /// answers the left button only, so each of the two hears its own button.
-    /// </summary>
+    /// <summary>A right-click list on a control that also has a left click of its
+    /// own: the editor's COLOR selector.</summary>
     public class Asks : MonoBehaviour, IPointerClickHandler
     {
         /// <summary>Where the right-click was, in screen coordinates.</summary>

@@ -4,29 +4,18 @@ using UnityEngine;
 namespace NodeEditorMod
 {
     /// <summary>
-    /// Reading and writing an <see cref="MKey"/> as "a key or a variable", which
-    /// is what a cell of the table shows and what the converter writes into a real
-    /// timer block.
-    ///
-    /// A Besiege key can answer the keyboard or a *message* -- one or more
-    /// variable names, joined with a semicolon -- and `useMessage` is the flag
-    /// that says which. There is no third state and no way to do both.
+    /// An <see cref="MKey"/> read and written as "a key or a variable". A Besiege
+    /// key answers the keyboard or a `;`-joined list of names (`useMessage`), never
+    /// both.
     /// </summary>
     public static class Bindings
     {
         /// <summary>What a cell shows for a key nobody has bound.</summary>
         public const string Unset = "-";
 
-        /// <summary>
-        /// The keys a cell will let somebody bind, in the order the capture scans
-        /// them.
-        ///
-        /// Built rather than listed, because `KeyCode`'s values are contiguous
-        /// through each of these runs. Enumerating the enum itself would be
-        /// tidier and is not available: `Enum.GetValues` is reflection, and one
-        /// reference to `System.Reflection` has the mod loader refuse the whole
-        /// assembly.
-        /// </summary>
+        /// <summary>The keys a cell can bind, in capture order. Built from
+        /// contiguous `KeyCode` runs: `Enum.GetValues` is reflection, which the
+        /// loader refuses.</summary>
         private static readonly KeyCode[] Bindable = Build();
 
         private static KeyCode[] Build()
@@ -101,28 +90,50 @@ namespace NodeEditorMod
             return KeyCode.None;
         }
 
-        /// <summary>
-        /// What a cell shows: the variable names, or the keycode as Unity spells
-        /// it, or <paramref name="ifEmpty"/>.
-        /// </summary>
+        /// <summary>Every keycode the key answers to, each once and in the order it
+        /// holds them -- none for a key bound to names.</summary>
+        public static List<KeyCode> Codes(MKey key)
+        {
+            List<KeyCode> codes = new List<KeyCode>();
+            if (key == null || IsVariable(key))
+            {
+                return codes;
+            }
+            for (int i = 0; i < key.KeysCount; i++)
+            {
+                KeyCode code = key.GetKey(i);
+                if (code != KeyCode.None && !codes.Contains(code))
+                {
+                    codes.Add(code);
+                }
+            }
+            return codes;
+        }
+
+        /// <summary>What a key reads as: its names, every keycode it holds, or
+        /// <paramref name="ifEmpty"/>. Every keycode, so a second key changing is
+        /// seen.</summary>
         public static string Show(MKey key, string ifEmpty)
         {
             if (IsVariable(key))
             {
                 return Variable(key);
             }
-            KeyCode code = Code(key);
-            return code == KeyCode.None ? ifEmpty : Spell(code);
+            List<KeyCode> codes = Codes(key);
+            if (codes.Count == 0)
+            {
+                return ifEmpty;
+            }
+            string[] spelt = new string[codes.Count];
+            for (int i = 0; i < codes.Count; i++)
+            {
+                spelt[i] = Spell(codes[i]);
+            }
+            return string.Join(";", spelt);
         }
 
-        /// <summary>
-        /// A keycode back from the name Unity gives it, or None.
-        ///
-        /// `Enum.Parse` is reflection and one mention of `System.Reflection` has
-        /// the loader refuse the whole assembly, so the list this mod already
-        /// builds for capture is walked instead. It holds every key a cell will
-        /// bind, which is every key this can be asked about.
-        /// </summary>
+        /// <summary>A keycode from Unity's name for it, or None. Walks
+        /// <see cref="Bindable"/>, since `Enum.Parse` is reflection.</summary>
         public static KeyCode Parse(string name)
         {
             if (string.IsNullOrEmpty(name))
@@ -139,11 +150,8 @@ namespace NodeEditorMod
             return KeyCode.None;
         }
 
-        /// <summary>
-        /// A keycode as a cell shows it: Unity's own name, shortened where its
-        /// spelling is longer than the column. `Alpha4` is `4` and `LeftShift` is
-        /// `LShift`, which is what a player calls them.
-        /// </summary>
+        /// <summary>A keycode as a cell shows it: `Alpha4` is `4`, `LeftShift` is
+        /// `LShift`.</summary>
         public static string Spell(KeyCode code)
         {
             string name = code.ToString();
@@ -174,12 +182,9 @@ namespace NodeEditorMod
             return name;
         }
 
-        /// <summary>
-        /// Binds the key to the keyboard, clearing any variable.
-        ///
-        /// `RemoveRedundant` is not enough on its own: the key has to end up
-        /// holding exactly this one code, or a key rebound twice answers to both.
-        /// </summary>
+        /// <summary>Binds the key to exactly this keycode, clearing any variable.
+        /// `RemoveRedundant` alone leaves a key rebound twice answering to
+        /// both.</summary>
         public static void Bind(MKey key, KeyCode code)
         {
             if (key == null)
@@ -191,17 +196,25 @@ namespace NodeEditorMod
             key.message = new string[0];
         }
 
+        /// <summary>Binds the key to these keycodes, up to <see cref="MostKeys"/>;
+        /// unbound if there are none.</summary>
+        public static void Bind(MKey key, KeyCode[] codes)
+        {
+            if (key == null)
+            {
+                return;
+            }
+            Clear(key);
+            for (int i = 0; codes != null && i < codes.Length; i++)
+            {
+                Added(key, codes[i]);
+            }
+        }
+
         /// <summary>
-        /// Binds the key to one or more variable names.
-        ///
-        /// The keycode left behind is not decoration. `Machine.InitSimBlock` files
-        /// a block's keys with `KeyInputController` from inside
-        /// `for (i = 0; i &lt; key.KeysCount; i++)`, and it is `AddMKey` that puts
-        /// a key into the table variable names are looked up in -- so a key with a
-        /// name and no keycodes is never registered, hears nothing, and looks
-        /// exactly like a block that does not support automation. `AddMKey` files a
-        /// key under its name *or* its keys and never both, so with `useMessage`
-        /// set the keycode kept here stays inert. It is there to be counted.
+        /// Binds the key to one or more names, keeping a keycode behind them:
+        /// `Machine.InitSimBlock` registers a key once per keycode, so names with
+        /// no keycode hear nothing. With `useMessage` set the keycode is inert.
         /// </summary>
         public static void BindVariable(MKey key, string names)
         {
@@ -224,17 +237,9 @@ namespace NodeEditorMod
         }
 
         /// <summary>
-        /// How long a variable name may be, and the two characters that separate
-        /// one from the next as somebody types them.
-        ///
-        /// Besiege's own: `StatMaster.KeyMapper.VariableCharLimit` is 32, and its
-        /// tag editor splits what is typed on `Selectors.TagSelector`'s separators,
-        /// a semicolon and a comma. A name longer than the limit cannot be edited
-        /// in the game's own mapper afterwards, and a comma left in one would be
-        /// two names there and one here -- so both rules are kept to.
-        ///
-        /// Stored names are joined with a semicolon alone; that is what
-        /// `MKey.CombineVariables` writes and `MKey.SplitVariable` reads.
+        /// Besiege's name rules: 32 characters (`KeyMapper.VariableCharLimit`),
+        /// split on `;` and `,` when typed (`Selectors.TagSelector`), stored joined
+        /// with `;` (`MKey.CombineVariables`).
         /// </summary>
         public const int NameLimit = 32;
 
@@ -278,15 +283,13 @@ namespace NodeEditorMod
         }
 
         /// <summary>
-        /// How many keycodes one key may answer to, and how many names.
-        ///
-        /// Besiege's own: `Selectors.KeySelector.MaxKeys` is three, which is what
-        /// its mapper lets a hand bind, and `StatMaster.KeyMapper.MaxDisplayedTags`
-        /// is a hundred, past which its tag editor stops splitting what is typed.
-        /// A key answers to keycodes or to names and never both, so these are two
-        /// caps on the same key rather than a total.
+        /// Caps on one key, which holds keycodes or names and never both. Five
+        /// keycodes: Besiege's mapper stops adding at three
+        /// (`KeySelector.MaxKeys`), but saves, registration and emulation take any
+        /// number. A hundred names, the game's own cap
+        /// (`KeyMapper.MaxDisplayedTags`).
         /// </summary>
-        public const int MostKeys = 3;
+        public const int MostKeys = 5;
         public const int MostNames = 100;
 
         /// <summary>How many things a key answers to. Nought when it is bound to
@@ -312,6 +315,24 @@ namespace NodeEditorMod
             return codes;
         }
 
+        /// <summary>Whether a `;`-joined list of names holds this one.</summary>
+        public static bool Carries(string names, string want)
+        {
+            if (names == null || want == null)
+            {
+                return false;
+            }
+            string[] all = names.Split(';');
+            for (int i = 0; i < all.Length; i++)
+            {
+                if (all[i].Trim() == want)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         /// <summary>Whether a key already answers to this name.</summary>
         public static bool Holds(MKey key, string name)
         {
@@ -326,14 +347,8 @@ namespace NodeEditorMod
                 && key.HasKey(code);
         }
 
-        /// <summary>
-        /// Adds a name to what a key answers to, keeping whatever it answers to
-        /// already.
-        ///
-        /// False where it cannot: the key is on the keyboard rather than on names
-        /// -- a Besiege key is one or the other and never both -- or it is holding
-        /// as many names as the game allows.
-        /// </summary>
+        /// <summary>Adds a name, keeping the rest. False when the key is on the
+        /// keyboard or already holds <see cref="MostNames"/>.</summary>
         public static bool Added(MKey key, string name)
         {
             if (key == null || string.IsNullOrEmpty(name))
@@ -461,13 +476,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// The key being pressed now, or None. Used by a cell that is listening for
-        /// one to bind.
-        ///
-        /// Escape is not in <see cref="Bindable"/> and is answered separately by
-        /// the caller, so there is always a way out of listening.
-        /// </summary>
+        /// <summary>The key pressed this frame, or None. Escape is not bindable;
+        /// the caller handles it, so listening can always be left.</summary>
         public static KeyCode Captured()
         {
             if (!Input.anyKeyDown)

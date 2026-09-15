@@ -25,7 +25,7 @@
 
 		     No `modid`: the loader resolves a module element without one against
 		     the mod that owns the block XML, which is this one. -->
-		<TimerPlus block="Timer Plus" rows="3" />
+		<TimerPlus block="Timer Plus" rows="1" />
 	</Modules>
 
 	<Mesh name="TimerPlus_mesh">

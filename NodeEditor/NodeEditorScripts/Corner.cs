@@ -4,14 +4,8 @@ using UnityEngine.EventSystems;
 
 namespace NodeEditorMod
 {
-    /// <summary>
-    /// A corner of the editor's window, dragged to resize it, and the pointer that
-    /// says so while it is over one.
-    ///
-    /// The cursor is put back on exit rather than left: Unity's cursor is one
-    /// global thing, and a mod that takes it and does not give it back leaves the
-    /// game wearing a resize arrow over the machine.
-    /// </summary>
+    /// <summary>A resizing corner of the editor's window, and its cursor, which is
+    /// given back on exit: Unity's cursor is global.</summary>
     public class Corner : MonoBehaviour, IBeginDragHandler, IDragHandler,
                           IEndDragHandler, IPointerEnterHandler, IPointerExitHandler
     {

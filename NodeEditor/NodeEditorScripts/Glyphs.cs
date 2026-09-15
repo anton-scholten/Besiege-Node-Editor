@@ -5,18 +5,10 @@ using UnityEngine;
 namespace NodeEditorMod
 {
     /// <summary>
-    /// Every picture this mod draws with, loaded from the files it ships.
-    ///
-    /// They were drawn at runtime once -- a pixel at a time with sixteen samples
-    /// in each -- and the twenty of them together were a stall you could see on
-    /// the first block opened. Nothing about them changes between runs, so they
-    /// are drawn by `tools/make-glyphs.py` and shipped beside the block's mesh.
-    /// Change a shape there and run it; the names below are what `Mod.xml`
-    /// declares.
-    ///
-    /// A `RawImage` takes the `Texture` the resource system hands over as it is;
-    /// an `Image` would want a `Sprite` made from it and owned by somebody -- which
-    /// is what <see cref="Plated"/> is, and the one place it is worth it.
+    /// Every picture this mod draws, loaded from shipped files that
+    /// `tools/make-glyphs.py` makes (drawing them at runtime stalled the first
+    /// open). Names match `Mod.xml`. `Texture`s for `RawImage`, except the one
+    /// sprite, <see cref="Plated"/>.
     /// </summary>
     public static class Glyphs
     {
@@ -54,17 +46,14 @@ namespace NodeEditorMod
         public static Texture Stop { get { Look(); return stop; } }
         public static Texture Loop { get { Look(); return loop; } }
 
-        /// <summary>The node editor's two shipped icons: a speech bubble for the
-        /// comment node in its palette, and the pin that holds the board open.
-        /// `Note` rather than `Bubble` because a gate's inverting bubble is a
-        /// picture too.</summary>
+        /// <summary>The comment node's palette icon and the board's pin. `Note`,
+        /// not `Bubble`: a gate's inverting bubble is a picture too.</summary>
         public static Texture Note { get { Look(); return bubble; } }
 
         public static Texture Pin { get { Look(); return pinned; } }
 
-        /// <summary>The timer node's palette button, and the timer being carried
-        /// off it. Not drawn on the node itself: a timer on the board is its
-        /// numbers and its switches.</summary>
+        /// <summary>The timer's palette icon, and the ghost carried off
+        /// it.</summary>
         public static Texture Timer { get { Look(); return timer; } }
 
         /// <summary>The mark on the heading of the column the table is sorted by,
@@ -80,18 +69,15 @@ namespace NodeEditorMod
         /// corners off -- the delete mark behind a row's number.</summary>
         public static Texture Rounded { get { Look(); return rounded; } }
 
-        /// <summary>Diagonal bars, for a cell that is there but not read -- input B
-        /// on a gate that takes one input. One tile of a stripe, drawn to repeat.
-        /// </summary>
+        /// <summary>Diagonal bars for a cell that is not read, drawn to
+        /// repeat.</summary>
         public static Texture Bars { get { Look(); return bars; } }
 
         /// <summary>One square of the board's grid, drawn to repeat.</summary>
         public static Texture Grid { get { Look(); return grid; } }
 
-        /// <summary>How long one dash and its gap are, in pixels: the two dash
-        /// textures are this many texels along the way they run, so a strip
-        /// repeated once per <see cref="DashStep"/> pixels has square dashes
-        /// whichever way it lies.</summary>
+        /// <summary>One dash and its gap, in pixels: the dash textures' length, so
+        /// a dash is square whichever way it runs.</summary>
         public const float DashStep = 8f;
 
         public static Texture Dash { get { Look(); return dash; } }
@@ -100,13 +86,12 @@ namespace NodeEditorMod
         /// runs across it is a plain line laid down an edge.</summary>
         public static Texture DashDown { get { Look(); return dashDown; } }
 
-        /// <summary>
-        /// The pointer over a corner that can be dragged: a double-headed arrow
-        /// along the diagonal.
+        /// <summary>The double-headed arrow cursor for a corner that can be
+        /// dragged.
         /// </summary>
-        /// <param name="other">The other diagonal. A corner at the top left or the
-        /// bottom right is pulled one way and one at the top right or the bottom
-        /// left the other.</param>
+        /// <param name="other">The other diagonal: the top-right and bottom-left
+        /// corners.
+        /// </param>
         public static Texture2D Resizer(bool other)
         {
             int which = other ? 1 : 0;
@@ -119,12 +104,8 @@ namespace NodeEditorMod
 
         private const int CornerSize = 32;
 
-        /// <summary>
-        /// Drawn here rather than shipped like the rest of them, because it is not
-        /// drawn at all: it is handed to `Cursor.SetCursor`, and a hardware cursor
-        /// wants a texture of its own making -- readable, uncompressed, no
-        /// mipmaps. A pair of thirty-two-pixel squares is nothing to draw.
-        /// </summary>
+        /// <summary>Drawn here rather than shipped: `Cursor.SetCursor` wants a
+        /// readable, uncompressed texture with no mipmaps.</summary>
         private static Texture2D Arrows(bool other)
         {
             Texture2D made = new Texture2D(CornerSize, CornerSize,
@@ -171,11 +152,10 @@ namespace NodeEditorMod
             return gate < 0 || gate >= gates.Length ? null : gates[gate];
         }
 
-        /// <summary>How big the plate is and how much of its half-width the corners
-        /// take: the sliced sprite's border is worked out from them.</summary>
-        /// <summary>The plate's picture is drawn at twice the size the corners
-        /// are shown at -- see `tools/make-glyphs.py` -- so a screen that scales the
-        /// interface up still has a curve to show rather than a staircase.</summary>
+        /// <summary>The plate's size and corner share, which the sliced border
+        /// comes from. Drawn at twice display size, so a scaled-up interface still
+        /// shows a curve.
+        /// </summary>
         private const int PlateSize = 128;
 
         /// <summary>How many times over the plate is drawn, against the size a
@@ -183,14 +163,8 @@ namespace NodeEditorMod
         private const float PlateScale = PlateSize / 64f;
         private const float Corner = 0.30f;
 
-        /// <summary>
-        /// The plate as a nine-sliced sprite: the corners keep their radius
-        /// whatever it is stretched to.
-        ///
-        /// A texture stretched across a wide node has wide oval corners, which a
-        /// board of nodes of different sizes shows up at once. Sliced, the four
-        /// corners are drawn at their own size and only the straight parts stretch.
-        /// </summary>
+        /// <summary>The plate as a nine-sliced sprite: corners keep their radius at
+        /// any node size.</summary>
         public static Sprite Plated
         {
             get
@@ -204,11 +178,9 @@ namespace NodeEditorMod
                 {
                     return null;
                 }
-                // The border is the corner itself, and a pixel over so the straight
-                // edge starts outside the curve rather than in it.
-                // Both in the picture's own pixels, and read at as many more pixels
-                // to the unit as the picture has, so a corner is the size it always
-                // was on the board and simply has more to it.
+                // The border is the corner and a pixel, in picture pixels, read at
+                // the picture's own pixels per unit so a corner keeps its size on
+                // the board.
                 float edge = PlateSize * 0.5f * Corner + PlateScale;
                 plate = Sprite.Create(drawn,
                                       new Rect(0f, 0f, drawn.width, drawn.height),
@@ -241,18 +213,16 @@ namespace NodeEditorMod
             dot = Fetch("NodeEditor_dot");
             rounded = Fetch("NodeEditor_plate");
             arrow = Fetch("NodeEditor_arrow");
-            // The three that are laid end to end rather than drawn once. A texture
-            // loaded from a file is clamped by default, and a clamped tile drawn
-            // ten times over is one tile and nine smears of its last row.
+            // Repeated, so wrapped: a clamped tile repeats as smears of its last
+            // row.
             grid = Tiled(Fetch("NodeEditor_grid"), false);
             dash = Tiled(Fetch("NodeEditor_dash"), true);
             dashDown = Tiled(Fetch("NodeEditor_dashdown"), true);
             bars = Tiled(Fetch("NodeEditor_bars"), false);
         }
 
-        /// <summary>A texture that is repeated rather than stretched. Point
-        /// sampling for the dashes: they are a few texels long, and filtered they
-        /// are a smudge.</summary>
+        /// <summary>A repeating texture, point-sampled for the short
+        /// dashes.</summary>
         private static Texture Tiled(Texture made, bool sharp)
         {
             if (made != null)

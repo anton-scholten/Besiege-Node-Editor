@@ -6,22 +6,9 @@ using UnityEngine.UI;
 namespace NodeEditorMod
 {
     /// <summary>
-    /// One cell of the table that holds a key or a variable.
-    ///
-    /// Besiege's own mapper gives a key a whole row and a modal selector; a table
-    /// has a hundred units of width for the same thing, so this is the compact
-    /// form: a mode button and, beside it, either a plate showing the key or a box
-    /// holding the variable name.
-    ///
-    /// * **key mode** -- the plate shows what is bound. Clicking it listens for the
-    ///   next press and binds that; Escape unbinds; clicking away gives up.
-    /// * **variable mode** -- the box holds one or more names, joined with `;` the
-    ///   way a save spells them.
-    ///
-    /// The two are built once and swapped with `SetActive`, each owning its own
-    /// flag, so the row's own clipping can hide the whole cell without the two
-    /// arguing about which of them should be showing -- see notes/04, "one owner
-    /// per SetActive".
+    /// A table cell holding a key or a variable: a mode button, then either a plate
+    /// showing the key (click to listen, Escape unbinds) or a box of `;`-joined
+    /// names. Both halves are built once and swapped with `SetActive`.
     /// </summary>
     public class KeyCell : MonoBehaviour
     {
@@ -29,10 +16,9 @@ namespace NodeEditorMod
         /// bubble icon to be read at a glance, which is what it holds.</summary>
         public const float ModeWidth = 22f;
 
-        /// <summary>What this cell's bubble is actually drawn at. The default is
-        /// <see cref="ModeWidth"/>; the logic table asks for a narrower one,
-        /// because it has three of these columns to fit where the timer has two and
-        /// the bubble is a picture that reads at either size.</summary>
+        /// <summary>The mode bubble's width; the logic table asks for a narrower
+        /// one.
+        /// </summary>
         private float bubble = ModeWidth;
 
         private const float Gap = 2f;
@@ -44,24 +30,14 @@ namespace NodeEditorMod
         private Text plateLabel;
         private InputField box;
 
-        /// <summary>
-        /// Which of the two the cell is showing.
-        ///
-        /// A field the mode button and <see cref="Show"/> own, **not** something
-        /// derived from whether <see cref="Variable"/> is null. It was derived, and
-        /// that was the bug: `InputField.onEndEdit` fires when a field loses focus
-        /// or is deactivated, not only when somebody presses Enter -- so switching
-        /// away from variable mode deactivated the box, the box announced its text
-        /// on the way out, and the announcement put the mode straight back. The
-        /// cell could be switched to a variable and never switched back, and
-        /// clicking another row's button knocked this one over instead. Mode is a
-        /// choice; the text only says which variable.
-        /// </summary>
+        /// <summary>Which half the cell shows: a choice owned by the mode button
+        /// and <see cref="Show"/>, not derived from <see cref="Variable"/>.
+        /// `onEndEdit` also fires on deactivation, and a derived mode switched
+        /// itself straight back.</summary>
         private bool variable;
 
-        /// <summary>Whether a click with a modifier held belongs to whatever this
-        /// cell sits on rather than to the cell. Set on the node editor's cells,
-        /// where a modifier picks the node out.</summary>
+        /// <summary>Whether a modifier-click belongs to what the cell sits on: the
+        /// node editor picks nodes with it.</summary>
         public bool ignoreCtrl
         {
             get { return aside; }
@@ -85,29 +61,18 @@ namespace NodeEditorMod
         private bool listening;
         private bool held;
 
-        /// <summary>
-        /// Whether the click that is about to arrive has already been used.
-        ///
-        /// A mouse button is a bindable key, and binding one takes the button
-        /// *down*: the matching *up* is what raises the plate's own click, which
-        /// would put the cell straight back to listening and lose what it had just
-        /// caught. So a mouse binding swallows the click that made it, and the
-        /// next one -- a fresh press, meaning what it says -- goes through.
-        /// </summary>
+        /// <summary>Whether the next click is already used: binding a mouse button
+        /// takes its press, and its release would click the plate and listen
+        /// again.</summary>
         private bool swallow;
 
-        /// <summary>Frames since every mouse button came up, counted only while a
-        /// click is being swallowed. One clear frame is given to the click event
-        /// before the flag is dropped, because Update and the event system do not
-        /// agree on an order within a frame.</summary>
+        /// <summary>Frames with every button up while swallowing. One clear frame
+        /// before the flag drops, as Update and the event system run in no fixed
+        /// order.</summary>
         private int settled;
 
-        /// <summary>
-        /// The one cell listening for a key, if any.
-        ///
-        /// Static because two cells listening at once bind the same press to both,
-        /// and because the first would go on holding Besiege's keyboard off after
-        /// the pointer had moved on.
+        /// <summary>The one cell listening, if any: two would bind one press to
+        /// both.
         /// </summary>
         private static KeyCell waiting;
 
@@ -118,14 +83,12 @@ namespace NodeEditorMod
         /// the key and queues the commit.</summary>
         public Action<KeyCell> Changed;
 
-        /// <summary>Handed the name box when it is built -- the first time it is
-        /// needed, not with the cell -- for whoever wants a hand on it too: the
-        /// node editor drags its node by it.</summary>
+        /// <summary>Handed the name box when it is built; the node editor drags its
+        /// node by it.</summary>
         public Action<InputField> Fielded;
 
-        /// <summary>The name typed into the box, or null when there is none. Only
-        /// meaningful in variable mode -- read <see cref="UsesVariable"/> first.
-        /// </summary>
+        /// <summary>The typed name, or null. Only meaningful when
+        /// <see cref="UsesVariable"/>.</summary>
         public string Variable;
 
         /// <summary>Whether the cell is showing a variable rather than a key.
@@ -203,14 +166,8 @@ namespace NodeEditorMod
         private float wide;
         private float high;
 
-        /// <summary>
-        /// The box a name is typed into, built the first time the cell is in
-        /// variable mode.
-        ///
-        /// Most cells are keys and never see it, and a text field is the most
-        /// expensive prefab of the three a cell can hold -- a board of a dozen
-        /// nodes was building a dozen of them to keep them switched off.
-        /// </summary>
+        /// <summary>The name box, built on first use: most cells are keys, and a
+        /// text field is the dearest prefab.</summary>
         private void Boxed()
         {
             if (box != null)
@@ -234,11 +191,12 @@ namespace NodeEditorMod
                     ghost.text = "name";
                 }
                 box.onEndEdit.AddListener(Typed);
+                // A name longer than the cell slides along to show all of it.
+                Marquee.On(box);
             }
-            // Clicking the box offers the names already on the machine. On the
-            // field itself rather than a control beside it: the box is the whole
-            // cell in variable mode, and uGUI hands a click to every handler on an
-            // object, so the field goes on taking typing.
+            // Clicking the box offers the machine's names. On the field itself:
+            // uGUI hands a click to every handler on an object, so typing still
+            // works.
             Choices.Opener opener = field.AddComponent<Choices.Opener>();
             opener.Clicked = Offer;
             if (guard != null)
@@ -251,20 +209,10 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// The picture on the mode button: Besiege's own key-selector bubble, laid
-        /// over the UI Factory button rather than replacing its graphic.
-        ///
-        /// Built on the first repaint that finds the artwork rather than while the
-        /// cell is being made: the icons are read off a live `KeySelector`, and the
-        /// mapper has to have built one before there is anything to read. A cell
-        /// made a moment too early would otherwise keep its lettering until the
-        /// whole panel was rebuilt.
-        ///
-        /// A `RawImage` and not an `Image`, because what the mapper hands over is a
-        /// `Texture` off a mesh-UI material -- a `Sprite` would need it to be a
-        /// `Texture2D`, which is an assumption there is no reason to make.
-        /// </summary>
+        /// <summary>The mode button's picture: Besiege's key-selector bubble. Built
+        /// on the first repaint that finds it, since it only exists once the mapper
+        /// has built a `KeySelector`. A `RawImage`, as the artwork is a
+        /// `Texture`.</summary>
         private void Bubble()
         {
             if (modeIcon != null || mode == null || !MapperArt.Ready)
@@ -304,28 +252,30 @@ namespace NodeEditorMod
         /// the panel refills the table.</summary>
         public void Show(MKey key)
         {
+            Show(key, true);
+        }
+
+        /// <param name="counted">Whether several bindings show as a count. False
+        /// for an input the row does not read: the cell shows what it holds, under
+        /// the bars.</param>
+        public void Show(MKey key, bool counted)
+        {
             // Mid-binding, or mid-typing: do not write over what somebody is doing.
             if (listening || (box != null && box.isFocused))
             {
                 return;
             }
-            // A key wired to several things at once is not a cell to type in: what
-            // it answers to is a list, the board is where a list is edited, and the
-            // one thing worth saying here is how many. See `several`.
-            several = Bindings.Count(key);
+            // A key wired to several things shows a count and takes no typing:
+            // lists are edited on the board.
+            several = counted ? Bindings.Count(key) : 0;
             variable = Bindings.IsVariable(key);
             Variable = variable ? Bindings.Variable(key) : null;
             Code = variable ? KeyCode.None : Bindings.Code(key);
             Paint();
         }
 
-        /// <summary>
-        /// Shows a binding that is not a mapper key at all.
-        ///
-        /// The node editor's ends of the board are a name or a keycode written into
-        /// the block's layout rather than into an `MKey`, and a cell is how anybody
-        /// would want to edit one.
-        /// </summary>
+        /// <summary>Shows a binding that is not an `MKey`: the node editor's input
+        /// and output nodes.</summary>
         public void Load(string named, KeyCode code)
         {
             if (listening || (box != null && box.isFocused))
@@ -339,18 +289,54 @@ namespace NodeEditorMod
             Paint();
         }
 
+        /// <summary>Shows a Timer Plus row's binding, which is the table's own data
+        /// rather than an `MKey`. Several show as a count, as a key's do.</summary>
+        public void Load(string named, KeyCode[] codes, bool counted)
+        {
+            if (listening || (box != null && box.isFocused))
+            {
+                return;
+            }
+            int keys = 0;
+            KeyCode first = KeyCode.None;
+            for (int i = 0; codes != null && i < codes.Length; i++)
+            {
+                if (codes[i] != KeyCode.None)
+                {
+                    if (keys == 0)
+                    {
+                        first = codes[i];
+                    }
+                    keys++;
+                }
+            }
+            variable = named != null;
+            several = counted ? (variable ? Bindings.Named(named).Count : keys) : 0;
+            Variable = named;
+            Code = variable ? KeyCode.None : first;
+            Paint();
+        }
+
+        /// <summary>Finishes whatever the cell is doing -- listening, a name being
+        /// typed -- before the table points it at another row.</summary>
+        public void Let()
+        {
+            Give();
+            if (box != null && box.isFocused)
+            {
+                box.DeactivateInputField();
+            }
+        }
+
         public bool Listening { get { return listening; } }
 
-        /// <summary>
-        /// How many things this cell's key answers to, when that is more than one.
-        ///
-        /// Besiege ORs them -- the key is held while any of them is raised -- so a
-        /// gate's input wired to five answers is one input reading five names.
-        /// There is nothing useful to show in a cell that wide and nothing safe to
-        /// type into it: the count is what it says, in the game's own live colour,
-        /// and the board is where the wires are.
-        /// </summary>
+        /// <summary>How many things the key answers to, when more than one; Besiege
+        /// ORs them.</summary>
         private int several;
+
+        /// <summary>Whether the cell is what a row presses rather than reads: its
+        /// count says "outputs".</summary>
+        public bool Answers;
 
         private void Paint()
         {
@@ -370,7 +356,7 @@ namespace NodeEditorMod
                 }
                 if (plateLabel != null)
                 {
-                    plateLabel.text = several + " inputs";
+                    plateLabel.text = several + (Answers ? " outputs" : " inputs");
                     plateLabel.color = UIF.Live;
                 }
                 return;
@@ -379,9 +365,8 @@ namespace NodeEditorMod
             {
                 mode.SetActive(true);
             }
-            // The bubble says which way the cell will go if it is clicked, which
-            // is the way round Besiege's own selector uses them: three dots while
-            // the key is on the keyboard, a cross while a variable holds it.
+            // The bubble shows where a click goes, as Besiege's selector does: dots
+            // on the keyboard, a cross on a variable.
             Bubble();
             if (modeIcon != null)
             {
@@ -422,14 +407,8 @@ namespace NodeEditorMod
 
         // ---- editing ---------------------------------------------------------
 
-        /// <summary>
-        /// Whether this click belongs to whatever the cell is sitting on rather
-        /// than to the cell.
-        ///
-        /// The node editor picks nodes out with control held, and a cell that took
-        /// that click for itself started listening for a key at the same time --
-        /// two things from one click, one of them unasked for.
-        /// </summary>
+        /// <summary>Whether a modifier-click belongs to what the cell sits on, so
+        /// it does not also start listening.</summary>
         private bool Aside()
         {
             return ignoreCtrl && Deaf.Aside();
@@ -445,10 +424,8 @@ namespace NodeEditorMod
             Hold(false);
             listening = false;
 
-            // Guarded, because Paint below deactivates whichever half is going
-            // away -- and deactivating a focused InputField makes it announce its
-            // text through onEndEdit, which would answer for the cell and undo the
-            // switch that is happening.
+            // Guarded: deactivating a focused box fires onEndEdit, which would undo
+            // the swap.
             swapping = true;
             variable = !variable;
             Variable = null;
@@ -501,12 +478,8 @@ namespace NodeEditorMod
             Paint();
         }
 
-        /// <summary>
-        /// Offers the names already in use on the machine.
-        ///
-        /// Nothing is offered when there are none: an empty list under the box
-        /// says less than the box itself does, and the box is still the way a name
-        /// nobody has used yet gets typed.
+        /// <summary>Offers the names already on the machine; nothing if there are
+        /// none.
         /// </summary>
         private void Offer()
         {
@@ -554,17 +527,12 @@ namespace NodeEditorMod
             {
                 return;
             }
-            // Held to Besiege's own rules for a name as it is taken in: cut to
-            // its character limit, and split where the game's tag editor splits.
-            // A name this could not spell is a name the stock mapper could not
-            // edit afterwards.
-            // An empty box stays variable mode with nothing bound. Falling back to
-            // key mode here is what made the button impossible to click back.
+            // Held to Besiege's name rules. An empty box stays in variable mode:
+            // falling back to key mode made the button impossible to click back.
             string tidied = Bindings.Tidied(text);
-            // Nothing to say when nothing changed. The box announces its text when
-            // it is only put out of reach -- the node editor does that for the
-            // length of a drag begun on it -- and answering that redrew the node
-            // out from under the hand moving it.
+            // Nothing to raise if nothing changed: a box put out of reach for a
+            // drag announces its text, and answering it redrew the node under the
+            // hand.
             bool same = tidied == Variable;
             Variable = tidied;
             if (box != null && !box.isFocused)
@@ -580,10 +548,8 @@ namespace NodeEditorMod
 
         private void Update()
         {
-            // The mapper's own key selector has to have been built once for its
-            // artwork to exist, and a cell made before that keeps its lettering
-            // until something repaints it. Nothing does, in a window that is not
-            // the mapper -- so it is asked for again here until it turns up.
+            // The artwork exists only once the mapper has built a key selector;
+            // keep asking.
             if (modeIcon == null && MapperArt.Ready)
             {
                 Paint();
@@ -595,9 +561,8 @@ namespace NodeEditorMod
                 settled = down ? 0 : settled + 1;
                 if (settled > 1)
                 {
-                    // The press that bound the button is long over and no click
-                    // came of it -- the pointer was dragged off the plate, or the
-                    // panel was rebuilt under it.
+                    // The binding press is over and no click came: the pointer
+                    // left, or a rebuild.
                     swallow = false;
                 }
             }
@@ -645,19 +610,9 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// Holds Besiege's own keyboard off while this cell is listening, or the
-        /// key being bound also drives the camera and fires whatever else is bound
-        /// to it. `SetInMenu` is counted on Besiege's side, so it is raised and
-        /// dropped exactly once -- including when the panel is torn down with a
-        /// cell still listening, which is the usual way to leave the game believing
-        /// a menu is open.
-        ///
-        /// Through <see cref="ZoomGuard.Menu"/> rather than straight to
-        /// `StatMaster`, so the count stays this mod's own: the node editor closes
-        /// when a menu that is not ours goes up, and a cell listening for a key is
-        /// ours.
-        /// </summary>
+        /// <summary>Holds Besiege's keyboard off while listening, raised and
+        /// dropped once, through <see cref="ZoomGuard.Menu"/> so the node editor
+        /// can tell our menu count from the game's.</summary>
         private void Hold(bool on)
         {
             if (held == on)

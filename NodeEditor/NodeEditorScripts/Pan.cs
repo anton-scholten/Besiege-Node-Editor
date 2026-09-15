@@ -4,18 +4,8 @@ using UnityEngine.EventSystems;
 
 namespace NodeEditorMod
 {
-    /// <summary>
-    /// A drag with the middle button, wherever it starts: the board moves under
-    /// the hand and whatever was pressed stays where it is.
-    ///
-    /// Its own component so it can sit beside the handlers that do something with
-    /// the left button -- a node's drag, a port's wire -- rather than being written
-    /// again in each of them. uGUI gives a drag to every handler on the object it
-    /// finds, so the two share the event and each ignores the other's button.
-    ///
-    /// Measured in <see cref="against"/>, which is the thing that stands still
-    /// while the view moves: measuring inside what is being panned gives a step the
-    /// pan itself cancels out, and the board sticks.
+    /// <summary>A middle-button drag pans the board wherever it starts, beside the
+    /// left-button handlers. Measured in <see cref="against"/>, which stands still.
     /// </summary>
     public class Pan : MonoBehaviour, IBeginDragHandler, IDragHandler,
                        IEndDragHandler
@@ -58,8 +48,7 @@ namespace NodeEditorMod
 
         private void OnDisable()
         {
-            waving = false;
-            grip = ZoomGuard.Grip(false, grip);
+            OnEndDrag(null);
         }
 
         private bool Where(PointerEventData move, out Vector2 local)

@@ -2,18 +2,8 @@ using UnityEngine;
 
 namespace NodeEditorMod
 {
-    /// <summary>
-    /// Fades a panel up and lets it drift the last few pixels into place, and
-    /// fades it away again when it is no longer wanted.
-    ///
-    /// Besiege's own tooltips do this through
-    /// <c>Besiege.UI.Bridge.Tooltip</c>, which fades and slides the panel it is
-    /// pointed at -- but that handler goes on the hovered control and owns one
-    /// panel per control, which is the arrangement <see cref="Tip"/> explains it
-    /// cannot use. This is the part of it worth having on a shared panel:
-    /// appearing is a movement rather than an event, so a pointer crossing a row
-    /// of icons does not flash a hard-edged box on and off at each one.
-    /// </summary>
+    /// <summary>Fades a panel in, drifting its last few pixels, and fades it out:
+    /// what Besiege's own tooltip handler does, for a shared panel.</summary>
     public class Glide : MonoBehaviour
     {
         /// <summary>How fast it fades, in the same units as <see cref="Swell"/>'s
@@ -60,9 +50,8 @@ namespace NodeEditorMod
                 {
                     group = gameObject.AddComponent<CanvasGroup>();
                 }
-                // The panel hangs over the window and everything in it; nothing it
-                // covers should stop answering the pointer, the control it explains
-                // least of all.
+                // The panel must not block the pointer, least of all over what it
+                // explains.
                 group.blocksRaycasts = false;
                 group.interactable = false;
             }

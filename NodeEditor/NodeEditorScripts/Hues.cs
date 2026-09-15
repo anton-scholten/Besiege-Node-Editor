@@ -6,27 +6,11 @@ using UnityEngine;
 namespace NodeEditorMod
 {
     /// <summary>
-    /// How the node editor colours its nodes and wires, and the colours it has to
-    /// do it with.
-    ///
-    /// The player's and not the block's: a machine opened on somebody else's
-    /// computer should look the way that person likes a board to look, and the
-    /// colours of a board are not part of the circuit. So they are kept in the
-    /// mod's own data folder -- the one place `ModIO` writes to (notes 01) -- and
-    /// shared by every board that is open.
-    ///
-    /// Nodes and wires each have a way of their own, chosen apart:
-    ///
-    ///   UNICOLOR  a node in the one node colour; a wire in the one wire colour --
-    ///             how the board always looked.
-    ///   COLOR     a node in its kind's colour; a wire shaded from the kind colour
-    ///             of the node it leaves to that of the node it reaches.
-    ///   RANDOM    either drawn from the row of kind colours.
-    ///
-    /// "Random" is chosen once and kept: a colour that changed every time the board
-    /// was drawn again would flicker at every edit. What it is chosen from is a
-    /// number worked out from the thing being coloured, so the same node is the
-    /// same colour tomorrow.
+    /// How the node editor colours nodes and wires, and the colours it uses. The
+    /// player's rather than the block's: kept in the mod's data folder through
+    /// `ModIO` and shared by every open board. Nodes and wires each go UNICOLOR
+    /// (one colour), COLOR (by kind; a wire shades between its ends' kinds) or
+    /// RANDOM (from the kind row, seeded by what is coloured, so it stays put).
     /// </summary>
     public static class Hues
     {
@@ -46,10 +30,8 @@ namespace NodeEditorMod
             return new List<string>(names);
         }
 
-        /// <summary>One colour per thing the palette offers, in the palette's own
-        /// order: the two ends, a comment, a timer, and the gates as Besiege lists
-        /// them.
-        /// </summary>
+        /// <summary>One colour per palette entry, in palette order: the two ends, a
+        /// comment, a timer, then the gates in Besiege's order.</summary>
         public const int Slots = 4 + Gates.Count;
 
         public const int InputSlot = 0;
@@ -175,9 +157,8 @@ namespace NodeEditorMod
             return node;
         }
 
-        /// <summary>A wire's colour where it is one colour all along -- every way
-        /// but the two that shade, whose wires are worked out from the nodes at
-        /// their ends.</summary>
+        /// <summary>A wire's colour where it is one colour along its
+        /// length.</summary>
         public static Color WireOf(int seed)
         {
             if (WireMode == Random)
@@ -205,9 +186,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>A name made into a number the same way every time -- not
-        /// `GetHashCode`, which nothing promises is the same from one run to the
-        /// next.</summary>
+        /// <summary>A name as a number that is the same every run, as `GetHashCode`
+        /// need not be.</summary>
         public static int Hashed(string text)
         {
             unchecked
@@ -262,11 +242,8 @@ namespace NodeEditorMod
             return true;
         }
 
-        /// <summary>
-        /// Writes the colours down once nothing is being dragged: a band dragged
-        /// across its hues changes the colour every frame, and a file a frame is
-        /// a lot of file for one choice.
-        /// </summary>
+        /// <summary>Writes the colours down once nothing is being dragged, not
+        /// every frame of a drag.</summary>
         public static void Settle()
         {
             if (dirty && !Input.GetMouseButton(0))
@@ -275,9 +252,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>The colours a board starts with: white nodes, the blue wires it
-        /// always had, and every kind a different pale hue, so the ways that use
-        /// them show something before anybody has picked a colour.</summary>
+        /// <summary>The starting colours: white nodes, blue wires, and a different
+        /// pale hue per kind.</summary>
         private static void Defaults()
         {
             node = Color.white;
@@ -288,9 +264,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>RESET COLORS: every colour back to how it started. The way of
-        /// colouring is left as it is -- that is the selector's, not a colour.
-        /// </summary>
+        /// <summary>RESET COLORS: every colour back to its default. The ways of
+        /// colouring are left alone.</summary>
         public static void Reset()
         {
             Load();

@@ -1,17 +1,11 @@
 namespace NodeEditorMod
 {
     /// <summary>
-    /// One row of the Node Editor table: a whole logic gate, and the state it
-    /// is in during a run.
-    ///
-    /// The settings are Besiege's own mapper controls rather than fields, which is
-    /// what makes them saved with the machine, undoable, and sent over
-    /// multiplayer -- and, in the case of the three keys, automatable at all. See
-    /// <see cref="Row"/> for why that caps the number of rows.
-    ///
-    /// The state is <see cref="Gates"/>', which is Besiege's own: A and B as the
-    /// gate last saw them, the latched flag the memory gates answer with, and the
-    /// counter's two numbers.
+    /// One Computer row: a logic gate or a timer, and its run state. The
+    /// settings are Besiege control objects, made rather than registered: the rows
+    /// are the block's own data, saved as text (<see cref="LogicTable.Save"/>),
+    /// and a run files the inputs by hand. The state is <see cref="Gates"/>' copy
+    /// of the game's.
     /// </summary>
     public class LogicRow
     {
@@ -22,23 +16,19 @@ namespace NodeEditorMod
         public MKey InputA;
         public MKey InputB;
 
-        /// <summary>Which gate, as one of <see cref="Gates"/>' constants. A menu
-        /// rather than a number, so a save carries the choice the same way the
-        /// game's own block does.</summary>
+        /// <summary>Which gate, as <see cref="Gates"/>' constants; a menu, as the
+        /// game's own block saves it.</summary>
         public MMenu Kind;
 
-        /// <summary>The one switch: "inverted" for the edge detector, "toggle
-        /// mode" for everything else. Besiege has two controls and shows one at a
-        /// time; a table with a column each would be a column of blanks.</summary>
+        /// <summary>The one switch: "inverted" for the edge detector, "toggle mode"
+        /// for the rest. Besiege has both and shows one.</summary>
         public MToggle Mode;
 
         /// <summary>What the row presses while its gate says yes.</summary>
         public MKey Emulate;
 
-        /// <summary>What the row is set to as a timer -- see
-        /// <see cref="Gates.Timer"/>. Every row has them, as every row has an input
-        /// B: its menu is what makes a row a timer, and one switched back to a gate
-        /// keeps them for the next time.</summary>
+        /// <summary>Timer settings (<see cref="Gates.Timer"/>). Every row has them,
+        /// and a row switched back to a gate keeps them.</summary>
         public MSlider Wait;
         public MSlider Duration;
         public MToggle Hold;
@@ -64,23 +54,20 @@ namespace NodeEditorMod
         public int Count;
         public int LastCount;
 
-        /// <summary>Whether the row is holding its emulated key. Kept so it can be
-        /// let go exactly once -- an emulated key is reference counted, so one
-        /// never let go never comes up for anything else either.</summary>
+        /// <summary>Whether the row holds its emulated key, so it is let go exactly
+        /// once: emulated keys are reference counted.</summary>
         public bool Held;
 
-        /// <summary>The two inputs, read through <see cref="KeyReader"/> so an
-        /// emulated press is caught on the emulation tick rather than missed or
-        /// counted twice by a frame update.</summary>
+        /// <summary>The inputs, read through <see cref="KeyReader"/> so an emulated
+        /// press is neither missed nor counted twice.</summary>
         public KeyReader ReadA;
         public KeyReader ReadB;
 
         // ---- reading the settings --------------------------------------------
 
-        /// <summary>True while every control this row needs is there. A row whose
-        /// controls could not be found is skipped rather than dereferenced: the
-        /// mapper is built on a simulating client without physics with every field
-        /// still null.</summary>
+        /// <summary>Whether every control exists; a client without physics builds
+        /// none.
+        /// </summary>
         public bool Ready
         {
             get
@@ -92,9 +79,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>Which gate this row is -- or <see cref="Gates.Timer"/> -- clamped
-        /// to one that exists: a save from a later game with more gates in it
-        /// should not throw.</summary>
+        /// <summary>The gate, clamped to one that exists, so a save from a later
+        /// game does not throw.</summary>
         public int Gate
         {
             get
@@ -111,14 +97,9 @@ namespace NodeEditorMod
         /// <summary>Whether this row is a timer rather than a gate.</summary>
         public bool IsTimer { get { return Kind != null && Kind.Value == Gates.Timer; } }
 
-        /// <summary>
-        /// Whether this row is a timer that starts with the simulation: one with
-        /// nothing on its input, its wait counted from the start of the run.
-        ///
-        /// A timer with nothing to start it would otherwise never run, so this is
-        /// the one thing such a row can usefully mean -- and it is exactly Besiege's
-        /// own timer with Automatic on, which is what it is read in from and written
-        /// out as.
+        /// <summary>Whether this is a timer with nothing on its input, which starts
+        /// with the simulation: Besiege's timer with Automatic on, read and written
+        /// as one.
         /// </summary>
         public bool Automatic
         {

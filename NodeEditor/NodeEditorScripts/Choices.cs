@@ -7,20 +7,10 @@ using UnityEngine.UI;
 namespace NodeEditorMod
 {
     /// <summary>
-    /// The list of variable names a cell offers when it is switched to a variable.
-    ///
-    /// One list, on a canvas of its own, above every window this mod draws -- the
-    /// same arrangement as <see cref="Tip"/> and for the same reason: the cell that
-    /// opens it lives inside a scrolling view that clips its rows, and a list
-    /// parented into a row would be cut off at the edge of the frame and drawn
-    /// under whichever row came after it. Its own canvas rather than whichever
-    /// window opened it, because two of those windows are up at once and a list
-    /// drawn on the lower one disappears behind the higher.
-    ///
-    /// A variable is only a name typed into a key, so the box is still there to
-    /// type into. This is the list of names already in use on the machine, which
-    /// is what somebody wiring one block to another actually wants: the name is
-    /// already decided and only has to be spelled the same.
+    /// The list of variable names a cell offers: the names already on the machine;
+    /// a new one can still be typed. One list, on its own canvas above every window
+    /// of this mod, since a list inside a scrolling row would be clipped and drawn
+    /// under later rows.
     /// </summary>
     public static class Choices
     {
@@ -32,18 +22,15 @@ namespace NodeEditorMod
         private const float MinWidth = 120f;
         private const float Gap = 2f;
 
-        /// <summary>The scrollbar's width, and how wide its handle is drawn inside
-        /// it. Built by hand rather than borrowed: this list is not a UI Factory
-        /// window, so there is no prefab bar to reuse.</summary>
+        /// <summary>The scrollbar's width and its handle's. Built by hand: this
+        /// list is no UI Factory window.</summary>
         private const float BarWidth = 8f;
 
         /// <summary>The track behind the handle: the plate, a shade lighter.</summary>
         private static readonly Color RailInk = new Color(1f, 1f, 1f, 0.10f);
         private static readonly Color GripInk = new Color(1f, 1f, 1f, 0.45f);
 
-        /// <summary>Over the board editor and the docked table, under the
-        /// tooltip -- a list is a thing to point at and a tip explains what is
-        /// under the pointer.</summary>
+        /// <summary>Above the board and the table, below the tooltip.</summary>
         private const int CanvasOrder = 2800;
 
         private static RectTransform canvas;
@@ -79,9 +66,9 @@ namespace NodeEditorMod
                 scaler.matchWidthOrHeight = 1f;
                 host.AddComponent<GraphicRaycaster>();
                 canvas = host.GetComponent<RectTransform>();
-                // A canvas made this frame has no size until Unity lays it out, and
-                // a list placed against a rect of nothing lands nowhere near what
-                // opened it -- which is what the first list of a session did.
+                // A canvas made this frame has no size until it is laid out; placed
+                // against it, the first list of a session landed nowhere near its
+                // cell.
                 Canvas.ForceUpdateCanvases();
                 return true;
             }
@@ -115,13 +102,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// Whether the pointer is over the open list.
-        ///
-        /// Asked by the panel, which switches its raycaster off for a press that
-        /// did not land on its window -- and this list is the one thing of the
-        /// panel's that hangs outside it.
-        /// </summary>
+        /// <summary>Whether the pointer is over the open list. The panel asks: the
+        /// list hangs outside the panel's window.</summary>
         public static bool Over(Vector2 screen)
         {
             if (list == null)
@@ -176,9 +158,8 @@ namespace NodeEditorMod
         private static void Build(RectTransform under, List<string> names,
                                   Vector2 screen, bool atPoint)
         {
-            // Anything clicked outside the list closes it. A sheet over the whole
-            // canvas, under the list itself: uGUI raycasts the last sibling first,
-            // so the list is still clickable and everything else is not.
+            // A sheet over the canvas, under the list, closes it on any click
+            // outside.
             sheet = new GameObject("ChoicesSheet");
             sheet.transform.SetParent(canvas, false);
             RectTransform behind = sheet.AddComponent<RectTransform>();
@@ -190,10 +171,8 @@ namespace NodeEditorMod
             blank.color = new Color(0f, 0f, 0f, 0f);
             Shut shut = sheet.AddComponent<Shut>();
             shut.enabled = true;
-            // A list is over everything while it is open, so it is over whatever
-            // was holding the game's camera off -- and the wheel went back to
-            // zooming the machine the moment one was opened. It holds the camera
-            // itself instead, for as long as it is up.
+            // Holds the camera's zoom off while the list is up, as it covers
+            // whatever held it.
             ZoomGuard guard = sheet.AddComponent<ZoomGuard>();
             guard.menu = true;
 
@@ -223,9 +202,8 @@ namespace NodeEditorMod
             view.anchorMax = Vector2.one;
             view.offsetMin = new Vector2(Pad, Pad);
             view.offsetMax = new Vector2(-(Pad + (scrolls ? BarWidth + Pad : 0f)), -Pad);
-            // RectMask2D and not Mask: a stencil mask on the same canvas as the
-            // window's own stencil mask cuts holes in it -- the two are at the same
-            // depth. This one clips by rectangle and nothing else notices.
+            // RectMask2D, not Mask: a stencil mask at the same depth as the
+            // window's own cuts holes in it.
             port.AddComponent<RectMask2D>();
 
             GameObject inside = new GameObject("Names");
@@ -253,17 +231,13 @@ namespace NodeEditorMod
                 scroll.movementType = ScrollRect.MovementType.Clamped;
                 scroll.scrollSensitivity = RowHeight;
                 scroll.verticalScrollbar = Rail(frame);
-                // Permanent, and the viewport already holds its own edge clear of
-                // the bar: the modes that hide the bar also resize the viewport,
-                // and this viewport is placed by anchors rather than by the
-                // ScrollRect.
+                // Permanent: the auto-hiding modes resize the viewport, which
+                // anchors place here.
                 scroll.verticalScrollbarVisibility =
                     ScrollRect.ScrollbarVisibility.Permanent;
             }
-            // The wheel over the list scrolls it and zooms the camera at the same
-            // time until Besiege is told otherwise -- and the list is over the
-            // sheet, so the sheet's own hold is let go of the moment the pointer
-            // reaches the names.
+            // The wheel over the names scrolls the list; this stops it zooming the
+            // camera too.
             ZoomGuard held = list.AddComponent<ZoomGuard>();
             held.menu = true;
 
@@ -277,12 +251,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// The scrollbar down the right of the list: track, sliding area, handle,
-        /// which is the hierarchy a <c>Scrollbar</c> drives -- it writes the
-        /// handle's anchors, so the handle needs a parent stretched across the
-        /// track for those anchors to mean anything.
-        /// </summary>
+        /// <summary>The scrollbar: track, sliding area and handle, the hierarchy a
+        /// <c>Scrollbar</c> drives by writing the handle's anchors.</summary>
         private static UnityEngine.UI.Scrollbar Rail(RectTransform frame)
         {
             GameObject track = new GameObject("Rail");
@@ -312,10 +282,7 @@ namespace NodeEditorMod
             Image face = held.AddComponent<Image>();
             face.color = GripInk;
 
-            // Fully qualified: Besiege has a `Scrollbar` of its own in the global
-            // namespace, and this file is compiled inside `NodeEditorMod` where the
-            // unqualified name finds that one. The same collision cost `Keys` and
-            // `Convert` their names -- see AGENTS.md.
+            // Fully qualified: Besiege's global `Scrollbar` would be found first.
             UnityEngine.UI.Scrollbar bar =
                 track.AddComponent<UnityEngine.UI.Scrollbar>();
             bar.direction = UnityEngine.UI.Scrollbar.Direction.BottomToTop;
@@ -354,11 +321,8 @@ namespace NodeEditorMod
                 label.text = name;
             }
 
-            // Lit under the pointer. A dozen names with nothing saying which one a
-            // click would take is a list that has to be aimed at twice: once to
-            // see where the pointer is, once to press. Its own plate rather than
-            // the button's colours, because the button came with a skin and this
-            // is a wash over it.
+            // A highlight under the pointer, as a plate of its own over the
+            // button's skin.
             GameObject lit = new GameObject("Lit");
             lit.transform.SetParent(go.transform, false);
             RectTransform glow = lit.AddComponent<RectTransform>();
@@ -399,13 +363,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// Under the cell that opened it, or over it where there is no room below.
-        /// Through screen space, because the cell is several parents deep inside a
-        /// scrolling view and the canvas is not an ancestor worth walking to.
-        /// </summary>
-        /// <summary>At the pointer, with its top-left corner on it, kept on
-        /// screen.</summary>
+        /// <summary>Under the cell that opened it, or above without room below,
+        /// placed through screen space.</summary>
         private static void Point(RectTransform frame, Vector2 screen, float tall)
         {
             Vector2 local;
@@ -447,9 +406,8 @@ namespace NodeEditorMod
             frame.anchoredPosition = new Vector2(x, y);
         }
 
-        /// <summary>How much room there is to place a list in. Taken from the
-        /// canvas where it has one and from the screen where it has not: a canvas
-        /// built this frame reports nothing.</summary>
+        /// <summary>The room a list has: the canvas's, or the screen's while a new
+        /// canvas reports nothing.</summary>
         private static Vector2 Room()
         {
             Vector2 room = canvas == null ? Vector2.zero : canvas.rect.size;
@@ -482,18 +440,17 @@ namespace NodeEditorMod
             public void OnPointerClick(PointerEventData pointer) { Close(); }
         }
 
-        /// <summary>Opens the list. Goes on a control that already answers the
-        /// pointer for its own reasons -- an InputField does -- because uGUI hands
-        /// an event to every handler on the object, not only the first.</summary>
+        /// <summary>Opens the list from a control that handles the pointer already
+        /// (an InputField): uGUI hands an event to every handler on an
+        /// object.</summary>
         public class Opener : MonoBehaviour, IPointerClickHandler
         {
             public Action Clicked;
 
             public void OnPointerClick(PointerEventData pointer)
             {
-                // Not the click that ends a drag: uGUI raises one whenever the
-                // object pressed is the object dragged, and a node dragged by its
-                // name box would drop its list open wherever it landed.
+                // Not the click ending a drag, or a node dragged by its name box
+                // would open a list.
                 if (Clicked != null && !pointer.dragging)
                 {
                     Clicked();

@@ -3,33 +3,16 @@ using System.Collections.Generic;
 using System.Reflection;
 
 /// <summary>
-/// Checks a built mod assembly against the mod loader's namespace blacklist,
-/// before the game gets a chance to reject it.
-///
-/// Besiege scans every mod assembly and refuses to load one that references a
-/// forbidden member, e.g.
-///
-///     [Security] You are not allowed to use
-///     System.String System.Reflection.MemberInfo::get_Name()
-///     [Security] Not loading .../ClippyScripts.dll
-///
-/// which is easy to trip by accident -- `e.GetType().Name` is enough, because
-/// Type.Name is declared on System.Reflection.MemberInfo. Compiling cleanly says
-/// nothing about passing this, so it is worth checking at build time.
-///
-/// Calling the game's own AssemblyScanner would be ideal, and it is public, but
-/// it segfaults outside a Unity player. So the rules below are reproduced from
-/// docs/MODDING-NOTES.md instead. That means this can drift from the real thing:
-/// it is a fast first line of defence, not the authority.
+/// Checks a built assembly against the mod loader's namespace blacklist before the
+/// game refuses it (`e.GetType().Name` alone trips it). The game's scanner
+/// segfaults outside Unity, so its rules are copied here: a first line of defence,
+/// not the authority.
 /// </summary>
 static class BlacklistCheck
 {
-    /// <summary>Namespace prefixes the loader refuses, with their carve-outs.</summary>
-    /// Copied verbatim out of InternalModding.Assemblies.AssemblyScanner's static
-    /// constructor, so this check matches the game rather than approximating it.
-    /// The scanner tests <c>(namespace + "." + typeName).StartsWith(prefix)</c>,
-    /// which is why "UnityEngine.WWW" catches UnityEngine.WWWForm as well but
-    /// leaves UnityEngine.Networking.UnityWebRequest alone.
+    /// <summary>Namespace prefixes the loader refuses, copied from
+    /// `AssemblyScanner`, which tests `(namespace + "." +
+    /// typeName).StartsWith(prefix)`.</summary>
     static readonly string[] Blacklist =
     {
         "System.IO", "System.Net", "System.Xml", "System.Reflection",
@@ -40,13 +23,8 @@ static class BlacklistCheck
         "InternalModding", "BesiegeDlc",
     };
 
-    /// <summary>
-    /// The scanner's carve-outs, matched as whole type names against
-    /// <c>namespace + "." + typeName</c>. Note what is *not* here: StringReader,
-    /// StringWriter, File and Directory are all System.IO and all refused, and
-    /// the "System.Security.Cryptography" entry only exempts a type by that exact
-    /// name -- individual cipher classes underneath it are still forbidden.
-    /// </summary>
+    /// <summary>The scanner's carve-outs, as whole type names. StringReader,
+    /// StringWriter, File and Directory are not among them.</summary>
     static readonly string[] Whitelist =
     {
         "System.IO.Stream", "System.IO.TextWriter", "System.IO.TextReader",
@@ -237,14 +215,8 @@ static class BlacklistCheck
         return false;
     }
 
-    /// <summary>
-    /// Opcodes whose token names a method or field. Deliberately only these:
-    /// resolving a *type* token (castclass, newarr, ...) as a member is what makes
-    /// Mono abort in native code, uncatchably.
-    ///
-    /// ldftn / ldvirtftn are in the list because that is how a delegate is built,
-    /// and an anonymous method hides its target behind one.
-    /// </summary>
+    /// <summary>Opcodes whose token names a method or field. Only these: resolving
+    /// a type token as a member aborts Mono.</summary>
     static bool TakesMemberToken(int op)
     {
         switch (op)
@@ -262,15 +234,8 @@ static class BlacklistCheck
         return false;
     }
 
-    /// <summary>
-    /// Operand size in bytes, or -1 for `switch`.
-    ///
-    /// This is spelled out per ECMA-335 rather than guessed at by range, because a
-    /// single wrong size desynchronises the whole walk and the next "token" read is
-    /// garbage -- which surfaces as a native assertion inside Mono that no catch
-    /// block can help with. `conv.u8` (0x6E) sitting one past a range boundary was
-    /// exactly that bug.
-    /// </summary>
+    /// <summary>Operand size in bytes, or -1 for `switch`, per ECMA-335: one wrong
+    /// size throws the walk off and crashes Mono.</summary>
     static int OperandSize(int op)
     {
         if (op >= 0xFE00)

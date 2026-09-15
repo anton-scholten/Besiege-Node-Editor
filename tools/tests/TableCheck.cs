@@ -4,19 +4,9 @@ using NodeEditorMod;
 using UnityEngine;
 
 /// <summary>
-/// Exercises the parts of the mod that touch no Unity object: the timer state
-/// machine and the table's ordering.
-///
-/// Those are worth a check precisely because their failure is silent in game: a
-/// sort that scrambles ties, or a delete that shuffles the wrong row, does not
-/// throw and does not log -- it looks like a mod that lost your settings. The
-/// rest of the mod cannot be run outside Besiege at all, so this is the whole of
-/// what a build can prove.
-///
-/// The comparison and the row arithmetic are reached through a stand-in for the
-/// block's controls, because the real ones are `MapperType`s that only exist on a
-/// live block. That is why <see cref="Table"/> keeps its sorting on `RowData`
-/// rather than on the controls themselves.
+/// Offline tests of what touches no Unity object: the timer clock, sorting, gates,
+/// names and layouts. Their failures are silent in game, and nothing else can run
+/// outside Besiege.
 /// </summary>
 static class TableCheck
 {
@@ -43,6 +33,8 @@ static class TableCheck
         Edges();
         Arguments();
         Names();
+        Texts();
+        GateTexts();
         GateSorting();
         Boards();
 
@@ -65,11 +57,7 @@ static class TableCheck
         Same("waits sort ascending", "1,2,3", Waits(rows));
     }
 
-    /// <summary>
-    /// The property that makes a second sort useful: rows that tie on the column
-    /// keep the order they were already in, so sorting by Duration after sorting
-    /// by Wait gives Wait within Duration rather than a reshuffle.
-    /// </summary>
+    /// <summary>A sort keeps tied rows in their order.</summary>
     static void Stability()
     {
         List<RowData> rows = Rows(1f, 2f, 3f, 4f);
@@ -104,10 +92,8 @@ static class TableCheck
         return Gate(new LogicRow(), gate, false, false, false, a, b, false);
     }
 
-    /// <summary>
-    /// The seven gates that are only their inputs. Read straight off Besiege's
-    /// own `EvaluateEmulation`, so this is the check that the reading was right.
-    /// </summary>
+    /// <summary>The seven combinational gates, against
+    /// `EvaluateEmulation`.</summary>
     static void Combinational()
     {
         Same("NOT", "10", Bits(Gates.Not));
@@ -137,10 +123,8 @@ static class TableCheck
         return all;
     }
 
-    /// <summary>
-    /// Toggle mode: a press flips an input and it stays flipped, which is what
-    /// makes a gate usable from a key somebody taps rather than holds.
-    /// </summary>
+    /// <summary>Toggle mode: a press flips an input, and it stays
+    /// flipped.</summary>
     static void ToggleMode()
     {
         LogicRow row = new LogicRow();
@@ -171,10 +155,8 @@ static class TableCheck
              Gate(d, Gates.DLatch, false, false, false, false, true, false));
     }
 
-    /// <summary>
-    /// The counter answers on the wrap and nowhere else: four presses in, one
-    /// press out. That is what makes a chain of them divide.
-    /// </summary>
+    /// <summary>The counter answers on the wrap only: four presses in, one
+    /// out.</summary>
     static void Counting()
     {
         LogicRow row = new LogicRow();
@@ -193,10 +175,7 @@ static class TableCheck
              Gate(reset, Gates.Counter, false, false, true, false, false, false));
     }
 
-    /// <summary>
-    /// The edge detector answers for exactly one tick, and its switch means
-    /// "inverted": the edge it answers to is the letting go rather than the
-    /// press.
+    /// <summary>The edge detector answers for one tick; inverted, on the release.
     /// </summary>
     static void Edges()
     {
@@ -213,11 +192,8 @@ static class TableCheck
              Gate(back, Gates.EdgeDetect, true, false, false, false, false, true));
     }
 
-    /// <summary>
-    /// What the block hands the state machine, which is the other half of being
-    /// the game's own gate: `LogicGate.UpdateBlock` counts a press as a hold, ORs
-    /// the emulated hold in, and takes the release only where the key is not held.
-    /// </summary>
+    /// <summary>What the block hands the state machine: a press counts as held, the
+    /// emulated hold is ORed in, a release only when not held.</summary>
     static void Arguments()
     {
         Same("a press counts as held", true, Gates.Holding(true, false, false));
@@ -228,10 +204,7 @@ static class TableCheck
         Same("nor on the press itself", false, Gates.Letting(true, false, true));
     }
 
-    /// <summary>
-    /// A variable name as Besiege would take it: split on its own two separators,
-    /// trimmed, and cut to `StatMaster.KeyMapper.VariableCharLimit`.
-    /// </summary>
+    /// <summary>Names split, trimmed and cut as Besiege does.</summary>
     static void Names()
     {
         Same("a name is left alone", "door", Bindings.Tidied(" door "));
@@ -256,11 +229,7 @@ static class TableCheck
         Same("and reverse", true, LogicTable.Compare(b, a, false) > 0);
     }
 
-    /// <summary>
-    /// A board's layout saves and loads: where the rows sit, and the two ends that
-    /// are not rows. The wires themselves are not in it -- they are the rows' own
-    /// bindings -- which is the point of the format.
-    /// </summary>
+    /// <summary>A layout saves and loads: rows and ends.</summary>
     static void Boards()
     {
         Wiring board = new Wiring();
@@ -290,9 +259,8 @@ static class TableCheck
         Same("an end knows what it stands for", true,
              back.Places[0].Same("door", KeyCode.None));
 
-        // A name with a space in it is one name, not the first word of one: the
-        // derivation makes a fresh end for any binding it cannot find, so a name
-        // that came back short bred a duplicate on every load.
+        // A name with a space is one name: shortened, it bred a duplicate on every
+        // load.
         Wiring spaced = new Wiring();
         spaced.Places.Add(End(Place.Input, "door open", KeyCode.None));
         Same("a name with a space survives a save",
@@ -340,25 +308,14 @@ static class TableCheck
         Same("something plain", "Space", Bindings.Spell(KeyCode.Space));
     }
 
-    /// <summary>
-    /// A variable name reaches a save as `Message=a;b`, so a name carrying a
-    /// semicolon would be read back as two. The split and the join are Besiege's
-    /// own, and this is here to catch a change in them.
-    /// </summary>
+    /// <summary>Names round-trip through Besiege's split and join.</summary>
     static void Variables()
     {
         Same("one name", "fire", MKey.CombineVariables(MKey.SplitVariable("fire")));
         Same("two names", "a;b", MKey.CombineVariables(MKey.SplitVariable("a;b")));
     }
 
-    /// <summary>
-    /// How a generated timer block's keys reach the save.
-    ///
-    /// The format is Besiege's: an entry per keycode, then `Message=` and
-    /// `Use=True` where the key answers a variable. Wrong here and the timer loads
-    /// with the wrong binding rather than failing, which is why it is worth a
-    /// check the build runs.
-    /// </summary>
+    /// <summary>How a generated block's keys are written to a save.</summary>
     static void Converting()
     {
         Same("a plain key", "B",
@@ -381,11 +338,7 @@ static class TableCheck
 
     // ---- the clock -------------------------------------------------------
 
-    /// <summary>
-    /// Seconds to emulation ticks. `TimerBlock.TimeToFrameCount` is
-    /// `max(1, ceil(seconds * 50))`, and these are the numbers that decide whether
-    /// a row fires at the same moment as the real timer beside it.
-    /// </summary>
+    /// <summary>Seconds to ticks: `max(1, ceil(seconds * 50))`.</summary>
     static void Ticks()
     {
         Count("a second", 50, Clock.Ticks(1f));
@@ -395,12 +348,8 @@ static class TableCheck
         Count("four minutes", 12000, Clock.Ticks(240f));
     }
 
-    /// <summary>
-    /// When the key goes down and when it comes up. A wait of n ticks is spent
-    /// counting, and the press begins on the tick after -- which is the tick the
-    /// game's own timer presses on, because `ElapseDelay` falls straight into
-    /// `ElapseEmulation` rather than waiting for the next one.
-    /// </summary>
+    /// <summary>When the key goes down and up: the press begins the tick after the
+    /// wait, as the game's timer does.</summary>
     static void Firing()
     {
         Row row = new Row();
@@ -420,22 +369,14 @@ static class TableCheck
         Same("and it is done", "0", row.Phase.ToString());
     }
 
-    /// <summary>
-    /// A looping row costs exactly the same per cycle as the first one. This is
-    /// the check the clock was pulled out of the behaviour for: handing the tick
-    /// on rather than returning at the end of a phase is what stops a loop losing
-    /// one every time round, and the drift that would cause is invisible until a
-    /// machine has been running a while.
-    /// </summary>
+    /// <summary>A looping row costs the same every cycle: no lost tick.</summary>
     static void Looping()
     {
         Row row = new Row();
         Clock.Start(row);
         int first = Down(row, 0.1f, 0.1f, true, 60);
         Count("the first press", 6, first);
-        // Five ticks of wait and five of press, and not one more: a cycle that
-        // cost eleven would be the lost-tick bug, and would put a looping row a
-        // second behind a real timer every fifty cycles.
+        // Five ticks of each and not one more: eleven would be the lost-tick bug.
         Count("a cycle is the wait plus the press", 10, Gap(row, 0.1f, 0.1f, 60));
         Count("and the one after it is the same", 10, Gap(row, 0.1f, 0.1f, 60));
     }
@@ -468,11 +409,8 @@ static class TableCheck
         Same("and lets go the tick after", "False", row.Wants.ToString());
     }
 
-    /// <summary>
-    /// A second press stops a running row only where the row allows it, and a
-    /// stopped row lets its key go -- an emulated key is reference counted, so one
-    /// left down never comes up for anything else either.
-    /// </summary>
+    /// <summary>A second press stops a row only where allowed, and a stopped row
+    /// lets its key go.</summary>
     static void Stopping()
     {
         Row row = new Row();
@@ -533,6 +471,107 @@ static class TableCheck
         Same(what, want.ToString(), got.ToString());
     }
 
+    /// <summary>The Timer Plus table's own text: every setting through a save and
+    /// a load, and a line it does not know skipped.</summary>
+    static void Texts()
+    {
+        RowData a = new RowData();
+        a.Wait = 0.1f;
+        a.Duration = 2.5f;
+        a.Hold = true;
+        a.Loop = true;
+        a.EmulateKeys = new KeyCode[] { KeyCode.J, KeyCode.LeftShift };
+        RowData b = new RowData();
+        b.Wait = 12f;
+        b.Stop = true;
+        b.EmulateVariable = "door open;fire";
+        b.EmulateKeys = new KeyCode[0];
+        RowData c = new RowData();
+        c.EmulateKeys = new KeyCode[0];
+        List<RowData> all = new List<RowData>();
+        all.Add(a);
+        all.Add(b);
+        all.Add(c);
+
+        List<RowData> back = Table.Load(Table.Save(all));
+        Count("three rows come back", 3, back.Count);
+        if (back.Count != 3)
+        {
+            return;
+        }
+        Same("a wait survives exactly", true, back[0].Wait == 0.1f);
+        Same("so does a duration", true, back[0].Duration == 2.5f);
+        Same("and the switches", "h-l,-s-,---",
+             Flags(back[0]) + "," + Flags(back[1]) + "," + Flags(back[2]));
+        Same("keys, in order", "J,LeftShift", Keys(back[0]));
+        Same("names, spaces and semicolons and all", "door open;fire",
+             back[1].EmulateVariable);
+        Same("an unbound row stays unbound", true,
+             back[2].EmulateVariable == null && back[2].EmulateKeys.Length == 0);
+        Count("a line from somewhere else is skipped", 1,
+              Table.Load("timers 1\nnot a row\n1 1 --- k C\n").Count);
+    }
+
+    /// <summary>The Computer rows' own text: every setting through a save and a
+    /// load.</summary>
+    static void GateTexts()
+    {
+        GateData a = new GateData();
+        a.Gate = Gates.Xor;
+        a.Mode = true;
+        a.AKeys = new KeyCode[] { KeyCode.J, KeyCode.K };
+        a.BVariable = "door open;x";
+        a.BKeys = new KeyCode[0];
+        a.EmulateVariable = "ne_001_001";
+        a.EmulateKeys = new KeyCode[0];
+        a.Wait = 0.3f;
+        a.Duration = 2f;
+        a.HoldRun = true;
+        a.Loops = true;
+        GateData b = new GateData();
+        b.AKeys = new KeyCode[0];
+        b.BKeys = new KeyCode[0];
+        b.EmulateKeys = new KeyCode[0];
+        List<GateData> all = new List<GateData>();
+        all.Add(a);
+        all.Add(b);
+
+        List<GateData> back = LogicTable.Load(LogicTable.Save(all));
+        Count("two gates come back", 2, back.Count);
+        if (back.Count != 2)
+        {
+            return;
+        }
+        Same("the gate and its switch", true, back[0].Gate == Gates.Xor && back[0].Mode);
+        Same("input A's keys, in order", true,
+             back[0].AKeys.Length == 2 && back[0].AKeys[0] == KeyCode.J
+             && back[0].AKeys[1] == KeyCode.K && back[0].AVariable == null);
+        Same("input B's names, a space and all", "door open;x", back[0].BVariable);
+        Same("the output's name", "ne_001_001", back[0].EmulateVariable);
+        Same("the timer's numbers exactly", true,
+             back[0].Wait == 0.3f && back[0].Duration == 2f);
+        Same("and its switches", true,
+             back[0].HoldRun && !back[0].CanStop && back[0].Loops);
+        Same("an unbound row stays unbound", true,
+             back[1].AKeys.Length == 0 && back[1].BKeys.Length == 0
+             && back[1].EmulateKeys.Length == 0 && back[1].EmulateVariable == null);
+    }
+
+    static string Flags(RowData row)
+    {
+        return (row.Hold ? "h" : "-") + (row.Stop ? "s" : "-") + (row.Loop ? "l" : "-");
+    }
+
+    static string Keys(RowData row)
+    {
+        string[] names = new string[row.EmulateKeys.Length];
+        for (int i = 0; i < names.Length; i++)
+        {
+            names[i] = row.EmulateKeys[i].ToString();
+        }
+        return string.Join(",", names);
+    }
+
     // ---- the stand-in ----------------------------------------------------
 
     static List<RowData> Rows(params float[] waits)
@@ -547,12 +586,8 @@ static class TableCheck
         return rows;
     }
 
-    /// <summary>
-    /// The same insertion sort <see cref="Table.Sort"/> runs, over a list rather
-    /// than over a block's controls. `Table.Ranks` is private and the block it
-    /// would need is a Unity object, so the ordering is reached through
-    /// <see cref="Table.Compare"/>, which exists for this.
-    /// </summary>
+    /// <summary>Table.Sort's ordering over a plain list, through <see
+    /// cref="Table.Compare"/>.</summary>
     static void Sort(List<RowData> rows, int column, bool ascending)
     {
         for (int i = 1; i < rows.Count; i++)

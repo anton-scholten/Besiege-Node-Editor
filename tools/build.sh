@@ -134,7 +134,7 @@ if [[ ! -f "$XMLCHECK" || "$REPO_DIR/tools/tests/XmlCheck.cs" -nt "$XMLCHECK" ]]
 fi
 set +e
 TARGET_ASM="$XMLCHECK" "$BUILD_DIR/monohost" "$REPO_DIR/NodeEditor"/*.xml \
-    "$SRC_DIR/TimerPlusModule.cs" "$SRC_DIR/NodeEditorModule.cs" \
+    "$SRC_DIR/TimerPlusModule.cs" "$SRC_DIR/ComputerModule.cs" \
     "$REPO_DIR/tools/make-block-mesh.py"
 xml_rc=$?
 set -e

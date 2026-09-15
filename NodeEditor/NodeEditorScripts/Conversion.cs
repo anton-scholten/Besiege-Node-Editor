@@ -5,15 +5,9 @@ using UnityEngine;
 namespace NodeEditorMod
 {
     /// <summary>
-    /// Turns the table into that many of Besiege's own timer blocks, laid out on
-    /// one horizontal plane and added to the machine as a selection the player can
-    /// then move.
-    ///
-    /// The settings are written as the game's own mapper keys, which is why this
-    /// is worth doing at all: the result is not a copy of a Timer Plus block, it
-    /// is a field of real timers, editable one at a time, savable in a machine
-    /// that does not need this mod, and behaving exactly as the rows did because
-    /// the rows are a reproduction of that block in the first place.
+    /// Turns a table into Besiege's own blocks -- timers, logic gates, pins --
+    /// written with the game's own mapper keys, so they need no mod; and imports
+    /// gates back.
     /// </summary>
     public static class Conversion
     {
@@ -32,39 +26,31 @@ namespace NodeEditorMod
         private const string KeyWait = "bmt-wait";
         private const string KeyDuration = "bmt-emulation-time";
 
-        /// <summary>The logic gate's own, from `LogicGate.Awake`. The gate itself
-        /// is an integer menu, and the two switches are the two the block shows one
-        /// of at a time -- which is why a row's single switch is written to
-        /// whichever of them its gate would have shown.</summary>
+        /// <summary>The logic gate's keys, from `LogicGate.Awake`. A row's one
+        /// switch is written to whichever of the block's two its gate
+        /// shows.</summary>
         private const string KeyInputA = "bmt-activate-A";
         private const string KeyInputB = "bmt-activate-B";
         private const string KeyGate = "bmt-Gate";
         private const string KeyToggleMode = "bmt-toggle-mode";
         private const string KeyInverted = "bmt-inverted";
 
-        /// <summary>And the pin's, from `PinBlockController.Awake`. A pin with
-        /// nothing bound to `unpin` never lets go, and `hide-visual` is the
-        /// block's own way of taking its picture off the machine.</summary>
+        /// <summary>The pin's keys, from `PinBlockController.Awake`.</summary>
         private const string KeyUnpin = "bmt-unpin";
         private const string KeyHidePin = "bmt-hide-visual";
 
-        /// <summary>One grid step. Besiege builds on a one-unit grid, so timers a
-        /// unit apart land on it and can be attached to a machine without being
-        /// nudged first.</summary>
-        private const float Spacing = 1f;
+        /// <summary>Block steps: adjacent down a column (z), a quarter unit apart
+        /// between columns (x).</summary>
+        private const float Across = 1.25f;
+        private const float Along = 1f;
 
-        /// <summary>
-        /// A quarter turn about X, which stands a block up on flat ground -- the
-        /// same rotation a machine generated from a score uses. Every timer gets
-        /// it, so they lie in one plane facing the same way.
-        /// </summary>
+        /// <summary>A quarter turn about X: stands a block upright on flat
+        /// ground.</summary>
         private static readonly Quaternion Upright =
             new Quaternion(-0.7071068f, 0f, 0f, 0.7071068f);
 
-        /// <summary>
-        /// Converts a block's table and adds the timers to the machine. Returns how
-        /// many were added; throws with something worth showing the player.
-        /// </summary>
+        /// <summary>Adds a Timer Plus table's timers to the machine. Returns the
+        /// rows added; throws with a message for the player.</summary>
         public static int Into(TimerPlusBehaviour block)
         {
             if (block == null)
@@ -94,9 +80,7 @@ namespace NodeEditorMod
             string variable = Bindings.IsVariable(block.MasterKey)
                 ? Bindings.Variable(block.MasterKey) : null;
 
-            // In the order the table numbers them -- by wait, first to fire first
-            // -- rather than in whatever order the rows happen to sit in. The
-            // field is then read the way the table is.
+            // In the table's numbering order: by wait, first to fire first.
             rows = InOrder(rows);
 
             Vector3 origin = Origin(machine, block.BlockBehaviour, rows.Count);
@@ -106,13 +90,12 @@ namespace NodeEditorMod
 
             for (int i = 0; i < rows.Count; i++)
             {
-                // Left to right along x, and each line after the first nearer the
-                // camera: the build view looks along +z, so a line laid at a
-                // smaller z is the next one down the screen.
+                // Left to right along x; each later line at a smaller z, lower on
+                // screen.
                 Vector3 at = origin + new Vector3(
-                    ((i % columns) - (columns - 1) * 0.5f) * Spacing,
+                    ((i % columns) - (columns - 1) * 0.5f) * Across,
                     0f,
-                    ((lines - 1) * 0.5f - (i / columns)) * Spacing);
+                    ((lines - 1) * 0.5f - (i / columns)) * Along);
                 made.Add(One(rows[i], key, variable, automatic, at));
                 if (block.Pins)
                 {
@@ -120,42 +103,25 @@ namespace NodeEditorMod
                 }
             }
 
-            return Drop.Into(made, machine);
+            // Rows, not blocks: with pins on, every row is two blocks.
+            return Drop.Into(made, machine) > 0 ? rows.Count : 0;
         }
 
-        /// <summary>
-        /// The rows by wait, ties keeping the order they are in -- the same rank
-        /// the table's number column shows, worked out the same way, so timer 1 in
-        /// the panel is the first block in the field.
-        ///
-        /// An insertion sort, stable and as much machinery as thirty-two rows
-        /// deserve. <see cref="Table.Sort"/> is not reused because that one writes
-        /// through to the block's controls; this is a copy of the values, and the
-        /// table itself is left in whatever order the player put it.
-        /// </summary>
+        /// <summary>The rows by wait, ties in table order: the order the table
+        /// numbers them.</summary>
         private static List<RowData> InOrder(List<RowData> rows)
         {
             List<RowData> all = new List<RowData>(rows);
-            for (int i = 1; i < all.Count; i++)
+            Table.Stable(all, delegate(RowData a, RowData b)
             {
-                RowData moving = all[i];
-                int at = i;
-                while (at > 0 && all[at - 1].Wait > moving.Wait)
-                {
-                    all[at] = all[at - 1];
-                    at--;
-                }
-                all[at] = moving;
-            }
+                return a.Wait.CompareTo(b.Wait);
+            });
             return all;
         }
 
-        /// <summary>
-        /// Where the middle of the field goes: beside the Timer Plus block in the
-        /// machine's own space, clear of it, so the timers do not arrive inside the
-        /// block that made them. They land selected with the move tool up, so this
-        /// only has to be somewhere sensible rather than somewhere final.
-        /// </summary>
+        /// <summary>The field's middle: beside the block and clear of it. The
+        /// blocks arrive selected under the move tool, so this need only be
+        /// sensible.</summary>
         private static Vector3 Origin(Machine machine, BlockBehaviour block, int count)
         {
             Vector3 here = Vector3.zero;
@@ -173,14 +139,12 @@ namespace NodeEditorMod
                 // starts at the machine's own origin.
             }
             int columns = Mathf.Max(1, Mathf.CeilToInt(Mathf.Sqrt(count)));
-            return here + new Vector3((columns * 0.5f + 1f) * Spacing, 0f, 0f);
+            return here + new Vector3((columns * 0.5f + 1f) * Across, 0f, 0f);
         }
 
-        /// <summary>
-        /// The logic table's own conversion: one of Besiege's logic gates per row,
-        /// laid out the same way and for the same reasons as the timers above.
-        /// </summary>
-        public static int Into(NodeEditorBehaviour block)
+        /// <summary>The node editor's export: one Besiege logic gate or timer per
+        /// row, laid out as the timers are.</summary>
+        public static int Into(ComputerBehaviour block)
         {
             if (block == null)
             {
@@ -212,9 +176,9 @@ namespace NodeEditorMod
                 // Left to right along x, and each line after the first nearer the
                 // camera, exactly as the timers are laid out.
                 Vector3 at = origin + new Vector3(
-                    ((i % columns) - (columns - 1) * 0.5f) * Spacing,
+                    ((i % columns) - (columns - 1) * 0.5f) * Across,
                     0f,
-                    ((lines - 1) * 0.5f - (i / columns)) * Spacing);
+                    ((lines - 1) * 0.5f - (i / columns)) * Along);
                 made.Add(One(rows[i], at));
                 if (block.Pins)
                 {
@@ -222,30 +186,21 @@ namespace NodeEditorMod
                 }
             }
 
-            return Drop.Into(made, machine);
+            // Rows, not blocks: with pins on, every row is two blocks.
+            return Drop.Into(made, machine) > 0 ? rows.Count : 0;
         }
 
         /// <summary>
-        /// The other direction: Besiege's own logic gates taken off the machine and
-        /// read into this block's table.
-        ///
-        /// Nothing is translated. A gate's settings are the same six things a row
-        /// holds -- which gate, its switch, two inputs and what it answers to -- so
-        /// importing is a copy, and the wiring comes with it for free: a wire is
-        /// two blocks agreeing on a key, and copying both halves of that agreement
-        /// copies the wire. The board draws the circuit that was on the machine
-        /// because it *is* the circuit that was on the machine.
-        ///
-        /// Up to the block's own thirty-two rows. What is left over stays on the
-        /// machine, so a second Node Editor can import the rest.
+        /// Imports Besiege's logic gates and timers as rows and takes them off the
+        /// machine. A copy rather than a translation, so the wiring comes along: a
+        /// wire is two blocks agreeing on a key. Stops at <see
+        /// cref="ComputerBehaviour.MaxRows"/>.
         /// </summary>
-        /// <param name="left">How many gates were left on the machine.</param>
-        /// <param name="undo">The steps the removal wants filed. Handed back rather
-        /// than filed here so that whoever called this can put its own edit in the
-        /// same list: the rows arriving, the places they are drawn in and the blocks
-        /// they came from all belong to one press of undo.</param>
+        /// <param name="left">How many were left on the machine.</param>
+        /// <param name="undo">The removal's undo steps, for the caller to file with
+        /// its own edit as one step.</param>
         /// <returns>How many were imported.</returns>
-        public static int From(NodeEditorBehaviour block, out int left,
+        public static int From(ComputerBehaviour block, out int left,
                                out List<UndoAction> undo)
         {
             left = 0;
@@ -264,10 +219,8 @@ namespace NodeEditorMod
                 throw new Exception("this machine cannot be changed here");
             }
 
-            // Asked before anything is imported rather than after: the blocks are
-            // taken off through the game's own selection tool, and a run that read
-            // the gates into rows and then could not remove them would leave the
-            // machine holding both.
+            // Checked first: gates read in but not removable would leave the
+            // machine with both.
             AdvancedBlockEditor editor = AdvancedBlockEditor.Instance;
             if (editor == null || editor.selectionController == null)
             {
@@ -280,7 +233,7 @@ namespace NodeEditorMod
                 throw new Exception("there are no logic gates\nor timers on this machine");
             }
 
-            int room = NodeEditorBehaviour.MaxRows - block.Count;
+            int room = ComputerBehaviour.MaxRows - block.Count;
             if (room <= 0)
             {
                 left = gates.Count;
@@ -302,12 +255,155 @@ namespace NodeEditorMod
                 throw new Exception("those blocks could not be read");
             }
 
-            LogicTable.Applied(touched);
+            LogicTable.Applied(block, touched);
 
             // Besiege's own removal, which handles the joints and hands back the
             // undo actions rather than filing them.
             undo = Removed(taken);
             return taken.Count;
+        }
+
+        /// <summary>
+        /// Imports Besiege's timers as Timer Plus rows and takes them off the
+        /// machine. Every row starts on the block's own key, so a timer's own
+        /// activation is not kept per row: a block with no rows takes on the one
+        /// every timer taken shares.
+        /// </summary>
+        /// <param name="differ">Whether the timers taken did not all start the way
+        /// the block now does, so some will start differently.</param>
+        public static int From(TimerPlusBehaviour block, out int left,
+                               out List<UndoAction> undo, out bool differ)
+        {
+            left = 0;
+            differ = false;
+            undo = new List<UndoAction>();
+            if (block == null)
+            {
+                throw new Exception("there is no block to import into");
+            }
+            Machine machine = Machine.Active();
+            if (machine == null || !machine.CanModify)
+            {
+                throw new Exception("this machine cannot be changed here");
+            }
+            AdvancedBlockEditor editor = AdvancedBlockEditor.Instance;
+            if (editor == null || editor.selectionController == null)
+            {
+                throw new Exception("the block editor is not up");
+            }
+
+            List<BlockBehaviour> timers = Timers(machine);
+            if (timers.Count == 0)
+            {
+                throw new Exception("no timers on the machine");
+            }
+            int room = TimerPlusBehaviour.MaxRows - block.Count;
+            if (room <= 0)
+            {
+                left = timers.Count;
+                throw new Exception("the table is full");
+            }
+
+            bool empty = block.Count == 0;
+            List<MapperType> touched = new List<MapperType>();
+            List<BlockBehaviour> taken = new List<BlockBehaviour>();
+            List<RowData> rows = Table.Snapshot(block);
+            global::TimerBlock first = null;
+            for (int i = 0; i < timers.Count && taken.Count < room; i++)
+            {
+                global::TimerBlock timer = timers[i].GetComponent<global::TimerBlock>();
+                RowData row = Timer(timer);
+                if (row == null)
+                {
+                    continue;
+                }
+                rows.Add(row);
+                if (first == null)
+                {
+                    first = timer;
+                }
+                else if (!Alike(first.ActivateKey, Auto(first),
+                                timer.ActivateKey, Auto(timer)))
+                {
+                    differ = true;
+                }
+                taken.Add(timers[i]);
+            }
+            left = timers.Count - taken.Count;
+            if (taken.Count == 0)
+            {
+                throw new Exception("those timers could not be read");
+            }
+            Table.Store(block, rows, touched);
+
+            if (empty && !differ && block.MasterKey != null && block.Automatic != null)
+            {
+                Copy(first.ActivateKey, block.MasterKey, touched);
+                block.Automatic.IsActive = Auto(first);
+                touched.Add(block.Automatic);
+            }
+            else if (!Alike(first.ActivateKey, Auto(first), block.MasterKey,
+                            block.Automatic != null && block.Automatic.IsActive))
+            {
+                differ = true;
+            }
+
+            LogicTable.Applied(touched);
+            undo = Removed(taken);
+            return taken.Count;
+        }
+
+        /// <summary>Every one of Besiege's timers on the machine, in the order the
+        /// machine holds them.</summary>
+        private static List<BlockBehaviour> Timers(Machine machine)
+        {
+            List<BlockBehaviour> found = new List<BlockBehaviour>();
+            List<BlockBehaviour> all = machine.BuildingBlocks;
+            for (int i = 0; all != null && i < all.Count; i++)
+            {
+                if (all[i] != null && all[i].GetComponent<global::TimerBlock>() != null)
+                {
+                    found.Add(all[i]);
+                }
+            }
+            return found;
+        }
+
+        /// <summary>One timer as a Timer Plus row, or null, with the timer left
+        /// alone, when it will not give its settings up.</summary>
+        private static RowData Timer(global::TimerBlock timer)
+        {
+            if (timer == null || timer.EmulateKey == null || timer.WaitSlider == null
+                || timer.EmulationSlider == null)
+            {
+                return null;
+            }
+            RowData data = new RowData();
+            data.Wait = timer.WaitSlider.Value;
+            data.Duration = timer.EmulationSlider.Value;
+            data.Hold = timer.HoldToActivate != null && timer.HoldToActivate.IsActive;
+            data.Stop = timer.CanStop != null && timer.CanStop.IsActive;
+            data.Loop = timer.Loop != null && timer.Loop.IsActive;
+            data.EmulateKeys = Bindings.Codes(timer.EmulateKey).ToArray();
+            data.EmulateVariable = Bindings.IsVariable(timer.EmulateKey)
+                ? Bindings.Variable(timer.EmulateKey) : null;
+            return data;
+        }
+
+        private static bool Auto(global::TimerBlock timer)
+        {
+            return timer.Auto != null && timer.Auto.IsActive;
+        }
+
+        /// <summary>Whether two things start the same way: both with the
+        /// simulation, or both on the same keys or names.</summary>
+        private static bool Alike(MKey a, bool autoA, MKey b, bool autoB)
+        {
+            if (autoA || autoB)
+            {
+                return autoA == autoB;
+            }
+            return Bindings.Show(a, "") == Bindings.Show(b, "");
         }
 
         /// <summary>Every one of Besiege's own logic gates on the machine, in the
@@ -325,22 +421,17 @@ namespace NodeEditorMod
                 {
                     continue;
                 }
-                // A Node Editor is a block of this mod's own and has no
+                // A Computer is a block of this mod's own and has no
                 // `LogicGate` on it, so nothing here can pick one up.
                 found.Add(block);
             }
             return found;
         }
 
-        /// <summary>
-        /// One gate as a new row of the table. False when the block would not give
-        /// its settings up, in which case it is left where it is.
-        ///
-        /// Read off the live mapper controls rather than out of a save: they are
-        /// public, they are the same three kinds the rows are made of, and the
-        /// binding helpers this mod already has do the rest.
-        /// </summary>
-        private static bool Read(NodeEditorBehaviour into, BlockBehaviour gate,
+        /// <summary>One gate as a new row, read off its live mapper controls.
+        /// False, with the block left alone, when it will not give its settings
+        /// up.</summary>
+        private static bool Read(ComputerBehaviour into, BlockBehaviour gate,
                                  List<MapperType> touched)
         {
             global::TimerBlock timer = gate.GetComponent<global::TimerBlock>();
@@ -382,19 +473,10 @@ namespace NodeEditorMod
             return true;
         }
 
-        /// <summary>
-        /// One of Besiege's own timers as a timer row: its wait, its duration and
-        /// its three switches, started by what its activation key reads and pressing
-        /// what it presses.
-        ///
-        /// Read through the timer's own public properties -- `TimerBlock` has one
-        /// for every control -- rather than by key name.
-        ///
-        /// One with Automatic on comes in as the row that starts itself, with
-        /// nothing on its input and its wait kept -- see
-        /// <see cref="LogicRow.Automatic"/>.
-        /// </summary>
-        private static bool Timed(NodeEditorBehaviour into, global::TimerBlock timer,
+        /// <summary>One Besiege timer as a timer row, through `TimerBlock`'s public
+        /// properties. Automatic on becomes a row with nothing on its input
+        /// (<see cref="LogicRow.Automatic"/>).</summary>
+        private static bool Timed(ComputerBehaviour into, global::TimerBlock timer,
                                   List<MapperType> touched)
         {
             bool automatic = timer.Auto != null && timer.Auto.IsActive;
@@ -461,18 +543,13 @@ namespace NodeEditorMod
             }
             else
             {
-                Bindings.Bind(to, Bindings.Code(from));
+                Bindings.Bind(to, Bindings.Codes(from).ToArray());
             }
             touched.Add(to);
         }
 
-        /// <summary>
-        /// A block's mapper control by the name a save spells it with.
-        ///
-        /// `SaveableDataHolder.MapperTypes` is public and every control in it
-        /// carries its own `Key`; the gate's own fields are private, so this is the
-        /// way in that does not need reflection.
-        /// </summary>
+        /// <summary>A block's mapper control by key, through the public
+        /// `SaveableDataHolder.MapperTypes`: no reflection needed.</summary>
         private static MapperType Control(BlockBehaviour block, string key)
         {
             if (block == null)
@@ -486,11 +563,8 @@ namespace NodeEditorMod
                 {
                     continue;
                 }
-                // A live control's `Key` is the bare name its block registered --
-                // `activate-A` -- and `bmt-` is only what a *save* puts in front of
-                // it (`MapperType.XDATA_PREFIX`). Asked with the save's spelling,
-                // which is what this mod names everywhere else, nothing matched and
-                // every gate on the machine read as unreadable.
+                // A live control's `Key` is the bare name (`activate-A`); only a
+                // save adds `bmt-` (`MapperType.XDATA_PREFIX`).
                 if (all[i].Key == key
                     || MapperType.XDATA_PREFIX + all[i].Key == key)
                 {
@@ -515,10 +589,8 @@ namespace NodeEditorMod
             return Control(block, key) as MToggle;
         }
 
-        /// <summary>
-        /// Takes the blocks off the machine the way the delete key does, and hands
-        /// back the undo actions rather than filing them.
-        /// </summary>
+        /// <summary>Takes blocks off as the delete key does, handing back the undo
+        /// actions unfiled.</summary>
         private static List<UndoAction> Removed(List<BlockBehaviour> blocks)
         {
             AdvancedBlockEditor editor = AdvancedBlockEditor.Instance;
@@ -534,7 +606,8 @@ namespace NodeEditorMod
             return undo == null ? new List<UndoAction>() : undo;
         }
 
-        /// <summary>One row as the game's own description of a logic gate.</summary>
+        /// <summary>One row as the game's own description of a logic
+        /// gate.</summary>
         private static BlockInfo One(GateData row, Vector3 at)
         {
             if (row.Gate == Gates.Timer)
@@ -545,19 +618,16 @@ namespace NodeEditorMod
             data.Write(new XInteger("bmt-version", 1));
 
             data.Write(new XInteger(KeyGate, row.Gate));
-            // The block has two switches and shows one at a time; the row has one
-            // switch and means whichever of them this gate would show. Writing it
-            // to both would set a thing the player never asked for the moment they
-            // changed the gate on the block afterwards.
+            // Only the switch this gate shows: writing both would set one nobody
+            // asked for.
             data.Write(new XBoolean(
                 Gates.Inverts(row.Gate) ? KeyInverted : KeyToggleMode, row.Mode));
 
-            Binding(data, KeyInputA, row.AVariable, row.AKey, KeyCode.U);
-            // Written even for a gate that does not read it: the block keeps its B
-            // key whatever the gate is, and a row switched to AND afterwards should
-            // find the input it was given.
-            Binding(data, KeyInputB, row.BVariable, row.BKey, KeyCode.I);
-            Binding(data, KeyEmulate, row.EmulateVariable, row.EmulateKey, KeyCode.C);
+            Binding(data, KeyInputA, row.AVariable, row.AKeys, KeyCode.U);
+            // Written even if the gate ignores B: the block keeps it for a later
+            // gate change.
+            Binding(data, KeyInputB, row.BVariable, row.BKeys, KeyCode.I);
+            Binding(data, KeyEmulate, row.EmulateVariable, row.EmulateKeys, KeyCode.C);
 
             BlockInfo info = new BlockInfo();
             info.Guid = Guid.NewGuid();
@@ -569,9 +639,8 @@ namespace NodeEditorMod
             return info;
         }
 
-        /// <summary>A logic table's timer row as the game's own timer block: started
-        /// by whatever the row's input A reads, pressing what the row
-        /// presses.</summary>
+        /// <summary>A timer row as Besiege's timer block: started by what input A
+        /// reads, pressing what the row presses.</summary>
         private static BlockInfo Timed(GateData row, Vector3 at)
         {
             XDataHolder data = new XDataHolder();
@@ -583,7 +652,7 @@ namespace NodeEditorMod
             data.Write(new XBoolean(KeyStop, row.CanStop));
             data.Write(new XBoolean(KeyLoop, row.Loops));
             bool unbound = row.AVariable == null
-                ? row.AKey == KeyCode.None
+                ? row.AKeys.Length == 0
                 : Bindings.Named(row.AVariable).Count == 0;
             if (unbound)
             {
@@ -593,9 +662,9 @@ namespace NodeEditorMod
             }
             else
             {
-                Binding(data, KeyActivate, row.AVariable, row.AKey, KeyCode.B);
+                Binding(data, KeyActivate, row.AVariable, row.AKeys, KeyCode.B);
             }
-            Binding(data, KeyEmulate, row.EmulateVariable, row.EmulateKey, KeyCode.C);
+            Binding(data, KeyEmulate, row.EmulateVariable, row.EmulateKeys, KeyCode.C);
 
             BlockInfo info = new BlockInfo();
             info.Guid = Guid.NewGuid();
@@ -607,7 +676,8 @@ namespace NodeEditorMod
             return info;
         }
 
-        /// <summary>One row as the game's own description of a timer block.</summary>
+        /// <summary>One row as the game's own description of a timer
+        /// block.</summary>
         private static BlockInfo One(RowData row, KeyCode key, string variable,
                                      bool automatic, Vector3 at)
         {
@@ -622,19 +692,18 @@ namespace NodeEditorMod
             data.Write(new XBoolean(KeyStop, row.Stop));
             data.Write(new XBoolean(KeyLoop, row.Loop));
 
-            // The timer takes the block's own activation, since a standalone
-            // timer has nothing to follow -- and if the block starts with the
-            // simulation, so does the timer.
+            // Standalone timers follow the block's own activation, or start with
+            // the simulation when it does.
             if (automatic)
             {
                 data.Write(new XBoolean(KeyAutomatic, true));
             }
             else
             {
-                Binding(data, KeyActivate, variable, key, KeyCode.B);
+                Binding(data, KeyActivate, variable, new KeyCode[] { key }, KeyCode.B);
             }
 
-            Binding(data, KeyEmulate, row.EmulateVariable, row.EmulateKey, KeyCode.C);
+            Binding(data, KeyEmulate, row.EmulateVariable, row.EmulateKeys, KeyCode.C);
 
             BlockInfo info = new BlockInfo();
             info.Guid = Guid.NewGuid();
@@ -646,15 +715,9 @@ namespace NodeEditorMod
             return info;
         }
 
-        /// <summary>
-        /// A pin, in the same place as the block it holds still.
-        ///
-        /// Nothing bound to its unpin key and its visuals hidden, which is what
-        /// makes it furniture rather than another block to look at: the field of
-        /// timers reads as a field of timers, and none of them wanders off when the
-        /// machine is run. Besiege rebuilds a machine's joints from where its
-        /// blocks are, so a pin at the block's own position is a pin inside it.
-        /// </summary>
+        /// <summary>A hidden pin with nothing on unpin, at the block's own
+        /// position: Besiege rebuilds joints from positions, so it holds that block
+        /// still.</summary>
         private static BlockInfo Pinned(Vector3 at)
         {
             XDataHolder data = new XDataHolder();
@@ -676,33 +739,17 @@ namespace NodeEditorMod
 
         /// <summary>Writes one key into a generated block's data.</summary>
         private static void Binding(XDataHolder data, string key, string variable,
-                                    KeyCode code, KeyCode spare)
+                                    KeyCode[] codes, KeyCode spare)
         {
-            data.Write(new XStringArray(key, Spell(variable, code, spare)));
+            data.Write(new XStringArray(key, Spell(variable, codes, spare)));
         }
 
         /// <summary>
         /// One key as a save spells it: an entry per keycode, then `Message=` and
-        /// `Use=True` for a key bound to a variable.
-        ///
-        /// Two things decided here, both of which are wrong in the obvious way.
-        ///
-        /// **A variable needs a keycode behind it.** `Machine.InitSimBlock` files a
-        /// block's keys with `KeyInputController` once per keycode the key holds,
-        /// so a key with a name and no keycodes is registered under no name and
-        /// hears nothing -- which looks exactly like a timer that ignores the
-        /// variable it was given. With `Use=True` that keycode is never answered
-        /// to; it is there to be counted, and <paramref name="spare"/> is what goes
-        /// in when the row had none of its own.
-        ///
-        /// **An unbound key stays unbound.** `KeyCode.None` is what a key nobody
-        /// has bound holds, and `AddMKey` declines to register it -- so writing
-        /// `None` gives a timer that does nothing, which is what a row with nothing
-        /// bound did. Substituting the spare here instead would hand every such row
-        /// a timer quietly pressing `C`.
-        ///
-        /// Public so tools/tests/TableCheck.cs can hold it to that, the save format
-        /// being the one thing a wrong answer here would be silent about.
+        /// `Use=True` for names. A named key still needs a keycode, since
+        /// registration is per keycode, so <paramref name="spare"/> fills in; an
+        /// unbound key stays `None` rather than quietly pressing the spare. Public
+        /// for TableCheck.
         /// </summary>
         public static string[] Spell(string variable, KeyCode code, KeyCode spare)
         {
@@ -716,6 +763,23 @@ namespace NodeEditorMod
                 "Message=" + variable,
                 "Use=True"
             };
+        }
+
+        /// <summary>The same for several keycodes: an entry each, in
+        /// order.</summary>
+        public static string[] Spell(string variable, KeyCode[] codes, KeyCode spare)
+        {
+            if (!string.IsNullOrEmpty(variable) || codes == null || codes.Length <= 1)
+            {
+                return Spell(variable, codes == null || codes.Length == 0
+                    ? KeyCode.None : codes[0], spare);
+            }
+            string[] spelt = new string[codes.Length];
+            for (int i = 0; i < codes.Length; i++)
+            {
+                spelt[i] = codes[i].ToString();
+            }
+            return spelt;
         }
     }
 }

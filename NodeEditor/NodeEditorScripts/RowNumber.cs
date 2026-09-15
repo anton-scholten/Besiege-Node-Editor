@@ -5,19 +5,8 @@ using UnityEngine.UI;
 
 namespace NodeEditorMod
 {
-    /// <summary>
-    /// The number down the left of a row, which becomes that row's delete button
-    /// while the pointer is on it.
-    ///
-    /// The table had a column of crosses down the right for this, which cost a
-    /// column of width on every row to hold something wanted about once a session.
-    /// The number is already there, already the width of a cross, and already the
-    /// thing somebody points at to say "this one" -- so it does both jobs, and the
-    /// table is narrow enough to sit under the mapper at the mapper's own width.
-    ///
-    /// Red under the pointer rather than an X drawn beside the number: a control
-    /// that deletes something should not look like a label until it is pressed.
-    /// </summary>
+    /// <summary>A row's number, which turns red and becomes its delete button while
+    /// the pointer is on the row, sparing a column of crosses.</summary>
     public class RowNumber : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler,
                              IPointerClickHandler
     {
@@ -102,17 +91,9 @@ namespace NodeEditorMod
             Paint();
         }
 
-        /// <summary>
-        /// Lights this cell while the pointer is anywhere on the row.
-        ///
-        /// Pointing at a row and being shown, on that row, the one thing that can
-        /// be done to it as a whole. The number alone is a twenty-two unit target
-        /// somebody has to find; the row is the width of the panel.
-        ///
-        /// A transparent plate, because uGUI only reports a pointer to a Graphic
-        /// and the row frame is a bare RectTransform. It does not take the pointer
-        /// off the cells: children are raycast before their parent.
-        /// </summary>
+        /// <summary>Lights this cell while the pointer is anywhere on the row,
+        /// through a transparent plate: uGUI reports the pointer only to a
+        /// Graphic.</summary>
         public void Watch(GameObject row)
         {
             if (row == null)

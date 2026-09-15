@@ -4,24 +4,10 @@ using UnityEngine;
 namespace NodeEditorMod
 {
     /// <summary>
-    /// Blinks the block's display red when one of its rows fires.
-    ///
-    /// The block wears one material and Besiege's OBJ loading gives no submeshes
-    /// to hang a second one on -- but a *texel* is addressable. The mesh is
-    /// unwrapped onto a palette of flat patches, one per colour of the model, so
-    /// the display's triangles all look at one patch and repainting that patch
-    /// repaints the display and nothing else. See notes 02, "Colouring part of a
-    /// block's mesh, without a second material", and the sibling Orchestra mod's
-    /// `BraidsBehaviour.Dress`, which this follows.
-    ///
-    /// Two by two rather than the sixteen the mesh tool writes: the four colours
-    /// sit at the middles of four quadrants, which is exactly what a two-by-two
-    /// point-sampled texture is. Building it here rather than copying the shipped
-    /// one also means nothing has to read a texture back off the GPU, which is a
-    /// thing a texture is allowed to refuse.
-    ///
-    /// Per block: its own material and its own texture, so one block blinking does
-    /// not blink every Timer Plus on the machine.
+    /// Blinks the Timer Plus block's display red when a row fires, by repainting
+    /// the one palette texel the display's triangles sample (notes 02). A
+    /// two-by-two texture and material of its own per block, built here: nothing
+    /// reads a texture back, and one block blinking leaves the rest alone.
     /// </summary>
     public class Glow
     {
@@ -29,30 +15,22 @@ namespace NodeEditorMod
         /// stretches with the time-scale slider the way the timers do.</summary>
         private const float Seconds = 0.1f;
 
-        /// <summary>
-        /// The model's own colours, as `tools/make-block-mesh.py` writes them into
-        /// `TimerPlus.png`, and where its palette puts each one.
-        ///
-        /// The tool checks these against the palette it writes, so a model change
-        /// that moves a colour fails the build rather than lighting the wrong part
-        /// of the block.
-        /// </summary>
+        /// <summary>The model's palette colours as `tools/make-block-mesh.py`
+        /// writes them; the tool fails the build if they move.</summary>
         private static readonly Color Body = Hue(28, 205, 243);
         private static readonly Color Buttons = Hue(90, 90, 90);
         private static readonly Color Display = Hue(195, 227, 147);
         private static readonly Color Spare = Hue(0, 0, 0);
 
-        /// <summary>What the display goes the instant a row fires, and what it
-        /// fades from. Besiege's own red, which is what the game paints anything
-        /// urgent.</summary>
+        /// <summary>The red the display flashes and fades from: Besiege's
+        /// own.</summary>
         private static readonly Color Lit = new Color(0.92f, 0.13f, 0.29f, 1f);
 
         private MeshRenderer worn;
         private Material paint;
         private Texture2D skin;
-        /// <summary>How red the display was painted last, so a frame that would
-        /// paint it the same colour again does not touch the texture at all.
-        /// Negative until it has been painted once.</summary>
+        /// <summary>The red last painted, so an unchanged frame touches nothing;
+        /// negative before the first.</summary>
         private float inked = -1f;
 
         private float until;
@@ -117,9 +95,8 @@ namespace NodeEditorMod
             }
             if (worn == null)
             {
-                // The renderer whose material *has* a main texture: that is the
-                // mesh the block is actually seen as, and it settles in passing
-                // that the shader takes its picture from where this puts one.
+                // The renderer whose material has a main texture is the mesh that
+                // is seen.
                 MeshRenderer[] found = block.GetComponentsInChildren<MeshRenderer>(true);
                 for (int i = 0; i < found.Length; i++)
                 {
@@ -147,9 +124,8 @@ namespace NodeEditorMod
                 return;
             }
 
-            // Checked rather than remembered. Besiege may build the visual after
-            // this first looked, and a repaint replaces the material outright --
-            // a block dressed once and trusted is a block quietly undone.
+            // Checked every time: Besiege may rebuild the visual or replace its
+            // material.
             if (skin == null)
             {
                 skin = new Texture2D(2, 2, TextureFormat.RGB24, false);
@@ -175,19 +151,12 @@ namespace NodeEditorMod
             worn.sharedMaterial = paint;
         }
 
-        /// <summary>
-        /// Repaints the patch the display's triangles look at.
-        ///
-        /// The tool lays the palette out left to right and top to bottom, and a
-        /// texture counts v up from the bottom: the body is the top-left patch and
-        /// so is texel (0,1), the buttons (1,1), the display the bottom-left patch
-        /// and so texel (0,0).
-        /// </summary>
+        /// <summary>Repaints the display's texel. v counts up, so the top-left body
+        /// patch is texel (0,1) and the bottom-left display patch (0,0).</summary>
         private void Ink(float amount)
         {
-            // A shade nobody could tell from the one already on the block is not
-            // worth an upload; landing exactly on nothing is, or the display keeps
-            // a tint of red for the rest of the run.
+            // Skips shades too close to tell apart, but always lands exactly on
+            // zero.
             if (skin == null
                 || (inked >= 0f && Mathf.Abs(amount - inked) < 0.02f
                     && (amount > 0f || inked == 0f)))

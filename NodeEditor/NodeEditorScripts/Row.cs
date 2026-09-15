@@ -3,25 +3,10 @@ using UnityEngine;
 namespace NodeEditorMod
 {
     /// <summary>
-    /// One row of the table: a whole timer, and the state it is in during a run.
-    ///
-    /// The settings are Besiege's own mapper controls rather than fields, which is
-    /// what makes them saved with the machine, undoable, and sent over
-    /// multiplayer -- and, in the case of the two keys, automatable at all.
-    /// <see cref="MKey"/> is the only mapper type that carries a variable: the
-    /// slider, the toggle and the menu have nothing variable-related on them, so
-    /// the key a row presses has to be a key and cannot be anything else. That is
-    /// also why the number of rows is capped: every row's keys are registered in
-    /// <c>SafeAwake</c> and Besiege has no way to add one later.
-    ///
-    /// A row has no activation of its own. Every row in the table is started by
-    /// the block's own key, which is the one question the block mapper above the
-    /// panel answers.
-    ///
-    /// The phases and the frame counting are Besiege's own
-    /// <c>TimerBlock</c>, read out of the game so that a row behaves exactly as
-    /// the block it stands in for -- see <see cref="TimerPlusBehaviour"/> for the
-    /// one place the two deliberately differ.
+    /// A timer's run state, which <see cref="Clock"/> moves: phases and tick counts
+    /// are <c>TimerBlock</c>'s. A Computer timer row fills the settings with its
+    /// mapper controls (<see cref="LogicRow.Timing"/>); a Timer Plus run uses the
+    /// state alone and hands the clock its settings from <see cref="RowData"/>.
     /// </summary>
     public class Row
     {
@@ -52,40 +37,34 @@ namespace NodeEditorMod
         public const int Waiting = 1;
         public const int Pressing = 2;
 
-        /// <summary>Which of the three above. Reset to Idle by nothing: a sim
-        /// behaviour is a fresh object every run, so its fields are already at
-        /// their defaults and an OnSimulateStart that cleared them would be dead
-        /// code.</summary>
+        /// <summary>The phase. Nothing resets it: the simulation's copy is a fresh
+        /// object.
+        /// </summary>
         public int Phase;
 
         /// <summary>The phase the frame counters were set up for, so entering a
         /// phase is told apart from continuing in it.</summary>
         public int Entered;
 
-        /// <summary>Emulation ticks spent in the current phase, and how many the
-        /// phase lasts. Both counted in ticks rather than seconds because that is
-        /// what Besiege's own timer counts, and a rounding that agrees with it is
-        /// worth more than one that is nearer the truth.</summary>
+        /// <summary>Ticks spent in the phase and its length, counted in ticks as
+        /// Besiege's timer counts them.</summary>
         public int Ticks;
         public int Length;
 
-        /// <summary>Whether the row wants its emulated key held right now, as
-        /// <see cref="Clock"/> last left it. What is actually held is
-        /// <see cref="Held"/>; the behaviour reconciles the two.</summary>
+        /// <summary>Whether the clock wants the key held; <see cref="Held"/> is
+        /// what is.
+        /// </summary>
         public bool Wants;
 
-        /// <summary>Whether the row is actually holding its emulated key. Kept so
-        /// it can be let go exactly once, including when the machine is taken apart
-        /// mid-press -- an emulated key is reference counted, so one never let go
-        /// never comes up for anything else either.</summary>
+        /// <summary>Whether the key is held, so it is let go exactly once: emulated
+        /// keys are reference counted.</summary>
         public bool Held;
 
         // ---- reading the settings --------------------------------------------
 
-        /// <summary>True while every control this row needs is there. A row whose
-        /// controls could not be found is skipped rather than dereferenced: the
-        /// mapper is built on a simulating client without physics with every field
-        /// still null, and the same guard covers both.</summary>
+        /// <summary>Whether every control exists; a client without physics builds
+        /// none.
+        /// </summary>
         public bool Ready
         {
             get

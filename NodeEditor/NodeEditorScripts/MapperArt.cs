@@ -4,26 +4,10 @@ using UnityEngine;
 namespace NodeEditorMod
 {
     /// <summary>
-    /// The two icons Besiege's own key selector uses for "key or variable",
-    /// borrowed off the game's mapper so the table's cells read the same as the
-    /// row above them.
-    ///
-    /// They are the speech bubbles beside a key's name in the block mapper: one
-    /// with three dots, which is offered while the key answers the keyboard and
-    /// switches it to a variable, and one with a cross, which is offered while a
-    /// variable is bound and takes it back. `Selectors.KeySelector` holds both as
-    /// public fields, and `ToggleVar` settles which is which --
-    /// `messageToggleOff.SetActive(on)` against
-    /// `messageToggleOn.SetActive(!on &amp;&amp; AdvancedBuilding)`, so *On* is the
-    /// one shown while the variable is off.
-    ///
-    /// The mapper is mesh UI, not uGUI, so what is taken is the `Texture` off the
-    /// button's own renderer. That is enough for a `RawImage`, which takes a
-    /// `Texture` rather than the `Sprite` an `Image` wants -- and so needs nothing
-    /// converted and nothing assumed about the texture's type.
-    ///
-    /// `Selectors` is not on the mod loader's namespace blacklist; `InternalModding`,
-    /// where the rest of the mapper lives, is.
+    /// Besiege's key-selector icons for "key or variable", read off the game's
+    /// mapper (`Selectors.KeySelector`, which is not blacklisted) so the cells
+    /// match it: three dots while on the keyboard, a cross while on a variable.
+    /// Taken as `Texture`s for `RawImage`.
     /// </summary>
     public static class MapperArt
     {
@@ -31,9 +15,8 @@ namespace NodeEditorMod
         private static Texture keyIcon;
         private static Texture variableIcon;
 
-        /// <summary>The three-dot bubble: this cell is on the keyboard, and
-        /// clicking hands it to a variable. Null if the mapper could not be read.
-        /// </summary>
+        /// <summary>The three-dot bubble: on the keyboard; a click moves to a
+        /// variable. Null if the mapper could not be read.</summary>
         public static Texture KeyIcon { get { Look(); return keyIcon; } }
 
         /// <summary>The crossed bubble: this cell is on a variable, and clicking
@@ -44,11 +27,8 @@ namespace NodeEditorMod
         /// lettering instead.</summary>
         public static bool Ready { get { Look(); return found; } }
 
-        /// <summary>When the next look is allowed. `FindObjectsOfTypeAll` walks
-        /// every loaded object of the type, and every cell on screen asks this
-        /// every frame until it answers -- so a look that comes back
-        /// empty-handed costs one scan a second rather than one a cell a frame.
-        /// </summary>
+        /// <summary>When the next look is allowed: one scan a second while it finds
+        /// nothing, not one per cell per frame.</summary>
         private static float next;
 
         private static void Look()
@@ -60,9 +40,8 @@ namespace NodeEditorMod
             next = Time.realtimeSinceStartup + 1f;
             try
             {
-                // FindObjectsOfTypeAll rather than FindObjectsOfType: the mapper's
-                // selectors are pooled and most of them are inactive most of the
-                // time, and an inactive one has the artwork just the same.
+                // FindObjectsOfTypeAll: the mapper's selectors are pooled and
+                // mostly inactive.
                 Selectors.KeySelector[] all =
                     Resources.FindObjectsOfTypeAll<Selectors.KeySelector>();
                 for (int i = 0; i < all.Length; i++)

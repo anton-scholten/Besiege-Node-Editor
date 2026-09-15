@@ -7,18 +7,11 @@ using UnityEngine.UI;
 namespace NodeEditorMod
 {
     /// <summary>
-    /// The Logic Board's editor: nodes on a sheet, wires between them, and a
-    /// button that turns the lot into Besiege's own logic gates.
-    ///
-    /// Its own window rather than a panel docked under the block mapper -- a graph
-    /// wants room, and it should stay up while the player clicks about the machine.
-    /// Opened by selecting the block; closed by its own cross.
-    ///
-    /// Written rather than borrowed: every node-editor library for Unity is an
-    /// editor-time tool or wants its own assembly shipped beside it, and this mod
-    /// compiles with Besiege's own compiler against the game's assemblies. What
-    /// was left to write is a draggable box, a line between two of them, and the
-    /// arithmetic that puts the line's ends on the right boxes.
+    /// The node editor: a window drawing a Computer block's rows as a circuit of
+    /// nodes and wires, with IMPORT and EXPORT to and from Besiege's own blocks.
+    /// Written rather than borrowed: Unity's node-editor libraries are editor-time
+    /// tools or ship assemblies of their own, and this compiles with Besiege's
+    /// compiler.
     /// </summary>
     public class Editor : MonoBehaviour
     {
@@ -34,9 +27,8 @@ namespace NodeEditorMod
         private const float LeastWidth = 790f;
         private const float LeastHeight = 300f;
 
-        /// <summary>Where it opens, from the middle of the screen: under the block
-        /// mapper's own corner and to the right, so the table it belongs to and the
-        /// board are both in view without either covering the other.</summary>
+        /// <summary>Where it opens, from the screen's middle: right of and below
+        /// the block mapper, so the table and the board are both in view.</summary>
         private static readonly Vector2 StartAt = new Vector2(418f, -128f);
 
         /// <summary>How the wires are drawn. Three ways, cycled by the switch in
@@ -45,35 +37,26 @@ namespace NodeEditorMod
         private const int Curved = 1;
         private const int Square = 2;
 
-        /// <summary>Kept between openings rather than saved with the machine: how
-        /// somebody likes to look at a board is about them, not about the board.
-        /// </summary>
+        /// <summary>The wire style, kept between openings rather than saved: a way
+        /// of looking, not part of the board.</summary>
         private static int style = Curved;
 
-        /// <summary>Whether nodes sit on the grid's intersections. Kept between
-        /// openings, like the wire style and for the same reason: how somebody
-        /// likes to lay a board out is about them, not about the board.</summary>
+        /// <summary>Whether nodes snap to the grid; kept like the wire
+        /// style.</summary>
         private static bool grid = true;
         private const float BarHeight = 26f;
         private const float Margin = 8f;
-        /// <summary>
-        /// How big an end or a timer is drawn: five grid squares across and two down,
-        /// so a node on the grid fills whole cells and a row of them lines up with
-        /// the lines behind it -- and five rather than four for the room it gives the
-        /// boxes written in. See <see cref="GridStep"/>.
-        /// </summary>
+        /// <summary>An end's or a timer's size: five grid squares by two, so a node
+        /// on the grid fills whole cells (see <see cref="GridStep"/>).</summary>
         private const float NodeWidth = GridStep * 5f;
         private const float NodeHeight = GridStep * 2f;
 
-        /// <summary>How tall a gate is drawn. Shorter than an end: an end holds the
-        /// key or the name it stands for, and a gate holds nothing -- what it
-        /// answers to is a name the board makes up and nobody needs to read.
+        /// <summary>A gate's height: it holds no name, so it is shorter than an
+        /// end.
         /// </summary>
         private const float GateHeight = GridStep * 2f;
 
-        /// <summary>And how wide. A gate holds a picture and, sometimes, a switch;
-        /// the width of an end is the width of the name in it, and a gate has no
-        /// name.</summary>
+        /// <summary>A gate's width: a picture, and sometimes a switch.</summary>
         private const float GateWidth = GridStep * 3f;
 
         /// <summary>How big a gate's picture is drawn: in the palette, and on the
@@ -93,14 +76,13 @@ namespace NodeEditorMod
         /// it is drawn. See <see cref="Port"/>.</summary>
         private const float PortReach = 24f;
 
-        /// <summary>How big the cross that removes a node is. Bigger than a port:
-        /// it is the one thing on a node that is aimed at rather than dragged.
-        /// </summary>
+        /// <summary>The cross that removes a node, bigger than a port: it is aimed
+        /// at, not dragged.</summary>
         private const float CrossSize = 48f;
 
-        /// <summary>The comment's resizing corner: where it answers the pointer, and
-        /// the arrow drawn in it. Like the cross, in the window's own units at any
-        /// zoom.</summary>
+        /// <summary>A comment's resizing corner and its arrow, in window units at
+        /// any zoom.
+        /// </summary>
         private const float GripSize = 14f;
         private const float GripArrows = 9.6f;
         private const float WireWidth = 2f;
@@ -110,37 +92,19 @@ namespace NodeEditorMod
         private const float MostZoom = 2.5f;
 
         /// <summary>
-        /// How much board there is to put nodes on.
-        ///
-        /// Four views across and four down at the furthest the wheel zooms out,
-        /// measured off the window's own opening size: room for a circuit far
-        /// larger than thirty-two gates, and an end to it. A board without one is a
-        /// board somebody can drop a node into and never find again -- and ZOOM FIT
-        /// would then have to draw it, which means everything else on it too small
-        /// to read.
-        /// </summary>
-        /// <summary>
-        /// In whole squares of the grid, both ways.
-        ///
-        /// The grid is one tiled picture stretched over the board, and a `RawImage`
-        /// measures its tiling from the **bottom** left. A board that is not a whole
-        /// number of squares tall therefore puts every line a fraction of a square
-        /// off the top -- and since a node's place is measured from the top, a node
-        /// snapped to the grid sat that fraction above the line it belonged on.
-        ///
-        /// Four views across and four down at the furthest the wheel zooms out
-        /// comes to about 8770 by 4930, which is these two. An older board's nodes
-        /// sit in the top-left quarter of this one, and `Middled` opens the view
-        /// on them rather than on the empty middle.
+        /// The board's size, in whole grid squares: a `RawImage` tiles from the
+        /// bottom left, so a height that was not a whole number of squares put
+        /// every line off its nodes. About four views each way at the furthest
+        /// zoom; older boards sit in its top-left quarter, and `Middled` opens on
+        /// them.
         /// </summary>
         private const int BoardCells = 274;
         private const int BoardRows = 154;
         private const float BoardWide = GridStep * BoardCells;
         private const float BoardTall = GridStep * BoardRows;
 
-        /// <summary>The middle of it, which is where a board opens and where TIDY
-        /// puts what it lays out. A circuit in the middle of its own board has room
-        /// to grow in every direction rather than in two.</summary>
+        /// <summary>The board's middle, where a board opens and TIDY lays out: room
+        /// to grow every way.</summary>
         private static Vector2 Centre
         {
             get { return new Vector2(BoardWide * 0.5f, BoardTall * 0.5f); }
@@ -154,14 +118,9 @@ namespace NodeEditorMod
         /// removes something.</summary>
         private static readonly Color Hot = new Color(0.92f, 0.13f, 0.29f, 1f);
 
-        /// <summary>
-        /// Every board there is.
-        ///
-        /// One is made when the mod loads and serves whichever block is opened.
-        /// A board that has been pinned up is somebody's, though, so opening
-        /// another block makes another board rather than taking that one away --
-        /// up to four, after which the newest is the one that gives way. Four
-        /// windows is already more than a screen holds comfortably.
+        /// <summary>Every board. One is made at load and serves whichever block
+        /// opens; a pinned board keeps its block, so another block gets a new
+        /// board, up to four.
         /// </summary>
         private static readonly List<Editor> all = new List<Editor>();
 
@@ -173,7 +132,7 @@ namespace NodeEditorMod
 
         private static int showings;
 
-        private NodeEditorBehaviour served;
+        private ComputerBehaviour served;
         private Canvas canvas;
         private GameObject window;
         private RectTransform windowRect;
@@ -213,32 +172,28 @@ namespace NodeEditorMod
             public string Words;             // what a comment says
             public int Size;                 // a comment's font size, 0 for the usual
             public string Wire;              // a gate's own answer name
-            public KeyCode Answers = KeyCode.None;   // or the key it presses
+            public KeyCode[] Answers = new KeyCode[0];   // or the keys it presses
             public string[] Inputs = new string[2];
-            public KeyCode[] Keys = new KeyCode[2];
+            public KeyCode[][] Keys = { new KeyCode[0], new KeyCode[0] };
             public Vector2 At;
         }
 
 
         private readonly List<GameObject> parts = new List<GameObject>();
         private readonly List<RectTransform> ports = new List<RectTransform>();
-        private readonly List<GameObject> wires = new List<GameObject>();
 
         /// <summary>The node whose answer is waiting for somewhere to go, or -1.
         /// Clicking an output arms it; clicking an input lands it.</summary>
         private int pending = -1;
 
+        /// <summary>Which port of <see cref="pending"/> is armed: -1 its answer, 0
+        /// or 1 an input.</summary>
+        private int pendingPort = -1;
+
         public static bool Available { get { return UIF.Available; } }
 
-        /// <summary>
-        /// Builds the window before anybody asks for it.
-        ///
-        /// Everything here -- the canvas, the window prefab, the fourteen palette
-        /// buttons, the box in the title bar -- used to be built the first time a
-        /// block was opened, on top of everything else that happens at that moment.
-        /// Built once while the game is doing something else, it is a window that is
-        /// already there when the block wants it.
-        /// </summary>
+        /// <summary>Builds the window ahead of time, while the game is busy
+        /// elsewhere, rather than on top of the first block's opening.</summary>
         public static void Warm()
         {
             if (all.Count == 0 || !Available || all[0].window != null)
@@ -271,7 +226,7 @@ namespace NodeEditorMod
 
         /// <summary>Opens the editor on a board. One editor, whichever board was
         /// asked for last.</summary>
-        public static void Open(NodeEditorBehaviour block)
+        public static void Open(ComputerBehaviour block)
         {
             if (block == null)
             {
@@ -280,9 +235,8 @@ namespace NodeEditorMod
             Editor on = Serving(block);
             if (on != null)
             {
-                // Already up on this block. Drawing it again would cost a teardown
-                // and lose what is picked out, for a board that is already right --
-                // it only comes to the front.
+                // Already up on this block: only brought to the front, keeping the
+                // selection.
                 on.shown = ++showings;
                 on.Claim();
                 Stack();
@@ -299,20 +253,10 @@ namespace NodeEditorMod
             Swept(block);
         }
 
-        /// <summary>
-        /// Keeps the boards on the block whose menu is up.
-        ///
-        /// A board is how a logic block is read, so selecting another one should
-        /// bring that one up: a board nobody has pinned follows the menu, and a
-        /// pinned board is somebody's -- it keeps what it is showing, and the block
-        /// just selected gets a board of its own.
-        ///
-        /// Asked here every so often rather than left to the menu's own opening,
-        /// because a mapper changes hands in more ways than it announces: an undo
-        /// reopens it, and so does clicking straight from one block to another. A
-        /// board that missed one of those is a board drawing a block nobody is
-        /// looking at.
-        /// </summary>
+        /// <summary>Keeps boards on the block whose menu is up: an unpinned board
+        /// follows the menu, a pinned one keeps its block. Polled, as the mapper
+        /// changes hands without saying so (an undo, a click from block to
+        /// block).</summary>
         private static void Following()
         {
             if (followed == Time.frameCount)
@@ -320,7 +264,7 @@ namespace NodeEditorMod
                 return;
             }
             followed = Time.frameCount;
-            NodeEditorBehaviour block = Menu();
+            ComputerBehaviour block = Menu();
             if (block == null)
             {
                 return;
@@ -347,16 +291,9 @@ namespace NodeEditorMod
             Swept(block);
         }
 
-        /// <summary>
-        /// Takes down every board left behind by the block that is being edited.
-        ///
-        /// A board that is not pinned belongs to the menu, and the menu is on one
-        /// block: a board still drawing another one is a board somebody walked away
-        /// from. It stays only while the pin holds it -- including a board that was
-        /// pinned and has since been let go of, which is the case that used to sit
-        /// there showing a circuit nobody had asked about since.
-        /// </summary>
-        private static void Swept(NodeEditorBehaviour block)
+        /// <summary>Closes unpinned boards left drawing a block other than the one
+        /// being edited.</summary>
+        private static void Swept(ComputerBehaviour block)
         {
             for (int i = 0; i < all.Count; i++)
             {
@@ -372,7 +309,7 @@ namespace NodeEditorMod
 
         /// <summary>The logic block whose menu is up, if the menu is up on one of
         /// ours at all.</summary>
-        private static NodeEditorBehaviour Menu()
+        private static ComputerBehaviour Menu()
         {
             try
             {
@@ -381,7 +318,7 @@ namespace NodeEditorMod
                 {
                     return null;
                 }
-                return mapper.Block.GetComponent<NodeEditorBehaviour>();
+                return mapper.Block.GetComponent<ComputerBehaviour>();
             }
             catch (Exception)
             {
@@ -390,7 +327,7 @@ namespace NodeEditorMod
         }
 
         /// <summary>The board already up on this block, if there is one.</summary>
-        private static Editor Serving(NodeEditorBehaviour block)
+        private static Editor Serving(ComputerBehaviour block)
         {
             for (int i = 0; i < all.Count; i++)
             {
@@ -407,13 +344,8 @@ namespace NodeEditorMod
             return on.window != null && on.window.activeSelf;
         }
 
-        /// <summary>
-        /// A board that can be given to another block: one nobody has pinned.
-        ///
-        /// The open one first -- a board that is up and not pinned is the one being
-        /// worked in, and it should follow the block being opened -- then any that
-        /// is closed.
-        /// </summary>
+        /// <summary>A board free to take another block: the open unpinned one
+        /// first, then a closed one.</summary>
         private static Editor Lending()
         {
             for (int i = 0; i < all.Count; i++)
@@ -423,11 +355,8 @@ namespace NodeEditorMod
                     return all[i];
                 }
             }
-            // The one used most recently, rather than the first ever made: with two
-            // boards down, the window that comes back should be the one that was
-            // being worked in a moment ago and not whichever happens to be first in
-            // the list -- which is how a window somebody had finished with came
-            // back up in front of the one they had not.
+            // The one used most recently, so the window that comes back is the one
+            // just worked in.
             Editor last = null;
             for (int i = 0; i < all.Count; i++)
             {
@@ -467,9 +396,8 @@ namespace NodeEditorMod
             return best;
         }
 
-        /// <summary>
-        /// Puts the boards in front of each other in the order they were opened, so
-        /// the one just opened is the one on top.
+        /// <summary>Stacks the boards in the order they were opened, the newest on
+        /// top.
         /// </summary>
         private static void Stack()
         {
@@ -494,13 +422,13 @@ namespace NodeEditorMod
 
         /// <summary>Whether a board is up on this block, which is what the table's
         /// own button colours itself by.</summary>
-        public static bool Showing(NodeEditorBehaviour block)
+        public static bool Showing(ComputerBehaviour block)
         {
             return block != null && Serving(block) != null;
         }
 
         /// <summary>Open on this block, or closed if it already is.</summary>
-        public static void Toggle(NodeEditorBehaviour block)
+        public static void Toggle(ComputerBehaviour block)
         {
             Editor on = Serving(block);
             if (on != null)
@@ -526,26 +454,29 @@ namespace NodeEditorMod
         }
 
         /// <summary>
-        /// What the board is drawn from, as one string.
-        ///
-        /// The graph is the rows, and the rows can be changed by anything -- the
-        /// table beside this window, an undo, another player. Rather than hear
-        /// about it, the board asks every frame whether what it drew still matches
-        /// what is there, which is a couple of dozen short strings and cannot be
-        /// out of step.
+        /// What the board is drawn from, as one number, polled twenty times a
+        /// second to see whether the rows changed (the table, an undo, another
+        /// player). A hash of the row count, the layout and every row's settings,
+        /// allocating nothing; the layout text is hashed again only when the
+        /// control returns a different string.
         /// </summary>
-        private string Reading()
+        private long Reading()
         {
             if (served == null)
             {
-                return "";
+                return 0L;
             }
-            // One builder for the life of the editor: this runs every frame, and a
-            // string of a few hundred characters built afresh each time is a
-            // kilobyte a frame of rubbish for the collector.
-            said.Length = 0;
-            said.Append(served.Count).Append('|');
-            said.Append(served.LayoutControl == null ? "" : served.LayoutControl.Value);
+            ulong hash = HashOffset;
+            hash = Mixed(hash, served.Count);
+            string layout = served.LayoutControl == null ? ""
+                : served.LayoutControl.Value;
+            if (!object.ReferenceEquals(layout, layoutRead))
+            {
+                layoutRead = layout;
+                layoutHash = TextHash(layout);
+            }
+            hash = Mixed(hash, (int)layoutHash);
+            hash = Mixed(hash, (int)(layoutHash >> 32));
             for (int i = 0; i < served.Count && i < served.Rows.Count; i++)
             {
                 LogicRow row = served.Rows[i];
@@ -553,41 +484,88 @@ namespace NodeEditorMod
                 {
                     continue;
                 }
+                hash = Mixed(hash, i);
                 if (row.IsTimer)
                 {
                     // A timer's numbers and switches too, or an undo of a wait
                     // changed on the board would go unseen here and undrawn.
-                    said.Append(row.Wait.Value).Append('/')
-                        .Append(row.Duration.Value)
-                        .Append(row.Hold.IsActive ? 'h' : '_')
-                        .Append(row.Stop.IsActive ? 's' : '_')
-                        .Append(row.Loop.IsActive ? 'l' : '_');
+                    hash = Mixed(hash, row.Wait.Value.GetHashCode());
+                    hash = Mixed(hash, row.Duration.Value.GetHashCode());
+                    hash = Mixed(hash, (row.Hold.IsActive ? 1 : 0)
+                                       | (row.Stop.IsActive ? 2 : 0)
+                                       | (row.Loop.IsActive ? 4 : 0));
                 }
-                said.Append(row.Gate).Append(row.Switch ? '+' : '-')
-                    .Append(Bindings.Show(row.InputA, "-")).Append(',')
-                    .Append(Bindings.Show(row.InputB, "-")).Append(',')
-                    .Append(Bindings.Show(row.Emulate, "-")).Append(';');
+                hash = Mixed(hash, row.Gate);
+                hash = Mixed(hash, row.Switch ? 1 : 0);
+                hash = KeyHash(hash, row.InputA);
+                hash = KeyHash(hash, row.InputB);
+                hash = KeyHash(hash, row.Emulate);
             }
-            return said.ToString();
+            return (long)hash;
         }
 
-        private readonly System.Text.StringBuilder said =
-            new System.Text.StringBuilder();
+        /// <summary>The layout text last hashed, and its hash.</summary>
+        private string layoutRead;
+        private ulong layoutHash;
+
+        // FNV-1a, 64 bits: wide enough that a missed change is not worth thinking
+        // about.
+        private const ulong HashOffset = 14695981039346656037UL;
+        private const ulong HashPrime = 1099511628211UL;
+
+        private static ulong Mixed(ulong hash, int value)
+        {
+            for (int b = 0; b < 4; b++)
+            {
+                hash = (hash ^ (ulong)(value & 0xff)) * HashPrime;
+                value >>= 8;
+            }
+            return hash;
+        }
+
+        private static ulong TextHash(string text)
+        {
+            ulong hash = HashOffset;
+            for (int i = 0; text != null && i < text.Length; i++)
+            {
+                hash = (hash ^ text[i]) * HashPrime;
+            }
+            return hash;
+        }
+
+        /// <summary>Everything a key answers to: whether it is on names, every name,
+        /// and every keycode.</summary>
+        private static ulong KeyHash(ulong hash, MKey key)
+        {
+            if (key == null)
+            {
+                return Mixed(hash, -1);
+            }
+            hash = Mixed(hash, key.useMessage ? 1 : 0);
+            string[] names = key.message;
+            int count = names == null ? 0 : names.Length;
+            hash = Mixed(hash, count);
+            for (int n = 0; n < count; n++)
+            {
+                hash = Mixed(hash, names[n] == null ? 0 : names[n].GetHashCode());
+            }
+            hash = Mixed(hash, key.KeysCount);
+            for (int k = 0; k < key.KeysCount; k++)
+            {
+                hash = Mixed(hash, (int)key.GetKey(k));
+            }
+            return hash;
+        }
 
         /// <summary>When the board next asks whether the table has changed.
         /// </summary>
         private float asks;
 
-        private string read;
+        private long read;
 
-        /// <summary>
-        /// Whether some menu of the game's is up -- the pause menu, the save or
-        /// load screens -- which is when this window should get out of the way.
-        ///
-        /// `StatMaster.inMenu` is a count rather than a flag, and this window puts
-        /// itself in it while the pointer is over it -- see `ZoomGuard` -- so what
-        /// is asked is whether anything *else* has raised it.
-        /// </summary>
+        /// <summary>Whether a game menu is up (pause, save, load). `inMenu` is a
+        /// count this window adds to while hovered, so only other holds
+        /// count.</summary>
         private static bool Shut()
         {
             try
@@ -601,21 +579,13 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// The board's frame.
-        ///
-        /// Wrapped, because everything the window does between frames is in one
-        /// method and Unity stops at the first thing that throws: a single null
-        /// halfway down took the board's redrawing, its keys and its auto-panning
-        /// with it and left a window that drew once and then ignored the world.
-        /// Said once, with the whole exception, so it is a line in the log rather
-        /// than a mystery.
-        /// </summary>
+        /// <summary>The board's frame, wrapped: Unity stops at the first exception,
+        /// which left a window drawn once and then dead. Logged once, in
+        /// full.</summary>
         private void Update()
         {
-            // A frame after the key that was held off, the game has its keyboard
-            // back: its own `LateUpdate` has run in between, and that is where it
-            // would have acted.
+            // The game has its keyboard back a frame after the key that was held
+            // off.
             if (muffled && Time.frameCount > muffledAt)
             {
                 muffled = ZoomGuard.Grip(false, muffled);
@@ -637,6 +607,27 @@ namespace NodeEditorMod
 
         private static bool moaned;
 
+        /// <summary>Whether a simulation is running: `StatMaster.levelSimulating`
+        /// (a build block's `IsSimulating` stays false, notes 08), or the machine's
+        /// own flag.
+        /// </summary>
+        private static bool Running()
+        {
+            try
+            {
+                if (StatMaster.levelSimulating)
+                {
+                    return true;
+                }
+                Machine machine = Machine.Active();
+                return machine != null && machine.isSimulating;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
         private void Ticking()
         {
             if (window == null || !window.activeSelf)
@@ -645,9 +636,15 @@ namespace NodeEditorMod
             }
             if (served == null)
             {
-                // The block it was drawing has been taken off the machine. A board
-                // of a circuit that no longer exists is a window to close, pinned
-                // or not.
+                // The block has been taken off the machine: close, pinned or not.
+                Close();
+                return;
+            }
+            if (Running())
+            {
+                // A run started and the machine is hidden: every board closes,
+                // pinned or held open by an import (`lingering`, which never saw
+                // the menu close for the run).
                 Close();
                 return;
             }
@@ -694,10 +691,8 @@ namespace NodeEditorMod
                 scrubbing.Clear();
                 Commit(touched);
             }
-            // A click anywhere outside the window puts the selection down, the same
-            // as a click on the empty board does: whatever is picked out belongs to
-            // somebody working in this window, and a hand that has gone to work on
-            // the machine is not that.
+            // A click outside the window drops the selection, as one on empty board
+            // does.
             if (Input.GetMouseButtonDown(0) && picked.Count > 0
                 && !Inside(Input.mousePosition))
             {
@@ -708,11 +703,9 @@ namespace NodeEditorMod
                  || Input.GetKeyDown(KeyCode.Backspace))
                 && picked.Count > 0 && !Typing())
             {
-                // The game hears the same key, and with the pointer off this window
-                // -- a box dragged past its edge and let go outside, say -- nothing
-                // is holding it off: it deletes its own selection, which is the very
-                // block this board is drawing. Held off for this frame, the key is
-                // the board's alone.
+                // With the pointer outside, the game would delete its own selection
+                // -- this very block -- on the same key, so the key is held off
+                // this frame.
                 Muffle();
                 Erase();
             }
@@ -721,19 +714,18 @@ namespace NodeEditorMod
                 Close();
                 return;
             }
-            // Twenty times a second rather than every frame: this reads every row
-            // of the block into a string to see whether anything has moved, and
-            // nothing that moves it -- a hand on the table, an undo, another
-            // player -- moves it faster than an eye can follow.
+            // Twenty times a second: nothing changes the rows faster than an eye
+            // follows.
             if (Time.unscaledTime < asks)
             {
                 return;
             }
             asks = Time.unscaledTime + 0.05f;
 
-            if (lingering && Menued())
+            Lingered();
+            if (!Up(this))
             {
-                lingering = false;          // the menu is back; ordinary rules again
+                return;                     // another block's menu took it
             }
             if (pinsBox != null && served != null && served.PinControl != null
                 && pinsBox.isOn != served.PinControl.IsActive)
@@ -749,7 +741,7 @@ namespace NodeEditorMod
                 gridBox.isOn = grid;
                 hushed = false;
             }
-            NodeEditorBehaviour was = served;
+            ComputerBehaviour was = served;
             Following();
             if (served != was)
             {
@@ -771,7 +763,7 @@ namespace NodeEditorMod
                 read = Reading();
                 return;
             }
-            string now = Reading();
+            long now = Reading();
             if (now == read)
             {
                 // Settled: what is here now is what the next edit undoes to.
@@ -785,20 +777,20 @@ namespace NodeEditorMod
             board = null;
             if (Rows != counted)
             {
-                // A row has arrived or gone from somewhere else -- the table's own
-                // list, an undo, another player. The rows are numbered before the
-                // ends, so every number the board is holding on to now means a
-                // different node. Which of them meant what cannot be worked out
-                // from here, so the selection is put down rather than moved to
-                // whatever has taken its place.
+                // Rows arrived or went elsewhere, renumbering the ends: the
+                // selection is dropped rather than moved to whatever took its
+                // numbers.
                 picked.Clear();
                 naming.Clear();
                 pending = -1;
             }
-            // Ends are made for bindings nothing on the board accounts for. Only
-            // ever here: what reaches this point is a change the board did not
-            // make -- a row added or retyped in the block's own menu, an undo,
-            // another player -- and that is what has nothing drawn for it.
+            if (Rows > counted)
+            {
+                // The table's "+": put where it can be seen.
+                Unplaced(counted);
+            }
+            // Ends are made for bindings nothing on the board accounts for -- only
+            // for changes the board did not make.
             Adopt();
             // Whatever changed it -- the table, an undo, a redo -- the board is
             // drawn from the rows and the rows have moved.
@@ -808,7 +800,7 @@ namespace NodeEditorMod
             Ours();
         }
 
-        private void Show(NodeEditorBehaviour block)
+        private void Show(ComputerBehaviour block)
         {
             served = block;
             lingering = false;
@@ -819,11 +811,9 @@ namespace NodeEditorMod
             shown = ++showings;
             window.SetActive(true);
             board = null;
-            read = null;
+            read = 0L;
             mark = null;
-            // A block whose board has never been opened has nowhere written down
-            // for anything to sit, and a column of nodes over the top of each other
-            // is not what it means. It arrives laid out.
+            // A block never opened has no layout, so it arrives tidied.
             bool blank = served.LayoutControl == null
                 || string.IsNullOrEmpty(served.LayoutControl.Value);
             Adopt();
@@ -831,10 +821,8 @@ namespace NodeEditorMod
             {
                 Tidy(true);
             }
-            // Drawn on the next frame rather than this one. This frame already has
-            // the game's own block mapper being built in it, and the table under
-            // it; a board of a dozen nodes on top of that is the difference between
-            // a menu that opens and a menu that stutters.
+            // Drawn next frame: this one is already building the mapper and the
+            // table.
             owed = true;
             middling = true;
             read = Reading();
@@ -855,21 +843,12 @@ namespace NodeEditorMod
         /// the next frame.</summary>
         private bool owed;
 
-        /// <summary>And when it is owed a view of the middle of itself, which waits
-        /// for the same frame: the window's own rectangles are not settled until
-        /// the layout has run once, and the middle is worked out from them.
-        /// </summary>
+        /// <summary>And owed a view of its middle, the same frame: the window's
+        /// rects settle only after a layout pass.</summary>
         private bool middling;
 
-        /// <summary>
-        /// Opens the view on the middle of the board -- or on the middle of what is
-        /// drawn, where that is somewhere else.
-        ///
-        /// The board is laid out about its own middle, so for anything laid out by
-        /// this version the two are the same. A board written by an older one has
-        /// its circuit in a corner, and a window opening on the empty middle of the
-        /// board is a window that looks broken.
-        /// </summary>
+        /// <summary>Opens the view on the board's middle, or on what is drawn where
+        /// that is elsewhere (boards laid out by older versions).</summary>
         private void Middled()
         {
             Vector2 low;
@@ -885,6 +864,13 @@ namespace NodeEditorMod
             }
             Tip.Tips.Hide();
             Choices.Close();
+            // The message hangs on the canvas, not the window, so it does not go
+            // with the window, and `Fading` stops with the window: it is hidden
+            // here.
+            if (warning != null)
+            {
+                warning.SetActive(false);
+            }
             served = null;
             lingering = false;
         }
@@ -924,9 +910,8 @@ namespace NodeEditorMod
                 windowRect.anchorMax = new Vector2(0.5f, 0.5f);
                 windowRect.pivot = new Vector2(0.5f, 0.5f);
                 windowRect.sizeDelta = size;
-                // Each board a little down and across from the last, so a second
-                // one is a second window rather than a window nobody can see under
-                // the first.
+                // Each board a little down and across from the last, so none hides
+                // under another.
                 int nth = all.IndexOf(this);
                 windowRect.anchoredPosition = StartAt
                     + new Vector2(nth * 26f, nth * -26f);
@@ -942,11 +927,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// Takes the prefab's own furniture off: its title bar, which said "Sample
-        /// Window" over ours and carried a second close cross, and its scroll view,
-        /// whose bar stood down the right of a board that does not scroll.
-        /// </summary>
+        /// <summary>Takes the prefab's title bar ("Sample Window" and a second
+        /// cross) and its scroll view off.</summary>
         private void Strip()
         {
             Transform bar = Attach.Find(window.transform, "TopBar");
@@ -979,15 +961,9 @@ namespace NodeEditorMod
         private RectTransform barRect;
         private RectTransform shutRect;
 
-        /// <summary>
-        /// The pin, and whether it is in.
-        ///
-        /// Out -- white -- the board belongs to the block's menu and goes when it
-        /// does. In -- red -- it stays up while the machine is worked on, which is
-        /// what somebody wiring a circuit against the rest of the machine wants.
-        /// Pulling it out with the menu already gone closes the board, because the
-        /// only thing holding it up was the pin.
-        /// </summary>
+        /// <summary>The pin. Out (white): the board goes with the block's menu. In
+        /// (red): it stays up. Pulled out with the menu already gone, the board
+        /// closes.</summary>
         private RawImage pinIcon;
         private GameObject pinPlate;
         private bool pinned;
@@ -1018,44 +994,40 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// Set when this board has just imported, and cleared once the block's
-        /// menu is known to be up on it again.
-        ///
-        /// Taking blocks off the machine is the game's own gesture and the game
-        /// closes the block mapper for it -- in the same call or a frame later, as
-        /// the selection tool and the panel settle. A flag held only for the length
-        /// of the import missed the later one and the board went with the menu. So
-        /// the board stays up, pinned or not, until the menu is back on its block
-        /// or the hand moves on to another one.
-        /// </summary>
+        /// <summary>Set after an import or export until the block's menu is back on
+        /// it or another block's menu opens: the game closes the mapper for the
+        /// removal, sometimes a frame later, and the board must not go with
+        /// it.</summary>
         private bool lingering;
 
-        /// <summary>
-        /// Puts the block's menu back if whatever the board just did took it down,
-        /// and leaves it alone if the game has since put one up on something else.
-        /// </summary>
-        private void Remenu()
+        /// <summary>Whether Besiege's block menu is up, on any block.</summary>
+        private static bool MenuUp()
         {
             try
             {
-                if (served == null || Menued())
-                {
-                    return;
-                }
-                if (BlockMapper.CurrentInstance != null && BlockMapper.IsOpen)
-                {
-                    return;
-                }
-                BlockBehaviour block = served.BlockBehaviour;
-                if (block != null)
-                {
-                    BlockMapper.Open(block);
-                }
+                BlockMapper mapper = BlockMapper.CurrentInstance;
+                return mapper != null && BlockMapper.IsOpen && mapper.Block != null;
             }
-            catch (Exception e)
+            catch (Exception)
             {
-                Log.Warn("could not put the block's menu back: " + e.Message);
+                return false;
+            }
+        }
+
+        /// <summary>A board held up by an import stays until a menu opens: on its
+        /// own block that is ordinary rules again, and on another block it closes
+        /// the board unless pinned. The menu is not reopened: that
+        /// flickered.</summary>
+        private void Lingered()
+        {
+            if (!lingering || !MenuUp())
+            {
+                return;
+            }
+            lingering = false;
+            if (!Menued() && !pinned)
+            {
+                Close();                    // the player has moved on
             }
         }
 
@@ -1066,10 +1038,8 @@ namespace NodeEditorMod
             return served != null && Menu() == served;
         }
 
-        /// <summary>
-        /// The block's menu has closed. The board goes with it unless it is pinned:
-        /// a board is how the block is read, and a block nobody is looking at is not
-        /// being read.
+        /// <summary>The block's menu closed: boards go with it unless pinned or
+        /// lingering.
         /// </summary>
         public static void Dropped()
         {
@@ -1137,9 +1107,8 @@ namespace NodeEditorMod
         private readonly List<RectTransform> rails = new List<RectTransform>();
         private float railed = -1f;
 
-        /// <summary>Each node's colour and the number a random one was chosen by,
-        /// worked out once per drawing of the board: every wire asks for both at
-        /// both its ends on every frame of a pan.</summary>
+        /// <summary>Each node's colour and random seed, worked out once per
+        /// drawing: every wire asks for both of its ends.</summary>
         private readonly List<Color> tints = new List<Color>();
         private readonly List<int> seeds = new List<int>();
         private readonly List<int> slots = new List<int>();
@@ -1158,24 +1127,22 @@ namespace NodeEditorMod
             // the wheel does not zoom the camera and a right-drag does not turn it.
             guard.menu = true;
 
-            GameObject bar = Plate(window.transform, 0f, 0f, size.x, BarHeight,
+            GameObject bar = UIF.Plate(window.transform, 0f, 0f, size.x, BarHeight,
                                    new Color(0f, 0f, 0f, 0.25f));
             barRect = bar.GetComponent<RectTransform>();
             NodeDrag drag = bar.AddComponent<NodeDrag>();
             drag.frame = windowRect;
             drag.Moved = delegate(Vector2 by) { windowRect.anchoredPosition += by; };
 
-            // Along the bar from the left, with no title: the bar is full of
-            // buttons, and the window is plainly the board. How the wires are
-            // drawn, the grid, laying the board out, the view, and the two ways
-            // between the board and the machine.
+            // Along the bar from the left, no title: wire style, grid, tidy, view,
+            // import and export.
             GameObject wireStyle = UIF.Spawn(UIF.ButtonPrefab, bar.transform);
             if (wireStyle != null)
             {
                 styleRect = wireStyle.GetComponent<RectTransform>();
                 UIF.NoSwell(wireStyle);
                 styleLabel = Caption(wireStyle, Styled(style), TextAnchor.MiddleCenter);
-                Grow(wireStyle, styleLabel.transform);
+                UIF.Grow(wireStyle, styleLabel.transform);
                 Button click = wireStyle.GetComponent<Button>();
                 if (click != null)
                 {
@@ -1193,7 +1160,7 @@ namespace NodeEditorMod
             {
                 gridRect = squares.GetComponent<RectTransform>();
                 UIF.NoSwell(squares);
-                Grow(squares, Caption(squares, "GRID",
+                UIF.Grow(squares, Caption(squares, "GRID",
                                       TextAnchor.MiddleCenter).transform);
                 Tip.On(squares, "Align nodes to the grid");
                 gridBox = squares.GetComponent<Toggle>();
@@ -1211,7 +1178,7 @@ namespace NodeEditorMod
             {
                 tidyRect = tidy.GetComponent<RectTransform>();
                 UIF.NoSwell(tidy);
-                Grow(tidy, Caption(tidy, "TIDY", TextAnchor.MiddleCenter).transform);
+                UIF.Grow(tidy, Caption(tidy, "TIDY", TextAnchor.MiddleCenter).transform);
                 Button click = tidy.GetComponent<Button>();
                 if (click != null)
                 {
@@ -1224,7 +1191,7 @@ namespace NodeEditorMod
             {
                 fitRect = whole.GetComponent<RectTransform>();
                 UIF.NoSwell(whole);
-                Grow(whole, Caption(whole, "ZOOM FIT",
+                UIF.Grow(whole, Caption(whole, "ZOOM FIT",
                                     TextAnchor.MiddleCenter).transform);
                 Button click = whole.GetComponent<Button>();
                 if (click != null)
@@ -1238,7 +1205,7 @@ namespace NodeEditorMod
             {
                 importRect = brought.GetComponent<RectTransform>();
                 UIF.NoSwell(brought);
-                Grow(brought, Caption(brought, "IMPORT",
+                UIF.Grow(brought, Caption(brought, "IMPORT",
                                       TextAnchor.MiddleCenter).transform);
                 Tip.On(brought, "Take all logic gates and timers of the machine into this editor");
                 Button click = brought.GetComponent<Button>();
@@ -1248,15 +1215,13 @@ namespace NodeEditorMod
                 }
             }
 
-            // Whether EXPORT pins what it makes. Up here beside the button it
-            // governs rather than under the table, where it sat beside the convert
-            // button before that moved up too.
+            // Whether EXPORT pins what it makes, beside the button it governs.
             GameObject stakes = UIF.Spawn(UIF.TogglePrefab, bar.transform);
             if (stakes != null)
             {
                 pinsRect = stakes.GetComponent<RectTransform>();
                 UIF.NoSwell(stakes);
-                Grow(stakes, Caption(stakes, "PIN BLOCKS",
+                UIF.Grow(stakes, Caption(stakes, "PIN BLOCKS",
                                      TextAnchor.MiddleCenter).transform);
                 Tip.On(stakes, "Pin logic gate blocks when exported");
                 pinsBox = stakes.GetComponent<Toggle>();
@@ -1274,7 +1239,7 @@ namespace NodeEditorMod
             {
                 exportRect = sent.GetComponent<RectTransform>();
                 UIF.NoSwell(sent);
-                Grow(sent, Caption(sent, "EXPORT", TextAnchor.MiddleCenter).transform);
+                UIF.Grow(sent, Caption(sent, "EXPORT", TextAnchor.MiddleCenter).transform);
                 Tip.On(sent, "Convert to logic gate blocks");
                 Button click = sent.GetComponent<Button>();
                 if (click != null)
@@ -1288,7 +1253,7 @@ namespace NodeEditorMod
             {
                 editRect = edits.GetComponent<RectTransform>();
                 UIF.NoSwell(edits);
-                Grow(edits, Caption(edits, "EDIT COLORS",
+                UIF.Grow(edits, Caption(edits, "EDIT COLORS",
                                     TextAnchor.MiddleCenter).transform);
                 Tip.On(edits, "Pick the colors nodes and wires are drawn in");
                 editBox = edits.GetComponent<Toggle>();
@@ -1307,23 +1272,21 @@ namespace NodeEditorMod
                 shutRect = shut.GetComponent<RectTransform>();
                 UIF.NoSwell(shut);
                 Caption(shut, "", TextAnchor.MiddleCenter);
-                // Red behind it rather than a red pin: that is how a switch says it
-                // is on everywhere else in the game, and a white pin on red reads
-                // at a glance where a red pin on dark does not.
-                pinPlate = Plate(shut.transform, 1f, 1f, BarHeight - 8f,
+                // Red behind a white pin, as a switch that is on looks elsewhere in
+                // the game.
+                pinPlate = UIF.Plate(shut.transform, 1f, 1f, BarHeight - 8f,
                                  BarHeight - 8f, new Color(0f, 0f, 0f, 0f));
                 Image lit = pinPlate.GetComponent<Image>();
                 lit.raycastTarget = false;
-                // Sized off the diagonal, not the side: turned forty-five degrees
-                // it is as tall as its own diagonal, and drawn at the button's
-                // height it hung out over the title bar.
+                // Sized off the diagonal: turned 45 degrees, it is as tall as its
+                // diagonal.
                 pinIcon = Picture(shut.transform, Glyphs.Pin, (BarHeight - 6f) * 0.75f);
                 // Turned, so it reads as a pin pushed into the corner of the window
                 // rather than one standing on end.
                 pinIcon.rectTransform.localRotation =
                     Quaternion.Euler(0f, 0f, 45f);
                 Paint();
-                Grow(shut, pinIcon.transform, 1.15f);
+                UIF.Grow(shut, pinIcon.transform, 1.15f);
                 Tip.On(shut, "Keep the editor open");
                 Button click = shut.GetComponent<Button>();
                 if (click != null)
@@ -1345,7 +1308,7 @@ namespace NodeEditorMod
             Swatches();
             Painted();
 
-            GameObject board = Plate(window.transform, Margin, 0f, 10f, 10f,
+            GameObject board = UIF.Plate(window.transform, Margin, 0f, 10f, 10f,
                                      new Color(0f, 0f, 0f, 0.20f));
             board.AddComponent<RectMask2D>();
             boardRect = board.GetComponent<RectTransform>();
@@ -1374,10 +1337,7 @@ namespace NodeEditorMod
             GameObject paper = new GameObject("Grid");
             paper.transform.SetParent(content, false);
             RectTransform mesh = paper.AddComponent<RectTransform>();
-            // Exactly the board and no more: it was a square hung about the
-            // content's origin, which covered the left of the board and stopped
-            // halfway across it. Drawn to the fence instead, the grid says where
-            // the board ends as well as where you are on it.
+            // Exactly the board, so the grid also shows where the board ends.
             mesh.anchorMin = new Vector2(0f, 1f);
             mesh.anchorMax = new Vector2(0f, 1f);
             mesh.pivot = new Vector2(0f, 1f);
@@ -1386,7 +1346,7 @@ namespace NodeEditorMod
             RawImage lines = paper.AddComponent<RawImage>();
             gridLines = lines;
             lines.texture = Glyphs.Grid;
-            lines.color = new Color(1f, 1f, 1f, 0.5f);
+            lines.color = new Color(1f, 1f, 1f, GridInk);
             lines.raycastTarget = false;
             // uvRect counts in texture widths, so this is one square per GridStep.
             lines.uvRect = new Rect(0f, 0f, BoardWide / GridStep,
@@ -1425,6 +1385,21 @@ namespace NodeEditorMod
                 drawn.raycastTarget = false;
             }
 
+            // Every wire as one mesh (see `WireMesh`), as big as the board so it is
+            // not culled, and behind everything, as the pieces it replaces were.
+            GameObject threads = new GameObject("Wires");
+            threads.transform.SetParent(content, false);
+            RectTransform spread = threads.AddComponent<RectTransform>();
+            spread.anchorMin = new Vector2(0f, 1f);
+            spread.anchorMax = new Vector2(0f, 1f);
+            spread.pivot = new Vector2(0f, 1f);
+            spread.anchoredPosition = Vector2.zero;
+            spread.sizeDelta = new Vector2(BoardWide, BoardTall);
+            skein = threads.AddComponent<WireMesh>();
+            skein.Thickness = WireWidth;
+            skein.raycastTarget = false;
+            threads.transform.SetAsFirstSibling();
+
             GameObject named = UIF.Spawn(UIF.InputPrefab, bar.transform);
             if (named != null)
             {
@@ -1440,6 +1415,7 @@ namespace NodeEditorMod
                         ghostText.text = "prefix";
                     }
                     prefixBox.onEndEdit.AddListener(Renamed);
+                    Marquee.On(prefixBox);
                 }
                 Tip.On(named, "Variable prefix");
             }
@@ -1451,6 +1427,24 @@ namespace NodeEditorMod
         /// <summary>The four corners, which the window is resized by.</summary>
         private void Handles()
         {
+            // The thin border beside the board moves the window as the title bar
+            // does: left, right and bottom, under the corners made next.
+            for (int i = 0; i < 3; i++)
+            {
+                GameObject edge = new GameObject("Edge");
+                edge.transform.SetParent(window.transform, false);
+                RectTransform rect = edge.AddComponent<RectTransform>();
+                Image catcher = edge.AddComponent<Image>();
+                catcher.color = new Color(0f, 0f, 0f, 0f);
+                rect.anchorMin = new Vector2(i == 1 ? 1f : 0f, 0f);
+                rect.anchorMax = new Vector2(i == 0 ? 0f : 1f, i == 2 ? 0f : 1f);
+                rect.offsetMin = new Vector2(i == 1 ? -Margin : 0f, 0f);
+                rect.offsetMax = new Vector2(i == 0 ? Margin : 0f,
+                                             i == 2 ? Margin : -BarHeight);
+                NodeDrag drag = edge.AddComponent<NodeDrag>();
+                drag.frame = windowRect;
+                drag.Moved = delegate(Vector2 by) { windowRect.anchoredPosition += by; };
+            }
             for (int i = 0; i < 4; i++)
             {
                 GameObject go = new GameObject("Corner");
@@ -1475,10 +1469,8 @@ namespace NodeEditorMod
         /// far apart its lines are.</summary>
         private const float GridStep = 32f;
 
-        /// <summary>
-        /// Puts every piece of the window where the window's own size says it goes.
-        /// Called when it is built and every time a corner is dragged.
-        /// </summary>
+        /// <summary>Lays the window's pieces out from its size, when built and on
+        /// every corner drag.</summary>
         private void Arrange()
         {
             if (windowRect == null)
@@ -1517,9 +1509,8 @@ namespace NodeEditorMod
             float top = y + 30f + Margin;
             if (editing)
             {
-                // Between the palette and the board, on the window's own ground,
-                // with the board giving up the room. What is drawn on the board
-                // does not move with its edge -- see `Editing`.
+                // Between the palette and the board, which gives up the room; what
+                // is drawn on it stays put (see `Editing`).
                 float below = y + 30f + 4f;
                 // Each button's colour straight under it.
                 for (int i = 0; i < swatches.Count; i++)
@@ -1558,9 +1549,7 @@ namespace NodeEditorMod
                 top = below + UniTall + Margin;
             }
             boardTop = top;
-            // The same gap under the board as beside it: what used to be reserved
-            // along the bottom held the prefix box, and that sits in the title bar
-            // now.
+            // The same gap under the board as beside it.
             float bottom = size.y - Margin;
             if (boardRect != null)
             {
@@ -1569,11 +1558,8 @@ namespace NodeEditorMod
 
             if (nameRect != null)
             {
-                // Beside the cross: what generated wire names start with belongs
-                // with the window's own furniture rather than in the middle of its
-                // title.
-                // Whatever the buttons leave, up to a comfortable width -- see
-                // `LeastWidth`, which keeps that from being nothing.
+                // Beside the cross, with the window's furniture: whatever the
+                // buttons leave, up to a comfortable width (see `LeastWidth`).
                 float wide = Mathf.Clamp(size.x - bit - 6f - along, 0f, 180f);
                 UIF.Fit(nameRect, size.x - bit - 6f - wide, 3f, wide, bit);
             }
@@ -1590,10 +1576,8 @@ namespace NodeEditorMod
         /// stays put at the other end.</summary>
         private void Pulling(Vector2 by, Vector2 pull)
         {
-            // Up on a top corner grows the window, down on a bottom one grows it
-            // too: which way that is depends on the corner, which is what `pull`
-            // says. Getting the sign wrong made the top corners behave as the
-            // bottom ones.
+            // A top corner pulled up or a bottom one down grows the window; `pull`
+            // says which.
             Vector2 wanted = new Vector2(
                 size.x + by.x * pull.x,
                 size.y + by.y * pull.y);
@@ -1606,9 +1590,8 @@ namespace NodeEditorMod
             windowRect.anchoredPosition += new Vector2(grew.x * 0.5f * pull.x,
                                                        grew.y * 0.5f * pull.y);
             Arrange();
-            // The wires are worked out from where the ports are, and the ports have
-            // only just moved: without this they are drawn against last frame's
-            // layout, which is what made them lag and look stretched.
+            // The wires follow the ports, which have only just moved: lay out
+            // first.
             Canvas.ForceUpdateCanvases();
             Strings();
         }
@@ -1632,7 +1615,7 @@ namespace NodeEditorMod
             if (words.Length > 0)
             {
                 Text shown = Caption(go, words, TextAnchor.MiddleCenter);
-                Grow(go, shown.transform);
+                UIF.Grow(go, shown.transform);
                 inks.Add(shown);
             }
             else
@@ -1641,7 +1624,7 @@ namespace NodeEditorMod
                 RawImage shown = Picture(go.transform,
                                          drawn != null ? drawn : Glyphs.Gate(gate),
                                          PaletteIcon);
-                Grow(go, shown.transform);
+                UIF.Grow(go, shown.transform);
                 inks.Add(shown);
             }
             Tip.On(go, tip);
@@ -1668,12 +1651,8 @@ namespace NodeEditorMod
             };
         }
 
-        /// <summary>
-        /// The node being dragged out of the palette, drawn under the pointer.
-        ///
-        /// A see-through copy rather than the node itself: the node does not exist
-        /// yet, and a hand that changes its mind should leave the board as it was.
-        /// </summary>
+        /// <summary>A see-through ghost of the node dragged off the palette;
+        /// nothing exists until it is dropped.</summary>
         private void Carrying(int kind, int gate, Vector2 screen)
         {
             if (canvas == null)
@@ -1701,9 +1680,7 @@ namespace NodeEditorMod
                 rect.anchorMin = new Vector2(0.5f, 0.5f);
                 rect.anchorMax = new Vector2(0.5f, 0.5f);
                 rect.pivot = new Vector2(0.5f, 0.5f);
-                // As big as the node will be when it lands, which is a board zoomed
-                // out or in: a full-size ghost over a half-size board is a promise
-                // of something twice what arrives.
+                // At the size it will land, zoom included.
                 rect.localScale = Zoom();
                 // It is only ever looked at.
                 Graphic[] parts = ghost.GetComponentsInChildren<Graphic>(true);
@@ -1769,10 +1746,7 @@ namespace NodeEditorMod
             {
                 return;
             }
-            // Put down by its middle, whatever size that node is: a gate is
-            // narrower than an end and a comment smaller than either, and one
-            // width for all three dropped two of them beside the pointer rather
-            // than under it.
+            // Put down by its middle, whatever its size.
             Vector2 span = Sized(kind, gate);
             Born(kind, gate, new Vector2(local.x - span.x * 0.5f,
                                          -local.y - span.y * 0.5f), true);
@@ -1814,16 +1788,10 @@ namespace NodeEditorMod
 
         // ---- the board -------------------------------------------------------
 
-        /// <summary>
-        /// The board as it is drawn: the rows in use, then the places that are not
-        /// rows. A node's number here is its number in <see cref="ports"/> and in
-        /// the wires below.
-        ///
-        /// The graph is not stored anywhere. A gate node *is* a row of the table,
-        /// and a wire *is* a row's input carrying the name another row's answer
-        /// goes out under -- so the board and the table are the same thing, and
-        /// neither can be out of step with the other.
-        /// </summary>
+        /// <summary>The board's nodes: the rows in use, then the places that are
+        /// not rows. A node's number indexes <see cref="ports"/> and the wires. No
+        /// graph is stored: a gate is a row, and a wire is a row's input carrying
+        /// another's answer.</summary>
         private int Rows { get { return served == null ? 0 : served.Count; } }
 
         private int Nodes { get { return Rows + Board.Places.Count; } }
@@ -1846,16 +1814,9 @@ namespace NodeEditorMod
         /// <summary>How many rows the board was last drawn with.</summary>
         private int counted;
 
-        /// <summary>
-        /// Writes where everything sits into the control that holds it.
-        ///
-        /// Assigning `Value` writes the live value only, so <see cref="Apply"/>
-        /// follows: a change that stops at the live value is on screen now and gone
-        /// from the save, which is exactly how a board came back empty.
-        ///
-        /// No undo entry -- this is called from the derivation as well as from
-        /// edits. <see cref="Kept"/> is the one that files a step.
-        /// </summary>
+        /// <summary>Writes the layout into its control and applies it (a live value
+        /// alone is lost on save). No undo entry; <see cref="Kept"/> files
+        /// one.</summary>
         private void Keep()
         {
             if (served == null || served.LayoutControl == null)
@@ -1867,17 +1828,8 @@ namespace NodeEditorMod
             LogicTable.Apply(served.LayoutControl);
         }
 
-        /// <summary>
-        /// What is written in each comment, read back off the box before the board
-        /// is written down.
-        ///
-        /// A comment keeps its text in its own text box while somebody is typing,
-        /// and it reaches the layout when the typing ends. Anything that writes the
-        /// board out mid-sentence -- taking hold of the comment and dragging it is
-        /// the easy way -- would otherwise write the sentence as it was before, and
-        /// the redraw that follows puts that back on screen: the words vanish under
-        /// the hand that typed them.
-        /// </summary>
+        /// <summary>Reads each comment's box back into its place before the layout
+        /// is written, so a comment dragged mid-typing keeps its words.</summary>
         private void Voiced()
         {
             for (int i = 0; i < notes.Count && i < noted.Count; i++)
@@ -1905,12 +1857,10 @@ namespace NodeEditorMod
             Ours();
         }
 
-        /// <summary>
-        /// What the block looked like when this frame began: the whole of it, so an
-        /// undo puts every row and every position back at once.
-        /// </summary>
+        /// <summary>The whole block as this frame began, so an undo puts everything
+        /// back at once.</summary>
         private BlockInfo mark;
-        private string marked;
+        private long marked;
 
         /// <summary>Takes that snapshot, on a frame where nothing has changed --
         /// which is the state any edit made in the next frame undoes to.</summary>
@@ -1936,16 +1886,9 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// Files what just happened as one step of Besiege's undo.
-        ///
-        /// One entry for the whole edit, not one per control: `OnEditField` files a
-        /// step per field, so moving a node -- which is a position, two keys and
-        /// the layout -- took four presses of undo to put back and put it back a
-        /// piece at a time. `UndoActionEdit` carries the block's entire state
-        /// either side of the edit, so one press restores every row, every binding
-        /// and every position exactly as they were.
-        /// </summary>
+        /// <summary>Files the edit as one undo step with the whole block either
+        /// side (`UndoActionEdit`), not a step per control as `OnEditField`
+        /// would.</summary>
         private void Filed()
         {
             BlockInfo before = mark;
@@ -1963,22 +1906,30 @@ namespace NodeEditorMod
             LogicTable.Filed(served, before);
         }
 
-        /// <summary>
-        /// Finds the ends of the board in the rows themselves.
-        ///
-        /// A table typed in by hand has keys and variables in it that no row
-        /// produces and names no row reads -- those are what an input and an output
-        /// node *are*, so they are made rather than demanded. It is what lets a
-        /// table built in the list open as a circuit, and it costs nothing on a
-        /// board that already has them: a node whose binding is already there is
-        /// not added twice.
-        /// </summary>
+        /// <summary>Makes input and output nodes for bindings that no row produces
+        /// or reads, so a table typed by hand opens as a circuit. An end already
+        /// there is not added twice.</summary>
         private void Adopt()
         {
             if (served == null)
             {
                 return;
             }
+            // With the answers indexed: unindexed, every input of every row asked
+            // every other row.
+            Sourced();
+            try
+            {
+                Adopting();
+            }
+            finally
+            {
+                Unsourced();
+            }
+        }
+
+        private void Adopting()
+        {
             int rows = Rows;
             for (int i = 0; i < rows; i++)
             {
@@ -1993,9 +1944,8 @@ namespace NodeEditorMod
                     {
                         continue;
                     }
-                    // One at a time: an input answers to as many names as are
-                    // wired to it, and each of them is either something a node
-                    // here makes or something arriving from the machine.
+                    // One name at a time: each is made by a node here, or arrives
+                    // from the machine.
                     Asked(i, port, wanted, coding);
                     for (int n = 0; n < wanted.Count; n++)
                     {
@@ -2003,11 +1953,8 @@ namespace NodeEditorMod
                         if (Answered(variable, KeyCode.None, i) >= 0
                             || Mine(variable))
                         {
-                            // A node here makes it -- or it is one of the board's
-                            // own minted names whose gate has gone, which is a
-                            // loose end rather than something coming in, and
-                            // drawing a node for it would be inventing one out of
-                            // a deletion.
+                            // Made here, or a minted name whose gate is gone: a
+                            // loose end, not an input.
                             continue;
                         }
                         Ensure(Place.Input, variable, KeyCode.None);
@@ -2023,23 +1970,24 @@ namespace NodeEditorMod
 
                 string said = Bindings.IsVariable(row.Emulate)
                     ? Bindings.Variable(row.Emulate) : null;
-                KeyCode code = said == null ? Bindings.Code(row.Emulate)
-                                            : KeyCode.None;
-                if (said == null && code == KeyCode.None)
+                List<KeyCode> presses = Bindings.Codes(row.Emulate);
+                if (said == null && presses.Count == 0)
                 {
-                    // A gate that answers to nothing stays that way. It used to be
-                    // given a name of the board's own making here, which was an
-                    // edit nobody asked for -- and after an undo, an edit that put
-                    // back what the undo had just taken away. A wire drawn out of
-                    // the gate mints the name it needs at the moment it is drawn,
-                    // which is the only moment one is needed.
+                    // A gate answering nothing stays so: a wire drawn out of it
+                    // mints a name when one is needed. Minting here was an edit
+                    // nobody asked for, and it undid undos.
                     continue;
                 }
                 if (said == null)
                 {
-                    if (code != KeyCode.None && !Read(null, code))
+                    // Each key it presses that nothing reads is an end of the board,
+                    // as each such name is.
+                    for (int c = 0; c < presses.Count; c++)
                     {
-                        Ensure(Place.Output, null, code);
+                        if (!Read(null, presses[c]))
+                        {
+                            Ensure(Place.Output, null, presses[c]);
+                        }
                     }
                     continue;
                 }
@@ -2051,10 +1999,8 @@ namespace NodeEditorMod
                     string name = names[n].Trim();
                     if (name.Length == 0 || Mine(name) || Read(name, KeyCode.None))
                     {
-                        // A name of the board's own making is what a gate answers
-                        // to, not something the machine is listening for: an end
-                        // drawn for one is an output node nobody asked for, wired
-                        // to a gate that was not wired to anything.
+                        // A minted name is a gate's answer, not something the
+                        // machine listens for.
                         continue;
                     }
                     Ensure(Place.Output, name, KeyCode.None);
@@ -2077,27 +2023,11 @@ namespace NodeEditorMod
         // ---- the graph, indexed for the length of one operation ------------
 
         /// <summary>
-        /// Which nodes answer to a name, and which answer to a keycode, in node
-        /// order.
-        ///
-        /// <see cref="Feeding"/> asks every node what it answers to and compares
-        /// `;`-joined lists of names -- a string joined and split for every
-        /// comparison. Once is nothing; TIDY does it a few thousand times, four
-        /// ordering passes over every node against every other, each asking
-        /// <see cref="Between"/>, each asking `Feeding`. Built once at the top of
-        /// an operation, the same question is a dictionary lookup and the whole
-        /// thing stops being cubic.
-        ///
-        /// The answers are the ones the loop would have given. The lists are filled
-        /// in node order, so the first entry that is not the node asking is the one
-        /// the loop would have returned first; the pieces are split and trimmed
-        /// exactly as `Carries` splits and trims them; a reader bound to several
-        /// names asks under the joined string and finds nothing, which is what the
-        /// loop does too; and an output end answers nothing, so it is left out.
-        ///
-        /// Held only between <see cref="Sourced"/> and <see cref="Unsourced"/>, and
-        /// nothing between them writes a binding -- so it cannot go stale. Anything
-        /// asking outside that pair takes the loop, unchanged.
+        /// Which nodes answer to each name and keycode, in node order: an index
+        /// that <see cref="Sourced"/> builds for one operation, so TIDY's thousands
+        /// of <see cref="Feeding"/> questions are lookups rather than string
+        /// splits. It gives the loop's own answers, and nothing between Sourced and
+        /// Unsourced writes a binding, so it cannot go stale.
         /// </summary>
         private readonly Dictionary<string, List<int>> named =
             new Dictionary<string, List<int>>();
@@ -2150,15 +2080,21 @@ namespace NodeEditorMod
                         }
                     }
                 }
-                else if (code != KeyCode.None)
+                else
                 {
-                    List<int> who;
-                    if (!coded.TryGetValue((int)code, out who))
+                    // Every keycode it answers to: a gate may press several key
+                    // outputs at once.
+                    Codes(i, keying);
+                    for (int k = 0; k < keying.Count; k++)
                     {
-                        who = new List<int>();
-                        coded[(int)code] = who;
+                        List<int> who;
+                        if (!coded.TryGetValue((int)keying[k], out who))
+                        {
+                            who = new List<int>();
+                            coded[(int)keying[k]] = who;
+                        }
+                        who.Add(i);
                     }
-                    who.Add(i);
                 }
             }
         }
@@ -2283,16 +2219,8 @@ namespace NodeEditorMod
             key = variable == null ? Bindings.Code(row.Emulate) : KeyCode.None;
         }
 
-        /// <summary>What feeds a node's port: the node number, or -1.</summary>
-        /// <summary>
-        /// What a port answers to: the names, or the keycodes, as Besiege holds
-        /// them.
-        ///
-        /// A gate's input takes as many as the game allows -- three keycodes or a
-        /// hundred names, one or the other and never both -- and the game ORs them,
-        /// so a wire is one of a list rather than the whole binding. The two ends
-        /// of the board stand for one thing each.
-        /// </summary>
+        /// <summary>What a port answers to: its names or its keycodes, which
+        /// Besiege ORs. An end stands for one thing.</summary>
         private void Asked(int node, int port, List<string> names,
                            List<KeyCode> codes)
         {
@@ -2356,9 +2284,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>What a port answers to while that is being worked out, and the
-        /// answer to <see cref="Feeding"/>. Kept rather than made: these are asked
-        /// for every port of every node whenever the board is drawn.</summary>
+        /// <summary>Scratch lists for <see cref="Feeding"/>, kept rather than made
+        /// per port per drawing.</summary>
         private readonly List<string> wanted = new List<string>();
         private readonly List<KeyCode> coding = new List<KeyCode>();
         private readonly List<int> feeding = new List<int>();
@@ -2371,8 +2298,8 @@ namespace NodeEditorMod
             return feeding.Count > 0 ? feeding[0] : -1;
         }
 
-        /// <summary>
-        /// The first node answering to one binding, other than the one asking.
+        /// <summary>The first node answering to a binding, other than the one
+        /// asking.
         /// </summary>
         private int Answered(string want, KeyCode key, int node)
         {
@@ -2407,8 +2334,7 @@ namespace NodeEditorMod
                 string said;
                 KeyCode code;
                 Answer(i, out said, out code);
-                if (Carries(said, want) || (said == null && code != KeyCode.None
-                                            && code == key))
+                if (Bindings.Carries(said, want) || (said == null && Strikes(i, key)))
                 {
                     return i;
                 }
@@ -2416,36 +2342,9 @@ namespace NodeEditorMod
             return -1;
         }
 
-        /// <summary>Whether an answer's names include the one being looked for. A
-        /// key answers to several names at once, joined with a semicolon, which is
-        /// how one gate feeds an output and another gate at the same time.</summary>
-        private static bool Carries(string names, string want)
-        {
-            if (names == null || want == null)
-            {
-                return false;
-            }
-            string[] all = names.Split(';');
-            for (int i = 0; i < all.Length; i++)
-            {
-                if (all[i].Trim() == want)
-                {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        /// <summary>
-        /// Whether anything takes this node's answer, which is what fills the
-        /// circle on it.
-        ///
-        /// An output end is asked the same way the wires into it are drawn -- every
-        /// row that presses its name, not the first one found. `Feeding` answers
-        /// with one node, and where three gates all raise `door` that is one of the
-        /// three: the other two were drawn with a wire coming out of an empty
-        /// circle, and which two changed with every undo.
-        /// </summary>
+        /// <summary>Whether anything takes this node's answer, which fills its
+        /// circle. An output end asks every row pressing its name, not only the
+        /// first.</summary>
         private bool Heard(int node)
         {
             for (int i = 0; i < Nodes; i++)
@@ -2472,13 +2371,8 @@ namespace NodeEditorMod
             return false;
         }
 
-        /// <summary>
-        /// Wires one node's answer into another's port, by writing the name.
-        ///
-        /// This is the whole of what wiring means here: the target's input is bound
-        /// to whatever the source answers under, and a source that answers under
-        /// nothing is given a name first.
-        /// </summary>
+        /// <summary>Wires one node's answer into another's port by writing the
+        /// name; a source that answers nothing is given a name first.</summary>
         private void Join(int from, int to, int port)
         {
             Join(from, to, port, null);
@@ -2494,37 +2388,30 @@ namespace NodeEditorMod
             if (Row(from) == null && landing != null
                 && landing.Kind == Place.Output)
             {
-                // Both ends of this wire are ends of the board. There is no row to
-                // carry it -- what an output stands for is a key some row presses,
-                // and an input is a key arriving from the machine -- so the only
-                // way to draw it would be to give the two of them one name, which
-                // is not a wire but two nodes standing for the same thing. Put a
-                // gate between them.
-                //
-                // Refused before anything else happens: what follows would name the
-                // input end on its way past, and a refusal that leaves a mark is a
-                // refusal somebody has to undo.
+                // Both ends are ends of the board: no row can carry that wire, so a
+                // gate goes between. Refused before anything is written.
                 Told(to, 1, "cannot directly\nconnect to output");
                 Strings();
                 return;
             }
-            string variable;
-            KeyCode key;
-            Answer(from, out variable, out key);
-            if (variable == null && key == KeyCode.None)
-            {
-                variable = Minted();
-                Named(from, variable);
-            }
-
             LogicRow row = Row(to);
             List<MapperType> touched = already != null ? already
                                                        : new List<MapperType>();
             if (row != null && row.Ready)
             {
-                // Added to whatever the input answers to already rather than put in
-                // its place: a gate's input takes as many wires as the game allows
-                // and holds while any of them is raised.
+                string variable;
+                KeyCode key;
+                bool coin;
+                if (!Carried(from, out variable, out key, out coin))
+                {
+                    // The key cannot take a name beside it, and something else
+                    // answers to it: the wire would read both.
+                    Told(from, 0, KeyAndName, NewsSeconds);
+                    Strings();
+                    return;
+                }
+                // Added beside what the input already answers to: an input takes
+                // many wires, ORed.
                 MKey input = port == 0 ? row.InputA : row.InputB;
                 bool onNames = Bindings.IsVariable(input);
                 bool onKeys = !onNames && Bindings.Code(input) != KeyCode.None;
@@ -2542,7 +2429,16 @@ namespace NodeEditorMod
                 {
                     Told(to, 1 + port, variable != null
                          ? "that input is full\n100 names"
-                         : "that input is full\n3 keys");
+                         : "that input is full\n" + Bindings.MostKeys + " keys");
+                    Strings();
+                    return;
+                }
+                // Only now is the source given a new name, when nothing is left to
+                // refuse the wire.
+                if (coin && !Coined(from, variable, touched))
+                {
+                    Bindings.Dropped(input, variable);
+                    Told(from, 0, "that answer is full\n100 names");
                     Strings();
                     return;
                 }
@@ -2550,39 +2446,266 @@ namespace NodeEditorMod
             }
             else
             {
-                Place place = Placed(to);
-                if (place == null || place.Kind != Place.Output)
+                Place place = landing;
+                LogicRow said = Row(from);
+                if (place == null || place.Kind != Place.Output
+                    || said == null || !said.Ready)
                 {
                     return;
                 }
-                // The two have to agree on one binding, and whichever of them
-                // already has one decides. The node is the more deliberate of the
-                // two -- somebody typed a key into it -- so it wins where both do.
+                // Where both have a binding, the end's wins: somebody typed it. A
+                // gate's idle names go when it gets an output, so its table cell
+                // shows that output.
+                List<string> idle = Idle(from);
                 if (!place.Bound)
                 {
-                    place.Variable = variable;
-                    place.Key = variable == null ? key : KeyCode.None;
+                    // A gate on keys gives the end its first key. A gate on names
+                    // gives it an unshared name -- an idle one or a new one --
+                    // never a hidden name its gate wires carry.
+                    KeyCode code = Bindings.IsVariable(said.Emulate)
+                        ? KeyCode.None : Bindings.Code(said.Emulate);
+                    if (code != KeyCode.None && Outputs(from, place))
+                    {
+                        // Its key is another output's already, and this one stays
+                        // blank: only a hidden name could carry the wire, and a key
+                        // cannot sit beside a name.
+                        Told(to, 1, KeyAndName, NewsSeconds);
+                        Strings();
+                        return;
+                    }
+                    if (code != KeyCode.None)
+                    {
+                        place.Key = code;
+                    }
+                    else if (idle.Count > 0)
+                    {
+                        place.Variable = idle[0];
+                    }
+                    else
+                    {
+                        string name = Minted();
+                        if (!Coined(from, name, touched))
+                        {
+                            Told(from, 0, "that answer is full\n100 names");
+                            Strings();
+                            return;
+                        }
+                        place.Variable = name;
+                    }
                     Keep();
+                }
+                else if (place.Variable != null)
+                {
+                    // Beside the gate's other outputs, keeping the hidden name its
+                    // gate wires carry. A Besiege key presses keys or names, never
+                    // both.
+                    if (!Bindings.IsVariable(said.Emulate)
+                        && Bindings.Code(said.Emulate) != KeyCode.None)
+                    {
+                        Told(to, 1, KeyAndName, NewsSeconds);
+                        Strings();
+                        return;
+                    }
+                    if (!Bindings.Holds(said.Emulate, place.Variable)
+                        && Bindings.Count(said.Emulate) - idle.Count
+                           >= Bindings.MostNames)
+                    {
+                        Told(from, 0, "that answer is full\n100 names");
+                        Strings();
+                        return;
+                    }
+                    Shed(said.Emulate, idle);
+                    Bindings.Added(said.Emulate, place.Variable);
+                    touched.Add(said.Emulate);
                 }
                 else
                 {
-                    LogicRow said = Row(from);
-                    if (said != null && said.Ready)
+                    // The same with keys. Names cannot share a key with them unless
+                    // every one of them is idle, and then they go.
+                    if (Bindings.IsVariable(said.Emulate)
+                        && Bindings.Count(said.Emulate) > idle.Count)
                     {
-                        if (place.Variable != null)
-                        {
-                            Bindings.BindVariable(said.Emulate, place.Variable);
-                        }
-                        else
-                        {
-                            Bindings.Bind(said.Emulate, place.Key);
-                        }
-                        touched.Add(said.Emulate);
+                        Told(to, 1, KeyAndName, NewsSeconds);
+                        Strings();
+                        return;
                     }
+                    if (!Bindings.Holds(said.Emulate, place.Key)
+                        && Bindings.Codes(said.Emulate).Count >= Bindings.MostKeys)
+                    {
+                        Told(from, 0, "that answer is full\n"
+                             + Bindings.MostKeys + " keys");
+                        Strings();
+                        return;
+                    }
+                    Shed(said.Emulate, idle);
+                    Bindings.Added(said.Emulate, place.Key);
+                    touched.Add(said.Emulate);
                 }
             }
             Commit(touched);
             Redraw();
+        }
+
+        /// <summary>
+        /// What a wire out of this node carries: a binding nothing else answers to.
+        /// An end stands for its own. A gate's names may be shared -- every gate on
+        /// one output presses its name -- and a shared one reads all of them, so
+        /// the first unshared name is used, or a new one is minted.
+        /// </summary>
+        /// <param name="coin">Whether that name has still to be given to the node
+        /// by <see cref="Coined"/>: left to the caller, so a refusal leaves
+        /// nothing.</param>
+        /// <returns>False for a gate on a key something else also answers to: a key
+        /// cannot take a name beside it.</returns>
+        private bool Carried(int node, out string variable, out KeyCode key,
+                             out bool coin)
+        {
+            coin = false;
+            Answer(node, out variable, out key);
+            if (Row(node) == null)
+            {
+                if (variable == null && key == KeyCode.None)
+                {
+                    variable = Minted();
+                    coin = true;
+                }
+                return true;
+            }
+            if (variable == null && key != KeyCode.None)
+            {
+                // The first of its keys nothing else answers to. An output standing
+                // for one does not count: an output feeds nothing.
+                List<KeyCode> codes = new List<KeyCode>();
+                Codes(node, codes);
+                for (int c = 0; c < codes.Count; c++)
+                {
+                    bool shared = false;
+                    for (int i = 0; i < Nodes && !shared; i++)
+                    {
+                        Place place = Placed(i);
+                        shared = i != node
+                            && (place == null || place.Kind != Place.Output)
+                            && Strikes(i, codes[c]);
+                    }
+                    if (!shared)
+                    {
+                        key = codes[c];
+                        return true;
+                    }
+                }
+                return false;
+            }
+            List<string> names = Bindings.Named(variable);
+            for (int i = 0; i < names.Count; i++)
+            {
+                if (!Elsewhere(node, names[i], KeyCode.None))
+                {
+                    variable = names[i];
+                    return true;
+                }
+            }
+            variable = Minted();
+            coin = true;
+            return true;
+        }
+
+        /// <summary>Adds a name beside a node's others; false at the name
+        /// limit.</summary>
+        private bool Coined(int node, string variable, List<MapperType> touched)
+        {
+            LogicRow row = Row(node);
+            if (row == null || !row.Ready)
+            {
+                Named(node, variable);
+                return true;
+            }
+            if (Bindings.IsVariable(row.Emulate))
+            {
+                if (!Bindings.Added(row.Emulate, variable))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                Bindings.BindVariable(row.Emulate, variable);
+            }
+            touched.Add(row.Emulate);
+            return true;
+        }
+
+        /// <summary>Every keycode a node answers to: the one an end stands for, or
+        /// every one a gate presses.</summary>
+        private void Codes(int node, List<KeyCode> into)
+        {
+            into.Clear();
+            Place place = Placed(node);
+            if (place != null)
+            {
+                if (place.Variable == null && place.Key != KeyCode.None)
+                {
+                    into.Add(place.Key);
+                }
+                return;
+            }
+            LogicRow row = Row(node);
+            if (row != null && row.Ready)
+            {
+                into.AddRange(Bindings.Codes(row.Emulate));
+            }
+        }
+
+        /// <summary>What <see cref="Codes"/> fills while the index is put up.
+        /// </summary>
+        private readonly List<KeyCode> keying = new List<KeyCode>();
+
+        /// <summary>Whether a node answers to this keycode among its others: an end
+        /// stands for one, a gate may press several.</summary>
+        private bool Strikes(int node, KeyCode key)
+        {
+            if (key == KeyCode.None)
+            {
+                return false;
+            }
+            Place place = Placed(node);
+            if (place != null)
+            {
+                return place.Variable == null && place.Key == key;
+            }
+            LogicRow row = Row(node);
+            return row != null && row.Ready && Bindings.Holds(row.Emulate, key);
+        }
+
+        /// <summary>A gate's minted names that no input reads and nothing else
+        /// answers to: given when it is placed, dropped once it presses an
+        /// output.</summary>
+        private List<string> Idle(int node)
+        {
+            List<string> idle = new List<string>();
+            LogicRow row = Row(node);
+            if (row == null || !row.Ready || !Bindings.IsVariable(row.Emulate))
+            {
+                return idle;
+            }
+            List<string> names = Bindings.Named(Bindings.Variable(row.Emulate));
+            for (int i = 0; i < names.Count; i++)
+            {
+                if (Mine(names[i]) && !Read(names[i], KeyCode.None)
+                    && !Elsewhere(node, names[i], KeyCode.None))
+                {
+                    idle.Add(names[i]);
+                }
+            }
+            return idle;
+        }
+
+        /// <summary>Takes a gate's idle names off what it presses.</summary>
+        private static void Shed(MKey answer, List<string> idle)
+        {
+            for (int i = 0; i < idle.Count; i++)
+            {
+                Bindings.Dropped(answer, idle[i]);
+            }
         }
 
         /// <summary>Gives a node's answer a name it did not have.</summary>
@@ -2648,22 +2771,17 @@ namespace NodeEditorMod
                 ? Bindings.Variable(row.Emulate) : null;
             if (place.Variable == null)
             {
-                // The end stands for a key rather than a name. A Besiege key
-                // answers either the keyboard or a list of names and never both, so
-                // a row pressing this end is pressing nothing else and the wire
-                // comes off by unbinding the row's answer. Without this an output
-                // holding a key kept every wire that ever landed on it: the drag
-                // came off in the hand and the wire stayed on the board.
-                if (had != null || place.Key == KeyCode.None
-                    || Bindings.Code(row.Emulate) != place.Key)
+                // A key end: a row pressing it presses only keys, so the wire comes
+                // off by taking this key away, and other key outputs stay.
+                if (had != null || !Bindings.Holds(row.Emulate, place.Key))
                 {
                     return;
                 }
-                Bindings.Bind(row.Emulate, KeyCode.None);
+                Bindings.Dropped(row.Emulate, place.Key);
                 touched.Add(row.Emulate);
                 return;
             }
-            if (!Carries(had, place.Variable))
+            if (!Bindings.Carries(had, place.Variable))
             {
                 return;
             }
@@ -2688,40 +2806,30 @@ namespace NodeEditorMod
             touched.Add(row.Emulate);
         }
 
-        /// <summary>
-        /// A name nothing on the board answers to: the block's prefix and the
-        /// lowest two-digit number that is free.
-        ///
-        /// One way of minting a name for the three that wanted one -- a gate being
-        /// wired, a gate being pasted, an end whose own name is taken -- because
-        /// three ways of spelling it is three sets of names to read on one board.
+        /// <summary>A name nothing on the board answers to or reads: the prefix and
+        /// the lowest free three-letter number (`ne_001_001`). Every name the board
+        /// mints.
         /// </summary>
         private string Minted()
         {
             string start = served.Prefix;
-            for (int n = 1; n < 100; n++)
+            int letters = ComputerBehaviour.WireLetters;
+            int most = ComputerBehaviour.Most(letters);
+            for (int n = 1; n <= most; n++)
             {
-                string wanted = start + n.ToString("00");
-                if (!Elsewhere(-1, wanted, KeyCode.None))
+                string wanted = start + ComputerBehaviour.Counted(n, letters);
+                if (!Elsewhere(-1, wanted, KeyCode.None) && !Read(wanted, KeyCode.None))
                 {
                     return wanted;
                 }
             }
-            return start + "00";
+            return start + ComputerBehaviour.Counted(0, letters);
         }
 
-        /// <summary>
-        /// What the board has just written down, taken as read.
-        ///
-        /// The frame's watch compares the rows against `read` and answers anything
-        /// it did not do itself by deriving the ends again. An edit made here is
-        /// therefore read back the moment it is made rather than left for the watch
-        /// to notice: a flag saying "the next change is mine" is wrong the moment
-        /// an edit changes nothing the watch can see -- an end switched between a
-        /// key and a name, say -- because the flag then swallows whatever change
-        /// comes next, which is how a key retyped in the table went without its
-        /// input node until something else was touched.
-        /// </summary>
+        /// <summary>Takes what the board just wrote as read, so the watch does not
+        /// treat the board's own edit as somebody else's. A "the next change is
+        /// mine" flag swallowed the change after an edit the watch could not
+        /// see.</summary>
         private void Ours()
         {
             read = Reading();
@@ -2730,6 +2838,9 @@ namespace NodeEditorMod
         private void Commit(List<MapperType> touched)
         {
             Keep();
+            // The rows are the block's own data: what was touched becomes their
+            // text.
+            LogicTable.Settle(served, touched);
             // The table is the same rows seen another way, and it is probably open
             // behind this window.
             Panel.Refill();
@@ -2742,45 +2853,33 @@ namespace NodeEditorMod
         }
 
         /// <summary>
-        /// Throws away the drawn board and draws it again from the rows.
-        ///
-        /// A board this size redraws in nothing, and a redraw that cannot be out of
-        /// step with the table is worth more than a clever one.
+        /// Draws the board again, rebuilding only the nodes that changed: each
+        /// node's <see cref="Likeness"/> is held against what it was drawn from,
+        /// and an unchanged node is only moved. An end or a comment is kept only
+        /// while it is the same place object, as its controls write to that object.
         /// </summary>
         private void Redraw()
         {
-            // How many rows what is about to be drawn has, so that a row arriving
-            // or leaving from somewhere else can be noticed for what it does to the
-            // numbering. See `Ticking`.
+            // The row count drawn, so a row arriving from elsewhere is noticed (see
+            // `Ticking`).
             counted = Rows;
             // The nodes may be different ones now, or numbered differently.
             tinted = false;
             Cut();
-            for (int i = 0; i < parts.Count; i++)
-            {
-                if (parts[i] != null)
-                {
-                    Destroy(parts[i]);
-                }
-            }
-            parts.Clear();
-            // The faint edges belong to the bodies just destroyed, and nothing is
-            // under the pointer until something is drawn there again.
-            marks.Clear();
-            rims.Clear();
-            notes.Clear();
-            noted.Clear();
-            bins.Clear();
-            grips.Clear();
-            // The wires belong to the nodes just cleared; `Wired` fills it again
-            // at the end of this, and a board that returns early below has none.
+            // The wires belong to the nodes as they were; `Wired` fills this again
+            // at the end, and a board that returns early below has none.
             wired.Clear();
-            binned = -1;
-            under = -1;
-            ports.Clear();
+            wiredAt++;
             if (served == null || content == null)
             {
+                Razed(0);
                 return;
+            }
+            if (drawnFor != served)
+            {
+                // Another block's board: nothing drawn for that one is this one's.
+                Razed(0);
+                drawnFor = served;
             }
             if (prefixBox != null && !prefixBox.isFocused)
             {
@@ -2788,17 +2887,335 @@ namespace NodeEditorMod
             }
 
             int many = Nodes;
+            // The cross comes down wherever it is; `Pointing` puts it back on the
+            // node the pointer is on, the next frame.
+            Binned(binned, false);
+            binned = -1;
+            Reuse(many);
+            Razed(many);
             // Three ports a node: its answer, then its two inputs.
-            for (int i = 0; i < many * 3; i++)
+            while (ports.Count < many * 3)
             {
                 ports.Add(null);
             }
-            for (int i = 0; i < many; i++)
+            // Every node's ports are asked whether they are wired, once to compare
+            // and again to draw, and nothing in here writes a binding.
+            Sourced();
+            try
             {
-                Draw(i);
+                for (int i = 0; i < many; i++)
+                {
+                    string like = Likeness(i);
+                    object id = Identity(i);
+                    if (i < parts.Count && parts[i] != null && i < likes.Count
+                        && likes[i] == like
+                        && object.ReferenceEquals(drawnIds[i], id))
+                    {
+                        Vector2 at = Where(i);
+                        (parts[i].transform as RectTransform).anchoredPosition =
+                            new Vector2(at.x, -at.y);
+                        continue;
+                    }
+                    Unmade(i);
+                    Draw(i);
+                    while (likes.Count <= i)
+                    {
+                        likes.Add(null);
+                    }
+                    while (drawnIds.Count <= i)
+                    {
+                        drawnIds.Add(null);
+                    }
+                    likes[i] = like;
+                    drawnIds[i] = id;
+                }
             }
+            finally
+            {
+                Unsourced();
+            }
+            // A kept node keeps its edges, and a picked-out node drawn anew was
+            // given one by `Draw`; this makes both agree with the selection.
+            Rims();
             Wired();
             Strings();
+        }
+
+        /// <summary>The block the drawn nodes were drawn for.</summary>
+        private ComputerBehaviour drawnFor;
+
+        /// <summary>What each drawn node was drawn from, and the place it was drawn
+        /// for -- null for a gate. See <see cref="Redraw"/>.</summary>
+        private readonly List<string> likes = new List<string>();
+        private readonly List<object> drawnIds = new List<object>();
+
+        /// <summary>A drawn node's number, which its handlers read when they fire:
+        /// a node renumbered by a removal is moved to its new number rather than
+        /// drawn again (see <see cref="Reuse"/>).</summary>
+        private class Tag
+        {
+            public int Node;
+        }
+
+        private readonly List<Tag> tags = new List<Tag>();
+
+        private readonly System.Text.StringBuilder likeness =
+            new System.Text.StringBuilder();
+
+        /// <summary>Everything a node is drawn from, as a string to compare:
+        /// colour, gate and switch, timer settings, what an end shows, a comment's
+        /// words and size, and which ports are filled. Anything `Draw` reads must
+        /// be in here; the position is not.
+        /// </summary>
+        private string Likeness(int node)
+        {
+            likeness.Length = 0;
+            Color32 ink = Tinted(node);
+            likeness.Append(ink.r).Append(',').Append(ink.g).Append(',')
+                .Append(ink.b).Append(',').Append(ink.a).Append('|');
+            LogicRow row = Row(node);
+            if (row != null)
+            {
+                likeness.Append('g').Append(row.Gate).Append(row.Switch ? '+' : '-');
+                if (row.IsTimer)
+                {
+                    likeness.Append(UIF.Seconds(row.Wait.Value)).Append('/')
+                        .Append(UIF.Seconds(row.Duration.Value))
+                        .Append(row.Hold.IsActive ? 'h' : '_')
+                        .Append(row.Stop.IsActive ? 's' : '_')
+                        .Append(row.Loop.IsActive ? 'l' : '_');
+                }
+            }
+            else
+            {
+                Place place = Placed(node);
+                if (place != null)
+                {
+                    // Nothing and an empty name are two different cells: a key,
+                    // and a name with nothing typed into it yet.
+                    string shown = Shown(node, place.Variable, place.Key);
+                    likeness.Append('p').Append(place.Kind).Append('|')
+                        .Append(shown == null ? 'k' : 'v').Append(shown).Append('|')
+                        .Append((int)place.Key).Append('|').Append(place.Size)
+                        .Append('|').Append(place.Words);
+                }
+            }
+            likeness.Append('|').Append(Filled(node, 0, true) ? '1' : '0')
+                .Append(Filled(node, 0, false) ? '1' : '0')
+                .Append(Filled(node, 1, false) ? '1' : '0');
+            return likeness.ToString();
+        }
+
+        /// <summary>Takes down every node from <paramref name="keep"/> on, and
+        /// forgets what was drawn for them.</summary>
+        private void Razed(int keep)
+        {
+            for (int i = keep; i < parts.Count; i++)
+            {
+                if (parts[i] != null)
+                {
+                    Destroy(parts[i]);
+                }
+            }
+            Shortened(parts, keep);
+            Shortened(marks, keep);
+            Shortened(rims, keep);
+            Shortened(notes, keep);
+            Shortened(noted, keep);
+            Shortened(bins, keep);
+            Shortened(grips, keep);
+            Shortened(likes, keep);
+            Shortened(drawnIds, keep);
+            Shortened(tags, keep);
+            Shortened(ports, keep * 3);
+            if (under >= keep)
+            {
+                under = -1;
+            }
+        }
+
+        /// <summary>What a node is, whatever its number: its row, or its place.
+        /// </summary>
+        private object Identity(int node)
+        {
+            LogicRow row = Row(node);
+            if (row != null)
+            {
+                return row;
+            }
+            return Placed(node);
+        }
+
+        /// <summary>
+        /// Moves every drawn node to the number it has now, found by what it is. A
+        /// removal renumbers everything after it and a new gate every end, and
+        /// drawing all of those again was most of what an add or a delete cost on a
+        /// big board; a node that still looks the same is then only moved (see
+        /// <see cref="Redraw"/>). Handlers read the node's <see cref="Tag"/>, the
+        /// few things holding a number are given the new one, and the cross and the
+        /// resizing corner, made with the old one, are made again when wanted.
+        /// </summary>
+        private void Reuse(int many)
+        {
+            Dictionary<object, int> was = new Dictionary<object, int>();
+            for (int j = 0; j < parts.Count && j < drawnIds.Count; j++)
+            {
+                if (parts[j] != null && drawnIds[j] != null
+                    && !was.ContainsKey(drawnIds[j]))
+                {
+                    was[drawnIds[j]] = j;
+                }
+            }
+            int[] from = new int[many];
+            bool[] kept = new bool[parts.Count];
+            bool moved = parts.Count > many;
+            for (int i = 0; i < many; i++)
+            {
+                object id = Identity(i);
+                int j;
+                from[i] = id != null && was.TryGetValue(id, out j) ? j : -1;
+                if (from[i] >= 0)
+                {
+                    kept[from[i]] = true;
+                }
+                if (from[i] != i && (from[i] >= 0 || i < parts.Count))
+                {
+                    moved = true;
+                }
+            }
+            if (!moved)
+            {
+                return;
+            }
+            for (int j = 0; j < parts.Count; j++)
+            {
+                if (!kept[j] && parts[j] != null)
+                {
+                    Destroy(parts[j]);
+                }
+            }
+            int wasUnder = under;
+            int wasSizing = sizing;
+            under = -1;
+            sizing = -1;
+            Reorder(parts, from, 1);
+            Reorder(marks, from, 1);
+            Reorder(rims, from, 1);
+            Reorder(notes, from, 1);
+            Reorder(noted, from, 1);
+            Reorder(bins, from, 1);
+            Reorder(grips, from, 1);
+            Reorder(likes, from, 1);
+            Reorder(drawnIds, from, 1);
+            Reorder(tags, from, 1);
+            Reorder(ports, from, 3);
+            for (int i = 0; i < many; i++)
+            {
+                if (from[i] < 0)
+                {
+                    continue;
+                }
+                if (from[i] == wasUnder)
+                {
+                    under = i;
+                }
+                if (from[i] == wasSizing)
+                {
+                    sizing = i;
+                }
+                if (from[i] == i)
+                {
+                    continue;
+                }
+                if (tags[i] != null)
+                {
+                    tags[i].Node = i;
+                }
+                Hover watch = parts[i] == null ? null : parts[i].GetComponent<Hover>();
+                if (watch != null)
+                {
+                    watch.Node = i;
+                }
+                for (int k = 0; k < 3; k++)
+                {
+                    RectTransform port = ports[i * 3 + k];
+                    PortMark mark = port == null ? null : port.GetComponent<PortMark>();
+                    if (mark != null)
+                    {
+                        mark.Node = i;
+                    }
+                }
+                if (bins[i] != null)
+                {
+                    Destroy(bins[i]);
+                    bins[i] = null;
+                }
+                if (grips[i] != null)
+                {
+                    Destroy(grips[i]);
+                    grips[i] = null;
+                }
+            }
+        }
+
+        /// <summary>A list of per-node things in the new order: entry <c>i</c> is
+        /// what node <c>from[i]</c> had, or nothing, <paramref name="stride"/> to a
+        /// node.</summary>
+        private static void Reorder<T>(List<T> list, int[] from, int stride)
+            where T : class
+        {
+            T[] old = list.ToArray();
+            list.Clear();
+            for (int i = 0; i < from.Length; i++)
+            {
+                for (int k = 0; k < stride; k++)
+                {
+                    int j = from[i] < 0 ? -1 : from[i] * stride + k;
+                    list.Add(j >= 0 && j < old.Length ? old[j] : null);
+                }
+            }
+        }
+
+        /// <summary>Takes one node down to be drawn again, with everything made on
+        /// it.
+        /// </summary>
+        private void Unmade(int node)
+        {
+            if (node < parts.Count && parts[node] != null)
+            {
+                Destroy(parts[node]);
+                parts[node] = null;
+            }
+            Forgot(marks, node);
+            Forgot(rims, node);
+            Forgot(notes, node);
+            Forgot(noted, node);
+            Forgot(bins, node);
+            Forgot(grips, node);
+            for (int port = 0; port < 3; port++)
+            {
+                Forgot(ports, node * 3 + port);
+            }
+            if (under == node)
+            {
+                under = -1;
+            }
+        }
+
+        private static void Shortened<T>(List<T> list, int keep)
+        {
+            if (list.Count > keep)
+            {
+                list.RemoveRange(keep, list.Count - keep);
+            }
+        }
+
+        private static void Forgot<T>(List<T> list, int at) where T : class
+        {
+            if (at >= 0 && at < list.Count)
+            {
+                list[at] = null;
+            }
         }
 
         /// <summary>One node: a row of the table, or one of the two ends.</summary>
@@ -2820,13 +3237,21 @@ namespace NodeEditorMod
 
             GameObject body = Rounded(content, at.x, at.y, wide, tall,
                                       note ? Paper : Ink);
-            parts.Add(body);
+            while (parts.Count <= index)
+            {
+                parts.Add(null);
+            }
+            parts[index] = body;
 
-            int me = index;
-            // Room for the two dashed edges, which are made the first time they are
-            // wanted rather than now: they are nine objects a node between them,
-            // most nodes are never picked out or pointed at, and a board of a dozen
-            // nodes is opened far more often than a node is selected.
+            while (tags.Count <= index)
+            {
+                tags.Add(null);
+            }
+            Tag me = new Tag();
+            me.Node = index;
+            tags[index] = me;
+            // The dashed edges are made when first wanted: nine objects a node,
+            // rarely needed.
             while (marks.Count <= index)
             {
                 marks.Add(null);
@@ -2865,13 +3290,11 @@ namespace NodeEditorMod
             watch.Over = Watched;
             watch.Chose = Chosen;
 
-            // The middle button pans the board wherever it is pressed, node or no
-            // node: a hand reaching for the view should not have to find a gap
-            // between the nodes first.
+            // The middle button pans from anywhere, node or not.
             Waving(body);
 
             NodeDrag drag = body.AddComponent<NodeDrag>();
-            drag.Held = delegate { Holding(me, drag); };
+            drag.Held = delegate { Holding(me.Node, drag); };
             drag.Moved = delegate(Vector2 by)
             {
                 Hauling(new Vector2(by.x, -by.y));
@@ -2885,22 +3308,13 @@ namespace NodeEditorMod
 
             if (note)
             {
-                Comment(body, index, place, wide, tall);
+                Comment(body, me, place, wide, tall);
                 return;
             }
 
-            // The heading: a gate's picture, or the word an end is. Drawn straight
-            // onto the node rather than spawned -- a button prefab brings a plate
-            // of its own, and a second dark box inside a dark box is a box nobody
-            // asked for. Nothing to click either, which is what makes a click
-            // anywhere on a node that is not one of its controls pick the node
-            // out: uGUI hands a click to the first handler at or above what it
-            // hit, and the first one above a heading is the node.
-            //
-            // A gate with a switch keeps the right of its plate for it, clear of
-            // the answer port's reach -- which is wider than the circle drawn in it
-            // and would otherwise take the clicks along the switch's own edge. What
-            // is left is the picture's.
+            // The heading is drawn, not spawned (a prefab brings its own plate),
+            // and takes no clicks, so a click on the node picks it. A gate with a
+            // switch keeps its plate's right clear of the answer port's reach.
             bool switched = row != null && Gates.UsesMode(row.Gate);
             float switchAt = wide - PortSize - (PortReach - PortSize) * 0.5f
                              - Switch;
@@ -2915,9 +3329,7 @@ namespace NodeEditorMod
             }
             else if (row != null)
             {
-                // The picture has the gate to itself unless there is a switch, and
-                // then it has what the switch has left: a picture centred in the
-                // whole width sits under the switch rather than beside it.
+                // The picture has the width, less the switch where there is one.
                 float room = switched ? switchAt - PortSize - 2f
                                       : wide - PortSize * 2f - 4f;
                 UIF.Fit(head.GetComponent<RectTransform>(), PortSize + 2f, 3f,
@@ -2927,13 +3339,8 @@ namespace NodeEditorMod
             }
             else
             {
-                // The word above and the cell below, both clear of the one side the
-                // port is on: an input's answer leaves on the right, an output's
-                // wire arrives on the left, and the two ends are drawn as each
-                // other's mirror so a board reads left to right.
-                // Across the whole node: the word belongs in the middle of the
-                // thing it names, and a word centred in the room left over by the
-                // port sits off to one side of it.
+                // The word above and the cell below, clear of the port's side; the
+                // word centred.
                 UIF.Fit(head.GetComponent<RectTransform>(), 0f, 5f, wide, 24f);
                 Text word = Caption(head,
                                     place.Kind == Place.Input ? "INPUT" : "OUTPUT",
@@ -2948,24 +3355,21 @@ namespace NodeEditorMod
 
             if (row != null)
             {
-                // The switch, for the gates that have one: inverted for the edge
-                // detector, toggle mode for the rest, and nothing at all for the
-                // memory gates -- the same rule the table's M column follows.
+                // The switch, for gates with one: inverted for the edge detector,
+                // toggle mode for the rest, none for memory gates.
                 if (Gates.UsesMode(row.Gate))
                 {
                     GameObject mode = UIF.Spawn(UIF.TogglePrefab, body.transform);
                     if (mode != null)
                     {
-                        // Inside the gate, beside its answer port and level with
-                        // the picture. Measured from the gate's own width: it was
-                        // measured from an end's, which is wider, and the switch
-                        // stood off the side of the node.
+                        // Beside the answer port, measured from the gate's own
+                        // width.
                         UIF.Fit(mode.GetComponent<RectTransform>(), switchAt,
                                 (tall - Switch) * 0.5f, Switch, Switch);
                         UIF.NoSwell(mode);
                         Text letter = Caption(mode, Gates.ModeLetter(row.Gate),
                                               TextAnchor.MiddleCenter);
-                        Grow(mode, letter.transform, 1.3f);
+                        UIF.Grow(mode, letter.transform, 1.3f);
                         Toggle box = mode.GetComponent<Toggle>();
                         if (box != null)
                         {
@@ -3012,7 +3416,7 @@ namespace NodeEditorMod
                 Place mine = place;
                 cell.Changed = delegate(KeyCell edited)
                 {
-                    Rebind(me, mine, edited);
+                    Rebind(me.Node, mine, edited);
                 };
             }
 
@@ -3025,9 +3429,8 @@ namespace NodeEditorMod
                 : null;
             if (row != null)
             {
-                // A gate that reads two has them a quarter and three quarters down
-                // its side, whatever it is drawn at; one that reads one has it in
-                // the middle.
+                // Two inputs at a quarter and three quarters down; one in the
+                // middle.
                 bool two = Gates.UsesB(row.Gate);
                 ports[index * 3 + 1] = Port(body.transform, 0f,
                     two ? tall * 0.25f - PortSize * 0.5f : middle, false, index, 0);
@@ -3045,14 +3448,8 @@ namespace NodeEditorMod
 
         }
 
-        /// <summary>
-        /// Where the cell on an end begins: clear of the port, which is on the right
-        /// of an input and the left of an output.
-        ///
-        /// The two ends are laid out the same way round -- the bubble, then what it
-        /// stands for -- and only the side the port is on differs, so the margins
-        /// swap and nothing else does.
-        /// </summary>
+        /// <summary>Where an end's cell starts: clear of the port, which is on an
+        /// input's right and an output's left.</summary>
         private static float Beside(Place place)
         {
             return place != null && place.Kind == Place.Input ? 6f : PortSize + 4f;
@@ -3065,17 +3462,9 @@ namespace NodeEditorMod
             return wide - PortSize - 10f;
         }
 
-        /// <summary>
-        /// The red cross that removes a node, in the corner of the node the pointer
-        /// is on.
-        ///
-        /// Only that one: a cross on every node is a row of little red crosses over
-        /// a board somebody is reading, and the hand that means to remove a node is
-        /// already on it. Centred on the corner, so half of it stands off the node
-        /// -- and reaching for it still counts as pointing at the node, because
-        /// uGUI counts a node as pointed at while the pointer is on any child of
-        /// it, wherever that child happens to be drawn.
-        /// </summary>
+        /// <summary>The red cross that removes a node, on the hovered node's corner
+        /// only. Pointing at it still counts as pointing at the node: pointer
+        /// events reach every parent.</summary>
         private GameObject Cross(GameObject host, int me)
         {
             // Drawn rather than spawned: a UI Factory button brings its own dark
@@ -3099,12 +3488,11 @@ namespace NodeEditorMod
             Button click = bin.AddComponent<Button>();
             click.transition = Selectable.Transition.None;
             click.targetGraphic = catcher;
-            Grow(bin, cross.transform, 1.4f);
+            UIF.Grow(bin, cross.transform, 1.4f);
             click.onClick.AddListener(delegate
             {
-                // With control held the click was for picking the node out, and a
-                // node picked out and deleted at once is not what either gesture
-                // meant.
+                // A control-click picks the node; picking and deleting at once is
+                // neither gesture.
                 if (!Picking())
                 {
                     Kill(me);
@@ -3113,16 +3501,11 @@ namespace NodeEditorMod
             return bin;
         }
 
-        /// <summary>
-        /// A node dragged by a text box on it.
-        ///
-        /// uGUI gives a drag to the first handler at or above what it hit, which is
-        /// the box, and the box would select its text with it. So the node's drag
-        /// goes on the box beside the box's own, and the box is put out of reach for
-        /// the length of it: its drag handlers all ask whether they may, and a box
-        /// that is not interactable may not.
+        /// <summary>A node dragged by a text box on it: the node's drag sits beside
+        /// the box's own, and the box is made non-interactable meanwhile, so it
+        /// does not select.
         /// </summary>
-        private void Haul(InputField field, int me, GameObject body, KeyCell cell)
+        private void Haul(InputField field, Tag me, GameObject body, KeyCell cell)
         {
             // Greyed while out of reach otherwise, which is a flicker every move.
             field.transition = Selectable.Transition.None;
@@ -3131,16 +3514,14 @@ namespace NodeEditorMod
             carry.frame = body.GetComponent<RectTransform>();
             carry.Held = delegate
             {
-                // A name typed and not yet taken: the drag is selecting in it, not
-                // moving the node. Put out of reach, the box would hand the new name
-                // in, the board would be drawn again with this node under the hand,
-                // and the drag would be left believing it was still going.
+                // A typed name not yet taken: the drag is selecting text, not
+                // moving the node.
                 if (cell != null && Bindings.Tidied(field.text) != cell.Variable)
                 {
                     return;
                 }
                 field.interactable = false;
-                Holding(me, carry);
+                Holding(me.Node, carry);
             };
             carry.Moved = delegate(Vector2 by)
             {
@@ -3162,9 +3543,8 @@ namespace NodeEditorMod
             };
         }
 
-        /// <summary>How much bigger a comment is drawn than one at the size every
-        /// comment starts at. Its margins, its slack and its limits all go by
-        /// this.</summary>
+        /// <summary>How much bigger a comment is drawn than at its starting size;
+        /// its margins, slack and limits scale by it.</summary>
         private static float Grown(Text drawn)
         {
             return drawn == null ? 1f : Mathf.Max(1, drawn.fontSize) / (float)NoteFont;
@@ -3182,39 +3562,28 @@ namespace NodeEditorMod
             RectTransform rect = label.rectTransform;
             rect.anchorMin = Vector2.zero;
             rect.anchorMax = Vector2.one;
-            // Down past the box's own margin by the room a line keeps under its
-            // lowest letter, and a little more. The box is trimmed by that room --
-            // see `Measure` -- but the label must not be: a multi-line field draws
-            // only the lines that fit inside its label, and a last line a hair too
-            // tall for it simply disappeared.
+            // Down past the margin by a line's descent and a little: a multi-line
+            // field drops a last line that does not fit in its label.
             float under = Leading(label) * label.fontSize + 2f;
             rect.offsetMin = new Vector2(edge, edge - under);
             rect.offsetMax = new Vector2(-edge, -edge);
         }
 
-        /// <summary>The size a comment is written at before anybody resizes it,
-        /// and how small its corner takes it. How large is a matter of width: see
-        /// <see cref="NoteMostWide"/>; the ceiling here only keeps a number sane.
-        /// </summary>
+        /// <summary>A comment's starting font size, and the smallest its corner
+        /// takes it; how large is limited by width (<see
+        /// cref="NoteMostWide"/>).</summary>
         private const int NoteFont = 14;
         private const int NoteSmallest = 8;
         private const int NoteLargest = 20000;
 
-        /// <summary>The widest a comment's corner can take it: three quarters of the
-        /// board. Room for a heading to read across a whole board zoomed out, and
-        /// still an edge to it.</summary>
+        /// <summary>The widest a comment's corner can take it: three quarters of
+        /// the board.
+        /// </summary>
         private const float NoteMostWide = BoardWide * 0.75f;
 
-        /// <summary>
-        /// The largest a comment's font is actually set at. Past it the text box is
-        /// drawn bigger instead.
-        ///
-        /// A font asks its texture for every letter at the size it is set, and a
-        /// dynamic font's texture has a limit: letters a few thousand pixels high do
-        /// not fit on it, and what does not fit is not drawn. Scaled up past this
-        /// size the writing is a little soft close to, which a comment that size is
-        /// not read from.
-        /// </summary>
+        /// <summary>The largest font a comment is set at; past it the box is scaled
+        /// instead. A dynamic font's texture cannot hold letters thousands of
+        /// pixels high.</summary>
         private const int NoteCrisp = 200;
 
         private static int Drawn(int size)
@@ -3233,15 +3602,9 @@ namespace NodeEditorMod
         private static Font leadingFont;
         private static float leadingShare;
 
-        /// <summary>
-        /// How much of a line, as a share of the font's size, lies below the lowest
-        /// any letter reaches -- the space between lines rather than room for
-        /// writing. Asked of the font once: a line of the deepest letters is laid
-        /// out, and its height set against where its lowest corner landed.
-        ///
-        /// Laid out from the top, so a line's top is at nought and everything
-        /// drawn is below it. The last quad a generator makes is where a caret
-        /// would go after the text, not a letter, and is left out.
+        /// <summary>The share of a line below its lowest letter, measured once from
+        /// a line of the deepest letters (the generator's last quad is the caret,
+        /// and left out).
         /// </summary>
         private static float Leading(Text drawn)
         {
@@ -3295,9 +3658,9 @@ namespace NodeEditorMod
             return box == null || box.localScale.x < 0.001f ? 1f : box.localScale.x;
         }
 
-        /// <summary>A comment's writing set at a size: the font, as far as
-        /// <see cref="NoteCrisp"/>, the box's scale for the rest, and the margins
-        /// that go with the font.</summary>
+        /// <summary>A comment's writing at a size: the font up to <see
+        /// cref="NoteCrisp"/>, the box's scale past it, and the margins that go
+        /// with it.</summary>
         private static void Rescaled(Place place, InputField box, int size)
         {
             place.Size = size == NoteFont ? 0 : size;
@@ -3321,15 +3684,8 @@ namespace NodeEditorMod
             return place != null && place.Size > 0 ? place.Size : NoteFont;
         }
 
-        /// <summary>
-        /// The double arrow in a comment's bottom-right corner, which resizes it
-        /// by its lettering rather than by its box. A comment is as big as what is
-        /// written in it, so the size to change is the size it is written at, and
-        /// the box follows.
-        ///
-        /// Shown with the cross, on the comment the pointer is on, and centred on
-        /// its corner the same way.
-        /// </summary>
+        /// <summary>A comment's corner arrow, resizing it by its lettering, which
+        /// the box follows. Shown with the cross, on the hovered comment.</summary>
         private GameObject Resizer(GameObject host, int me)
         {
             GameObject grip = new GameObject("Grip");
@@ -3346,7 +3702,7 @@ namespace NodeEditorMod
             // way this corner is pulled: top left to bottom right.
             RawImage arrows = Picture(grip.transform, Glyphs.Resizer(true), GripArrows);
             arrows.raycastTarget = false;
-            Grow(grip, arrows.transform, 1.3f);
+            UIF.Grow(grip, arrows.transform, 1.3f);
             Waving(grip);
 
             RectTransform plate = host.GetComponent<RectTransform>();
@@ -3398,9 +3754,8 @@ namespace NodeEditorMod
                 if (size > before && (plate.sizeDelta.x >= NoteMostWide - 0.5f
                                       || plate.sizeDelta.y >= BoardTall - 0.5f))
                 {
-                    // As big as a comment goes -- `Measure` holds the box there, so
-                    // reaching it is the sign: the pull stops growing it, and
-                    // pulling back in still shrinks it.
+                    // At the size limit, where `Measure` holds the box, the pull
+                    // stops growing it.
                     Rescaled(held, box, before);
                     Stretch(host, inner, box.textComponent, box.text);
                 }
@@ -3421,14 +3776,13 @@ namespace NodeEditorMod
             return grip;
         }
 
-        /// <summary>The paper a comment is written on: lighter than a node, so it
-        /// reads as a note laid on the board rather than a thing in the
-        /// circuit.</summary>
+        /// <summary>A comment's paper: lighter than a node, a note laid on the
+        /// board.
+        /// </summary>
         private static readonly Color Paper = new Color(0.16f, 0.20f, 0.26f, 0.96f);
 
-        /// <summary>The clear space round a comment's text, the same on all four
-        /// sides, and the widest a comment is allowed to grow before it wraps.
-        /// </summary>
+        /// <summary>The clear space round a comment's text, and the widest it grows
+        /// before it wraps.</summary>
         private const float NoteEdge = 3f;
 
         /// <summary>And the clear space inside the text box itself, between its own
@@ -3440,14 +3794,8 @@ namespace NodeEditorMod
         /// short word wide -- it is a note, not a node.</summary>
         private const float NoteLeast = 62f;
 
-        /// <summary>
-        /// How much room a comment wants, asked of the font rather than guessed.
-        ///
-        /// A guess at the width of a letter is wrong twice: the box grows in steps
-        /// of a whole line where the text grew by a few pixels, and a line that the
-        /// guess says fits wraps anyway, dropping its last word onto the next line.
-        /// The generator that lays the text out is the only thing that knows.
-        /// </summary>
+        /// <summary>How much room a comment wants, asked of the font: a guessed
+        /// width grows in whole lines and wraps words that fit.</summary>
         private static void Measure(Text drawn, string words, out float wide,
                                     out float tall)
         {
@@ -3466,15 +3814,10 @@ namespace NodeEditorMod
             // Unconstrained: how wide the longest line would be if nothing wrapped.
             float raw = maker.GetPreferredWidth(asked,
                             drawn.GetGenerationSettings(Vector2.zero)) / much;
-            // Both paddings -- the plate's and the text box's -- and a few pixels
-            // of slack: a line measured to exactly the width it is laid out in
-            // wraps its last word anyway.
-            // The writing's margin and the widest it wraps at grow with the
-            // lettering. The plate's edge does not -- it is the comment's border --
-            // and nor do the slack and the smallest a comment is: grown with it,
-            // they were a box far bigger than a large heading written in it.
-            // The generator answers in the label's own units, which a comment past
-            // `NoteCrisp` has scaled up by its box: brought out to the plate's.
+            // Both paddings and some slack: text measured to its exact width still
+            // wraps. The margin and wrap width grow with the lettering; the border
+            // and slack do not. Measured in the label's units, scaled back to the
+            // plate's past `NoteCrisp`.
             float by = Magnification(drawn);
             float grown = Grown(drawn) * by;
             float pad = (NoteEdge + TextEdge * grown) * 2f;
@@ -3488,23 +3831,19 @@ namespace NodeEditorMod
             float high = maker.GetPreferredHeight(asked,
                              drawn.GetGenerationSettings(
                                  new Vector2(room, 0f))) / much;
-            // Less the room the last line keeps below its lowest letter, which is
-            // spacing for a line that is not there. At the size a comment starts at
-            // it is a pixel or two; at a heading's size it was a band of empty box
-            // under the words.
+            // Less the space the last line keeps under its letters: a band of empty
+            // box at heading sizes.
             float spare = Leading(drawn) * drawn.fontSize * by;
             tall = Mathf.Clamp(high * by + pad - spare, 34f,
                                Mathf.Min(420f * grown, BoardTall));
         }
 
-        /// <summary>
-        /// A comment node: a plate with a box of text in it and nothing else. No
-        /// ports, because it stands for nothing the machine can read -- it is a
-        /// note to whoever opens the board next.
-        /// </summary>
-        private void Comment(GameObject body, int index, Place place,
+        /// <summary>A comment node: a plate with a text box, and no
+        /// ports.</summary>
+        private void Comment(GameObject body, Tag tag, Place place,
                              float wide, float tall)
         {
+            int index = tag.Node;
             GameObject box = UIF.Spawn(UIF.InputPrefab, body.transform);
             if (box == null)
             {
@@ -3543,35 +3882,25 @@ namespace NodeEditorMod
             Waving(box);
 
             Place mine = place;
-            int me = index;
+            Tag me = tag;
             GameObject plate = body;
             RectTransform inner = box.GetComponent<RectTransform>();
 
-            // A click on the writing puts the caret in it -- that is the field's
-            // own doing, and it is what a hand clicking on words expects. A *drag*
-            // on the writing moves the node, which is the other thing a hand does
-            // to a note on a board.
-            //
-            // Both have to come off the same object, because uGUI gives a drag to
-            // the first handler at or above what it hit and that is the field. So
-            // the node's drag is put on the field beside the field's own, and the
-            // field is made non-interactable for the length of it: its handlers
-            // all begin `if (!MayDrag(...)) return;`, and that asks. Without it a
-            // drag would move the node and select the words at the same time.
+            // A click on the writing places the caret; a drag moves the node. Both
+            // are on the field: the node's drag sits beside the field's own, with
+            // the field made non-interactable meanwhile (`MayDrag` checks), so it
+            // does not also select.
             InputField dragged = field;
             NodeDrag carry = box.AddComponent<NodeDrag>();
             carry.frame = body.GetComponent<RectTransform>();
             carry.Held = delegate
             {
-                // What is in the box is the comment's text from here on. Putting
-                // the field out of reach on the next line drops the focus, and a
-                // field losing focus announces its text through `onEndEdit` --
-                // which draws the board again, with the node being dragged still
-                // under the hand. Written down first, that announcement is old news
-                // and `Written` stands down.
+                // The box's text becomes the comment's first: going
+                // non-interactable drops focus, and the onEndEdit that follows
+                // would otherwise redraw under the drag.
                 mine.Words = dragged.text == null ? "" : dragged.text;
                 dragged.interactable = false;
-                Holding(me, carry);
+                Holding(me.Node, carry);
             };
             carry.Moved = delegate(Vector2 by)
             {
@@ -3587,31 +3916,27 @@ namespace NodeEditorMod
             // The size it actually wants, now that there is a font to ask about it
             // -- and on the board at that size, wherever it was left or pasted.
             Stretch(body, inner, field.textComponent, field.text);
-            Put(me, Where(me));
-            // Resized as it is typed rather than when the typing ends: a box that
-            // only grows once the hand has moved on hides what is being written
-            // into it. The layout is written when the typing ends -- one undo step
-            // for a comment, not one a letter.
+            Put(me.Node, Where(me.Node));
+            // Resized while typing, so the box grows under the hand; the layout is
+            // written when typing ends, one undo step per comment.
             Text laid = field.textComponent;
             InputField typing = field;
             field.onValueChanged.AddListener(delegate(string typed)
             {
                 Stretch(plate, inner, laid, typed);
-                Put(me, Where(me));
-                // The caret is drawn from the last laying-out of the text, and the
-                // box it is laid out in has just changed size: without this the
-                // caret is a line behind where the letters are.
+                Put(me.Node, Where(me.Node));
+                // The caret uses the last layout, and the box has just resized:
+                // without this it lags a line behind.
                 typing.ForceLabelUpdate();
             });
             field.onEndEdit.AddListener(delegate(string typed)
             {
-                Written(me, mine, typed);
+                Written(me.Node, mine, typed);
             });
         }
 
-        /// <summary>A comment's plate taken to the size of what is written in it,
-        /// without drawing the board again -- which would take the box out from
-        /// under the hand typing into it.</summary>
+        /// <summary>Sizes a comment's plate to its text without a redraw, which
+        /// would take the box from the hand typing.</summary>
         private void Stretch(GameObject body, RectTransform inner,
                              Text drawn, string words)
         {
@@ -3632,9 +3957,8 @@ namespace NodeEditorMod
                 inner.sizeDelta = new Vector2((wide - edge * 2f) / by,
                                               (tall - edge * 2f) / by);
             }
-            // Both dashed edges -- the faint one and the one that says picked out
-            // -- are children of the plate and stretch with it, so what is left is
-            // how many dashes they carry.
+            // Both dashed edges stretch with the plate; only their dash count
+            // changes.
             for (int i = 0; i < body.transform.childCount; i++)
             {
                 Transform kid = body.transform.GetChild(i);
@@ -3645,14 +3969,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// One of a comment's two labels, laid out to fill its field exactly.
-        ///
-        /// The prefab insets its own label, and text that wraps at one width while
-        /// being measured at another drops its last word onto the next line. Best
-        /// fit off for the same reason: it lays the text out at a size nothing else
-        /// knows about.
-        /// </summary>
+        /// <summary>A comment label laid out to fill its field exactly, with best
+        /// fit off: the wrap width and the measured width must agree.</summary>
         private static void Inked(Text label, Color colour, int size)
         {
             if (label == null)
@@ -3675,12 +3993,8 @@ namespace NodeEditorMod
                 return;
             }
             place.Words = said;
-            // No redraw: the plate has been kept the size of what is written in it
-            // all the while it was typed. And a redraw here was a trap -- this
-            // arrives when the box loses focus, which a press anywhere else does,
-            // and drawing the board again took whatever was pressed out from under
-            // the hand: the comment's own resizing corner, or a node about to be
-            // dragged.
+            // No redraw: the plate kept pace while typing, and redrawing on lost
+            // focus took whatever had been pressed out from under the hand.
             Kept();
         }
 
@@ -3695,20 +4009,23 @@ namespace NodeEditorMod
             Wants(node, cell.UsesVariable && wanted == null);
             if (wanted == null && wantedKey == KeyCode.None)
             {
-                // An emptied cell is a cell waiting to be filled, not an end being
-                // unbound: switching one from a key to a name clears it on the way
-                // past, and pushing that through cut every wire on the end before
-                // the new name had been typed. What it stands for changes when
-                // something is typed, and not before.
-                return;
+                if (place.Kind != Place.Output || !place.Bound || Mine(was))
+                {
+                    // An emptied input is waiting to be typed in: switching key to
+                    // name clears it, and unbinding cut every wire before the name
+                    // was typed. An output already blank stays so.
+                    return;
+                }
+                // An emptied output goes blank: its wires move onto a hidden name,
+                // shown as nothing, so any gate can be wired to it again and the
+                // next thing typed takes them along.
+                wanted = Minted();
             }
             if (Doubled(node, place.Kind, wanted, wantedKey))
             {
                 Warned(cell.transform as RectTransform, "already assigned!");
-                // Another end already stands for this. Two ends on one binding are
-                // one end drawn twice -- every wire either appears to have is the
-                // same wire -- so the name is not taken and the cell goes back to
-                // saying what this end actually is.
+                // Another end already stands for this: refused, and the cell shows
+                // what this end is.
                 cell.Load(Shown(node, was, wasKey), wasKey);
                 return;
             }
@@ -3716,26 +4033,20 @@ namespace NodeEditorMod
             place.Key = wantedKey;
             if (was == place.Variable && wasKey == place.Key)
             {
-                // Which of the two it is, and nothing else. Drawing the board again
-                // for that took the cell out from under the hand that had just
-                // clicked it.
+                // Only the mode changed; a redraw took the cell from under the
+                // click.
                 return;
             }
 
-            // Everything that was wired to it follows, or the wire silently comes
-            // apart the moment the name changes -- unless the name it has been
-            // given is one something else on the board already answers to. Then
-            // moving the wires would land them on that node as well as this one,
-            // which is a wire nobody drew: the rename is this end's own business
-            // and the rest of the board is left where it is.
-            bool carry = !Elsewhere(node, place.Variable, place.Key);
+            // Wires follow the rename, unless something else already answers to the
+            // new name: they would join that node as well.
+            bool carry = !Elsewhere(node, place.Variable, place.Key,
+                place.Kind == Place.Output ? Place.Input : Place.Output);
             List<MapperType> touched = new List<MapperType>();
             if (carry && place.Kind == Place.Output)
             {
-                // The wires into an output are rows *pressing* its name, which is
-                // the other half of the table from a row's inputs. Without this an
-                // output renamed by hand kept its wires on screen for a frame and
-                // came back with none of them.
+                // An output's wires are the rows pressing its name; without this a
+                // renamed output lost them.
                 for (int i = 0; i < Rows; i++)
                 {
                     Repoint(i, was, wasKey, place, touched);
@@ -3757,11 +4068,9 @@ namespace NodeEditorMod
                     {
                         continue;
                     }
-                    // The one name this end stood for is swapped for the one it
-                    // stands for now; anything else on the same input is another
-                    // end's wire and stays where it is. A name cannot join an input
-                    // that answers to keys, or the other way about, so where the
-                    // new one will not go the old one simply comes off.
+                    // The one name swapped for the new; the input's other wires
+                    // stay. Where the new one will not fit (keys against names),
+                    // the old one just comes off.
                     if (was != null)
                     {
                         Bindings.Dropped(input, was);
@@ -3785,13 +4094,8 @@ namespace NodeEditorMod
             Redraw();
         }
 
-        /// <summary>
-        /// Whether another node of the same sort already stands for this binding.
-        ///
-        /// Two ends on one name are one end drawn twice: the wires belong to
-        /// whichever is found first and the other is drawn bare. A gate and an end
-        /// sharing a name is a different matter -- that is the wire between them.
-        /// </summary>
+        /// <summary>Whether another end already stands for this binding. A gate and
+        /// an end sharing a name is a wire, not a clash.</summary>
         /// <param name="kind">The kind of end being bound.</param>
         private bool Doubled(int node, int kind, string variable, KeyCode key)
         {
@@ -3806,18 +4110,12 @@ namespace NodeEditorMod
                     continue;
                 }
                 Place place = Placed(i);
-                bool end = place != null && (place.Kind == Place.Input
-                                             || place.Kind == Place.Output);
-                // Two ends never share a binding, whichever kinds they are. An
-                // output renamed to what an input stands for is not two nodes with
-                // the same name on a drawing: the rows pressing that output really
-                // do drive everything reading that input, so the board would draw a
-                // wire from each of them to each of those -- wiring nobody did, out
-                // of a rename.
-                //
-                // A gate's answer is a different matter for an output, because an
-                // output holding a gate's name is exactly how that gate feeds it.
-                // An input taking one is the same trap as above, so it is refused.
+                // Two ends of one kind never share a binding: they would be one end
+                // drawn twice. An input and an output may -- the machine then feeds
+                // itself through that binding, which is the player's call. An
+                // output may take a gate's name -- that is how the gate feeds it --
+                // but an input may not.
+                bool end = place != null && place.Kind == kind;
                 bool clash = end || (place == null && kind == Place.Input);
                 if (!clash)
                 {
@@ -3826,7 +4124,7 @@ namespace NodeEditorMod
                 string other;
                 KeyCode otherKey;
                 Answer(i, out other, out otherKey);
-                if (variable != null ? Carries(other, variable)
+                if (variable != null ? Bindings.Carries(other, variable)
                                      : (other == null && otherKey == key))
                 {
                     return true;
@@ -3835,14 +4133,32 @@ namespace NodeEditorMod
             return false;
         }
 
-        /// <summary>
-        /// Whether anything else on the board already answers to this binding.
-        ///
-        /// Two nodes standing for one name are one thing drawn twice, as far as the
-        /// wires are concerned -- so an edit that moves wires onto a name already in
-        /// use wires them to that node too. Asked before any wire is moved.
-        /// </summary>
+        /// <summary>Whether a gate already presses a bound output end other than
+        /// this one.</summary>
+        private bool Outputs(int node, Place except)
+        {
+            for (int i = 0; i < Board.Places.Count && node < Rows; i++)
+            {
+                Place place = Board.Places[i];
+                if (place != except && place.Kind == Place.Output && place.Bound
+                    && Presses(node, place))
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>Whether anything else on the board already answers to this
+        /// binding; asked before wires are moved onto a name.</summary>
         private bool Elsewhere(int node, string variable, KeyCode key)
+        {
+            return Elsewhere(node, variable, key, -1);
+        }
+
+        /// <param name="ignored">A kind of end not counted: an output rebound to an
+        /// input's binding still carries its wires, and the other way round.</param>
+        private bool Elsewhere(int node, string variable, KeyCode key, int ignored)
         {
             if (variable == null && key == KeyCode.None)
             {
@@ -3850,7 +4166,8 @@ namespace NodeEditorMod
             }
             for (int i = 0; i < Nodes; i++)
             {
-                if (i == node)
+                Place end = Placed(i);
+                if (i == node || (end != null && end.Kind == ignored))
                 {
                     continue;
                 }
@@ -3858,8 +4175,8 @@ namespace NodeEditorMod
                 KeyCode otherKey;
                 Answer(i, out other, out otherKey);
                 bool same = variable != null
-                    ? Carries(other, variable)
-                    : (other == null && otherKey == key);
+                    ? Bindings.Carries(other, variable)
+                    : (other == null && Strikes(i, key));
                 if (same)
                 {
                     return true;
@@ -3868,15 +4185,9 @@ namespace NodeEditorMod
             return false;
         }
 
-        /// <summary>
-        /// A row that pressed an end presses whatever that end stands for now.
-        ///
-        /// A Besiege key answers either the keyboard or a list of names, never
-        /// both, so an end turned from a name into a key takes the key only when
-        /// the row was pressing nothing else -- a row wired to two outputs keeps
-        /// the names, and the one that became a key loses that wire rather than the
-        /// other one losing its.
-        /// </summary>
+        /// <summary>A row that pressed an end presses what the end stands for now.
+        /// A key cannot share with names, so a row pressing other names keeps them
+        /// and loses this wire.</summary>
         private void Repoint(int node, string was, KeyCode wasKey, Place place,
                              List<MapperType> touched)
         {
@@ -3889,7 +4200,7 @@ namespace NodeEditorMod
                 ? Bindings.Variable(row.Emulate) : null;
             if (was != null)
             {
-                if (!Carries(had, was))
+                if (!Bindings.Carries(had, was))
                 {
                     return;
                 }
@@ -3920,18 +4231,25 @@ namespace NodeEditorMod
                 touched.Add(row.Emulate);
                 return;
             }
-            if (wasKey == KeyCode.None || had != null
-                || Bindings.Code(row.Emulate) != wasKey)
+            if (had != null || !Bindings.Holds(row.Emulate, wasKey))
             {
                 return;
             }
-            if (place.Variable != null)
+            if (place.Variable == null)
+            {
+                // One key for another, and every other key it presses stays.
+                Bindings.Dropped(row.Emulate, wasKey);
+                Bindings.Added(row.Emulate, place.Key);
+            }
+            else if (Bindings.Count(row.Emulate) == 1)
             {
                 Bindings.BindVariable(row.Emulate, place.Variable);
             }
             else
             {
-                Bindings.Bind(row.Emulate, place.Key);
+                // Pressing other keys too, which a name cannot share with: this one
+                // wire comes off rather than every other.
+                Bindings.Dropped(row.Emulate, wasKey);
             }
             touched.Add(row.Emulate);
         }
@@ -3947,9 +4265,8 @@ namespace NodeEditorMod
         private void Put(int node, Vector2 now)
         {
             Move(node, now);
-            // Where it actually went, which is not always where it was put: the
-            // grid moves it to an intersection and the fence keeps it on the board,
-            // and what is drawn should be what is written down.
+            // Where it went after snapping and fencing, so what is drawn is what is
+            // saved.
             Vector2 at = Where(node);
             if (node >= 0 && node < parts.Count && parts[node] != null)
             {
@@ -3965,9 +4282,8 @@ namespace NodeEditorMod
             return Fenced(at, new Vector2(NodeWidth, NodeHeight));
         }
 
-        /// <summary>The same, with room for a node of that size. An end's size
-        /// would do for most, but a comment can be far bigger than an end, and
-        /// fenced as one it hung off the board's far edges.</summary>
+        /// <summary>Fenced with room for a node that size: a big comment fenced as
+        /// an end hung off the board.</summary>
         private static Vector2 Fenced(Vector2 at, Vector2 span)
         {
             return new Vector2(Mathf.Clamp(at.x, 0f, Mathf.Max(0f, BoardWide - span.x)),
@@ -3989,23 +4305,17 @@ namespace NodeEditorMod
         private const float TimerSwitch = 18f;
         private const float TimerWords = 30f;
 
-        /// <summary>How much of a second a pixel of drag is worth: the timer table's
-        /// own rate, a slider's whole range per two hundred and fifty
-        /// pixels.</summary>
+        /// <summary>Seconds per pixel of drag: a slider's range per 250 pixels, as
+        /// in the timer table.</summary>
         private const float TimeDragPerPixel = 0.004f;
 
         /// <summary>Timer numbers dragged and not yet committed. See
         /// `Ticking`.</summary>
         private readonly List<MapperType> scrubbing = new List<MapperType>();
 
-        /// <summary>
-        /// A timer row as a node: its wait and its duration as numbers to type or
-        /// drag sideways, the Special Effects spot light's value boxes without their
-        /// sliders; and its three switches -- hold to run, allow stop, loop -- down
-        /// the right, wearing the Timer Plus table's own column pictures. Input A on
-        /// the left starts it, as a timer's key does; what it presses leaves on the
-        /// right. Five squares by two, like an end.
-        /// </summary>
+        /// <summary>A timer row as a node: WAIT and DUR boxes to type or drag, and
+        /// hold, stop and loop switches down the right. Input A starts it; its
+        /// answer leaves on the right.</summary>
         private void Timed(GameObject body, LogicRow row, int index, float wide,
                            float tall)
         {
@@ -4056,7 +4366,7 @@ namespace NodeEditorMod
                     grows = Picture(flip.transform, faces[k], TimerSwitch - 5f)
                         .transform;
                 }
-                Grow(flip, grows, 1.3f);
+                UIF.Grow(flip, grows, 1.3f);
                 Tip.On(flip, tips[k]);
                 Toggle box = flip.GetComponent<Toggle>();
                 MToggle control = switches[k];
@@ -4115,7 +4425,7 @@ namespace NodeEditorMod
             }
             field.contentType = InputField.ContentType.DecimalNumber;
             Digits(field, w, h);
-            field.text = Seconds(slider.Value);
+            field.text = UIF.Seconds(slider.Value);
             // A modifier-click is for the node, as on every other box on a node.
             Deaf guard = go.AddComponent<Deaf>();
             guard.box = field;
@@ -4132,12 +4442,16 @@ namespace NodeEditorMod
             catcher.color = new Color(0f, 0f, 0f, 0f);
             ValueField drag = sheet.AddComponent<ValueField>();
             drag.field = field;
+            // The middle button pans from the number too. On the sheet, which takes
+            // the press: a `Pan` under it never heard the drag.
+            Waving(sheet);
+            Marquee.On(field);
             drag.dragged = delegate(float pixels)
             {
                 float value = Mathf.Max(0f, slider.Value
                     + pixels * (slider.Max - slider.Min) * TimeDragPerPixel);
                 slider.Value = value;
-                field.text = Seconds(value);
+                field.text = UIF.Seconds(value);
                 if (!scrubbing.Contains(slider))
                 {
                     scrubbing.Add(slider);
@@ -4153,11 +4467,11 @@ namespace NodeEditorMod
                                     System.Globalization.CultureInfo.InvariantCulture,
                                     out value))
                 {
-                    field.text = Seconds(slider.Value);
+                    field.text = UIF.Seconds(slider.Value);
                     return;
                 }
                 value = Mathf.Max(0f, value);
-                field.text = Seconds(value);
+                field.text = UIF.Seconds(value);
                 if (Mathf.Approximately(value, slider.Value))
                 {
                     return;
@@ -4172,13 +4486,8 @@ namespace NodeEditorMod
         /// <summary>The clear space at each end of a timer's number.</summary>
         private const float DigitPad = 3f;
 
-        /// <summary>
-        /// A timer number's lettering, sized so five digits and a point show whole
-        /// in its box. A field whose text is wider than the box scrolls part of it
-        /// out of sight, and a wait of 123.45 read as 23.45 is a wrong number rather
-        /// than a short one. Asked of the font at one big size and scaled, since a
-        /// width goes with the size it is set at.
-        /// </summary>
+        /// <summary>Sizes a timer number's lettering so five digits and a point fit
+        /// whole, asked of the font at one size and scaled.</summary>
         private static void Digits(InputField field, float w, float h)
         {
             Text label = field.textComponent;
@@ -4215,13 +4524,6 @@ namespace NodeEditorMod
             rect.offsetMax = new Vector2(-DigitPad, 0f);
         }
 
-        /// <summary>A time as the timer table shows one.</summary>
-        private static string Seconds(float value)
-        {
-            return value.ToString("0.##",
-                                  System.Globalization.CultureInfo.InvariantCulture);
-        }
-
         /// <summary>How big a node is drawn: as it is on the board where it has
         /// been drawn, and as its sort is where it has not.</summary>
         private Vector2 Span(int node)
@@ -4246,14 +4548,32 @@ namespace NodeEditorMod
             Board.Put(node, to);
         }
 
-        /// <summary>
-        /// One port: a circle that arms a wire or lands one.
-        ///
-        /// Drawn rather than spawned. A UI Factory button behind the circle was a
-        /// plate the eye had to look past to see the one thing that matters -- and
-        /// three of them a node is three prefabs a node, which is most of what
-        /// opening a board cost. What is left is a transparent square that answers
-        /// the pointer, wider than the circle so a wire is something to grab.
+        /// <summary>Whether a port has a wire on it, which is what fills its circle.
+        /// Asked by <see cref="Likeness"/> as well as by the port it draws.</summary>
+        private bool Filled(int node, int port, bool output)
+        {
+            if (output)
+            {
+                return Heard(node);
+            }
+            Place sitting = Placed(node);
+            if (sitting != null && sitting.Kind == Place.Output)
+            {
+                for (int i = 0; i < Rows; i++)
+                {
+                    if (Presses(i, sitting))
+                    {
+                        return true;
+                    }
+                }
+                return false;
+            }
+            return Feeding(node, port) >= 0;
+        }
+
+        /// <summary>One port: a transparent square, wider than the circle drawn in
+        /// it, that arms or lands a wire. Drawn, not a prefab button, which cost
+        /// too much a node.
         /// </summary>
         private RectTransform Port(Transform host, float x, float y, bool output,
                                    int node, int port)
@@ -4266,36 +4586,12 @@ namespace NodeEditorMod
             Image catcher = go.AddComponent<Image>();
             catcher.color = new Color(0f, 0f, 0f, 0f);
 
-            // Empty until a wire lands on it, which is the one thing about a port
-            // worth seeing from across the board.
-            Place sitting = Placed(node);
-            bool wired;
-            if (output)
-            {
-                wired = Heard(node);
-            }
-            else if (sitting != null && sitting.Kind == Place.Output)
-            {
-                wired = false;
-                for (int i = 0; i < Rows && !wired; i++)
-                {
-                    wired = Presses(i, sitting);
-                }
-            }
-            else
-            {
-                wired = Feeding(node, port) >= 0;
-            }
-            // In the node's own colour, so a port is plainly part of its node.
-            Picture(go.transform, wired ? Glyphs.Dot : Glyphs.Ring, PortSize).color =
-                Tinted(node);
+            // Filled once a wire lands, in the node's colour.
+            Picture(go.transform, Filled(node, port, output) ? Glyphs.Dot : Glyphs.Ring,
+                    PortSize).color = Tinted(node);
 
-            // Both ways of wiring: press and drag from one port to another, which
-            // is what a hand reaches for, and click one then the other, which is
-            // what a hand that has already let go can still do.
-            // A port takes the drag that starts on it, so it carries the pan as
-            // well or the board is dead to the middle button over a dozen small
-            // squares.
+            // Wired by dragging port to port, or clicking one then the other. The
+            // port pans too, or the middle button would be dead over ports.
             Waving(go);
 
             PortMark mark = go.AddComponent<PortMark>();
@@ -4322,73 +4618,32 @@ namespace NodeEditorMod
         private PortMark pullFrom;
 
         /// <summary>
-        /// The wire in hand.
-        ///
-        /// A port that holds one wire hands it over when it is dragged: the wire
-        /// comes off there and then -- as it does in any other editor -- and its
-        /// loose end follows the pointer until it is let go of. <see cref="carried"/>
-        /// is the node whose answer is still on the far end of it.
-        ///
-        /// A port that feeds several is a different question: which of them is
-        /// being moved, if any. <see cref="held"/> is the one the pointer is
-        /// running along, and it is not touched until the drag ends -- a drag that
-        /// wandered off on its own is somebody drawing a new wire and changing
-        /// their mind, and that must leave the board as it was.
+        /// The wire in hand, picked by the pointer's path: off an input,
+        /// <see cref="carried"/> is the node at its far end; off an answer,
+        /// <see cref="held"/> and <see cref="heldPort"/> are. Let go over nothing,
+        /// it comes off; on a port, the port decides (<see cref="Decided"/>).
         /// </summary>
         private int carried = -1;
-
-        /// <summary>
-        /// Whether <see cref="carried"/> was handed over rather than picked out: the
-        /// port held that one wire and no other, so there was nothing to choose
-        /// between. Only a wire handed over is moved by being let go on another
-        /// port; one picked out of several by where the pointer went is a guess,
-        /// and a guess does not get to take a wire off a port the hand let go
-        /// somewhere else.
-        /// </summary>
-        private bool handed;
 
         private int held = -1;
         private int heldPort = -1;
 
-        /// <summary>
-        /// How near the pointer has to be to an existing wire to be moving it, and
-        /// how far it has to stray to be drawing a new one. Two numbers rather than
-        /// one, so a hand hovering at the boundary does not flicker between them.
-        ///
-        /// All the reaches here are in the window's own units, as the hand sees
-        /// them -- see <see cref="Near"/>. The board is zoomed and the hand is not.
-        /// </summary>
+        /// <summary>How near a wire the pointer must come to take it, and how far
+        /// to let it go: two numbers, so the boundary does not flicker. In window
+        /// units (<see cref="Near"/>).</summary>
         private const float Grab = 26f;
         private const float Free = 54f;
 
-        /// <summary>
-        /// How far a drag has to leave the port before any of that port's wires is
-        /// taken to be the one in hand.
-        ///
-        /// Every wire out of an answer starts at the same point, so within a few
-        /// pixels of it they are all equally near and the choice would be a
-        /// toss-up changing its mind every frame. Just past the port they have
-        /// fanned apart and the nearest is the one the hand set off along. Only
-        /// while nothing is in hand: a wire already taken can be carried back over
-        /// the port it came from without being dropped.
-        /// </summary>
+        /// <summary>How far a drag must leave the port before choosing among its
+        /// wires, which all start there; not once one is in hand.</summary>
         private const float Decide = 16f;
 
-        /// <summary>How near a port a wire in hand has to be let go to be put back
-        /// on it: wider than the usual reach, because a wire dropped where it came
-        /// from is a hand that changed its mind rather than one aiming.</summary>
+        /// <summary>How near its port a wire in hand is put back when let go: wider
+        /// than the usual reach, as that is a change of mind.</summary>
         private const float Home = PortSize * 2f;
 
-        /// <summary>
-        /// A reach meant in the window's units, given in the board's.
-        ///
-        /// Everything a wire drag measures -- how near a wire is, how near a port
-        /// is -- is worked out in the board's own coordinates, which the zoom
-        /// scales. Left at that, a reach of twenty-two is twenty-two pixels at one
-        /// zoom and nine at another, and putting a wire back where it came from
-        /// stopped working the moment the view was pulled back. What the hand has
-        /// to do is the same at every zoom.
-        /// </summary>
+        /// <summary>A reach in window units, given in the zoomed board's, so a
+        /// gesture feels the same at every zoom.</summary>
         private float Near(float window)
         {
             float much = content == null ? 1f : content.localScale.x;
@@ -4400,17 +4655,14 @@ namespace NodeEditorMod
             if (began)
             {
                 carried = -1;
-                handed = false;
                 held = -1;
                 heldPort = -1;
             }
             pullFrom = from;
             pulling = true;
             Vector2 local;
-            // The content's coordinates, not the board's: the wire is drawn on the
-            // content, which is panned and scaled inside the board. Measuring
-            // against the board put the loose end wherever the pan had got to, and
-            // further out the more it was zoomed.
+            // In the content's coordinates, where the wires are drawn, not the
+            // board's.
             if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
                     content, screen, null, out local))
             {
@@ -4427,19 +4679,9 @@ namespace NodeEditorMod
             Strings();
         }
 
-        /// <summary>
-        /// Which wire into a port a drag off it has hold of.
-        ///
-        /// The mirror of <see cref="Along"/>. A gate's input holds one wire and
-        /// that is the one; an output end is fed by as many rows as press its name,
-        /// and since they all arrive at the same point the one in hand is whichever
-        /// the pointer is running along -- asked again every frame, so leaving one
-        /// for another shows while the drag is going on.
-        ///
-        /// Nothing is written here. The wire is taken off at the drop and not at
-        /// the press, which is what lets a hand that changes its mind put it back
-        /// without an edit ever having happened.
-        /// </summary>
+        /// <summary>Which wire into a port a drag off it holds: the pointer's path
+        /// picks among the port's wires. Nothing is written until the drop, so a
+        /// change of mind costs nothing.</summary>
         private void Beside(PortMark from)
         {
             RectTransform sink = Held(from.Node * 3 + 1 + from.Port);
@@ -4455,7 +4697,6 @@ namespace NodeEditorMod
             {
                 Feeds(from.Node, from.Port, strands);
             }
-            int only = -1;
             int count = 0;
             int nearest = -1;
             float best = 0f;
@@ -4468,7 +4709,6 @@ namespace NodeEditorMod
                     continue;
                 }
                 count++;
-                only = node;
                 RectTransform answer = Held(node * 3);
                 if (answer == null)
                 {
@@ -4481,15 +4721,12 @@ namespace NodeEditorMod
                     best = off;
                 }
             }
-            handed = count == 1;
+            // One wire or several, it is picked by the path, as on an answer:
+            // handing a single wire over at the press moved it when let go on
+            // another answer, instead of adding one.
             if (count == 0)
             {
                 carried = -1;               // nothing on it: a new wire is drawn
-                return;
-            }
-            if (count == 1)
-            {
-                carried = only;             // one wire, and it is the one in hand
                 return;
             }
             PortMark aimed = Aimed(from, true);
@@ -4524,11 +4761,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// Whether a drag out of an answer is running along one of the wires
-        /// already on it -- which is that wire being moved -- or away from all of
-        /// them, which is a new wire being drawn.
-        /// </summary>
+        /// <summary>Whether a drag out of an answer runs along one of its wires,
+        /// moving it, or away from all of them, drawing a new one.</summary>
         private void Along(PortMark from)
         {
             RectTransform answer = Held(from.Node * 3);
@@ -4540,13 +4774,10 @@ namespace NodeEditorMod
             PortMark aimed = Aimed(from, false);
             if (aimed != null)
             {
-                // The pointer is on a port, and that port says what is in hand
-                // whatever the lines say: the far end of one of these wires is
-                // that wire, pulled back onto the end that never moved and about
-                // to come off, and any other port is a new wire being drawn to
-                // it. Asked of the one port it is on and no other -- a port beside
-                // the far end of a wire is not that wire, which is how drawing a
-                // second wire into a gate took the first one off.
+                // On a port, the port decides: the far end of one of these wires is
+                // that wire, pulled back to come off; any other port is a new wire.
+                // Only the port under the pointer counts, not one beside a wire's
+                // end.
                 if (!aimed.Output)
                 {
                     held = Wired(from.Node, aimed.Node, aimed.Port) ? aimed.Node : -1;
@@ -4563,9 +4794,8 @@ namespace NodeEditorMod
                 bool ended = end != null && end.Kind == Place.Output;
                 for (int i = 0; i < (ended ? 1 : 2); i++)
                 {
-                    // An output end may be pressed by several rows at once, and
-                    // each of those is a wire of its own; `Feeding` names only the
-                    // first of them.
+                    // An output end may be pressed by several rows, each a wire of
+                    // its own; `Feeding` names only the first.
                     bool mine = ended
                         ? from.Node < Rows && Presses(from.Node, end)
                         : Feeding(node, i) == from.Node;
@@ -4595,17 +4825,14 @@ namespace NodeEditorMod
             }
             if (held < 0 && (pullTo - start).magnitude < Near(Decide))
             {
-                // Still on the port. Every wire out of it starts at this same
-                // point, so they are all equally near and picking one would be a
-                // toss-up that changed its mind every frame.
+                // Still on the port, where all its wires start: nothing to choose
+                // yet.
                 return;
             }
             if (best <= Near(Grab))
             {
-                // On a wire: that one is in hand, and it is asked again every frame
-                // -- a hand that leaves one wire and finds another has changed its
-                // mind, and the board should say so while the drag is going on
-                // rather than at the end of it.
+                // On a wire: that one is in hand, asked again every frame so a
+                // change shows live.
                 held = nearest;
                 heldPort = port;
                 return;
@@ -4614,11 +4841,8 @@ namespace NodeEditorMod
             {
                 return;                     // drawing a new one, and still is
             }
-            // Off the one in hand: let go of it only when the hand has strayed
-            // further than it took to pick it up, so hovering at the boundary does
-            // not flicker -- and measured against that wire rather than whichever
-            // is nearest, or a drag passing another wire keeps hold of the wrong
-            // one.
+            // The wire in hand is let go only past the wider reach, measured
+            // against that wire, so the boundary and passing wires do not flicker.
             RectTransform taken = Held(held * 3 + 1 + heldPort);
             if (taken == null || Aside(pullTo, start, Middle(taken)) > Near(Free))
             {
@@ -4645,26 +4869,17 @@ namespace NodeEditorMod
             pulling = false;
             pullFrom = null;
             pending = -1;
-            // Where the pointer let go, rather than what happened to be on top
-            // there: ports answer to more of the board than they draw, so two
-            // nodes side by side have overlapping targets and the wire went to
-            // whichever was drawn last rather than the one it was dropped on.
-            // A wire in hand is put back on a port it is let go anywhere near: it
-            // was taken off one, and a hand that changed its mind should not have
-            // to aim to undo that.
+            // Where the pointer let go, not what is drawn on top: ports reach past
+            // their drawing and overlap. A wire in hand goes back on its port when
+            // let go anywhere near it.
             Vector2 local;
             if (content != null && RectTransformUtility.ScreenPointToLocalPointInRectangle(
                     content, screen, null, out local))
             {
                 pullTo = local;
             }
-            // Which kind of port the loose end is looking for. A wire handed over
-            // off an input is its input end moving, so another input, or the
-            // answer at its other end, which takes it off. Anything else is a
-            // wire out of this port, looking for the other sort.
-            bool sure = carried >= 0 && handed;
-            PortMark aimed = sure ? Aimed(from, false, Held(carried * 3))
-                                  : Aimed(from, !from.Output);
+            // The loose end seeks the other kind of port.
+            PortMark aimed = Aimed(from, !from.Output);
             if (aimed != null)
             {
                 to = aimed;
@@ -4677,81 +4892,64 @@ namespace NodeEditorMod
                 Strings();
                 return;
             }
-            if (sure)
-            {
-                Landing(from, to);
-                return;
-            }
             if (to == null && (carried >= 0 || held >= 0))
             {
-                // One of several wires, picked out on the way and let go over
-                // nothing: that one comes off.
+                // A wire picked out on the way and let go over nothing comes off.
                 Dropping(from);
                 return;
             }
-            // Let go on a port, and from here that port is the whole of the
-            // question: the other end of a wire already on this one takes that
-            // wire off, a free one gets a new wire, and nothing the pointer passed
-            // on its way is touched. A drag along one wire and on to the port
-            // beside its far end is a second wire being drawn, and it looked
-            // exactly like the first one being moved. Only the port the drag began
-            // on puts a wire back, and that is the port the pointer left.
             carried = -1;
             held = -1;
             heldPort = -1;
-            if (to != null && from.Node != to.Node && from.Output != to.Output)
-            {
-                // Either way round: pulled from the answer to the input, or from
-                // the input back to the answer.
-                int source = from.Output ? from.Node : to.Node;
-                PortMark sink = from.Output ? to : from;
-                if (Wired(source, sink.Node, sink.Port))
-                {
-                    // The two are wired together already: the wire between them
-                    // was dragged off this end and let go on the end that never
-                    // moved, and a wire gathered up onto one end is a wire off. It
-                    // is that port's own wire and no neighbour's, so this cannot
-                    // cut something the hand was not on.
-                    List<MapperType> touched = new List<MapperType>();
-                    Unwire(source, sink.Node, sink.Port, touched);
-                    Commit(touched);
-                    Redraw();
-                    return;
-                }
-                // Join redraws: a port is empty or full, and which it is has just
-                // changed.
-                Join(source, sink.Node, sink.Port);
-                return;
-            }
             if (to == null)
             {
-                // A wire drawn out to nowhere: the list of what could go on the
-                // other end of it, where the wire was let go. Nothing is changed
-                // unless something is picked from it -- an answer feeding three
-                // gates does not lose one because a hand set out to draw a fourth
-                // and thought better of it.
+                // A wire drawn into space offers what could go on its far end;
+                // nothing changes unless something is picked.
                 Offering(from, screen);
                 return;
             }
-            if (from.Node != to.Node)
-            {
-                // Two ports of the same sort: an answer let go over an answer, or
-                // an input over an input. A wire runs from one to the other, so
-                // there is nothing to be made of this but a word about it.
-                Told(to.Node, to.Output ? 0 : 1 + to.Port,
-                     "has to connect\nto an input");
-            }
-            Strings();
+            Decided(from.Node, from.Port, from.Output, to.Node, to.Port, to.Output);
         }
 
         /// <summary>
-        /// A wire let go of over nothing: what would you like on the end of it?
-        ///
-        /// The same list a right-click offers, and whatever is picked is made where
-        /// the wire was dropped and wired to the port it came from -- which is the
-        /// gesture every other editor has, and the reason a wire pulled into space
-        /// is worth anything at all.
+        /// The one rule for a wire's end put on a port, dropped or clicked: two ports
+        /// already wired together come apart, an answer and an input that are not
+        /// get a new wire, and anything else is left as it is. The port alone
+        /// decides; nothing passed on the way is touched.
         /// </summary>
+        private void Decided(int node, int port, bool output,
+                             int other, int otherPort, bool otherOutput)
+        {
+            if (served == null || node == other)
+            {
+                Strings();
+                return;
+            }
+            if (output == otherOutput)
+            {
+                Told(other, otherOutput ? 0 : 1 + otherPort, otherOutput
+                     ? "has to connect\nto an input" : "has to connect\nto an output");
+                Strings();
+                return;
+            }
+            // Either way round: from the answer to the input, or back.
+            int source = output ? node : other;
+            int sink = output ? other : node;
+            int sinkPort = output ? otherPort : port;
+            if (Wired(source, sink, sinkPort))
+            {
+                List<MapperType> touched = new List<MapperType>();
+                Unwire(source, sink, sinkPort, touched);
+                Commit(touched);
+                Redraw();
+                return;
+            }
+            // Join redraws: a port is empty or full, and which has just changed.
+            Join(source, sink, sinkPort);
+        }
+
+        /// <summary>A wire let go over nothing offers the right-click list;
+        /// whatever is picked is made there and wired to the wire's port.</summary>
         private void Offering(PortMark from, Vector2 screen)
         {
             if (served == null || content == null)
@@ -4778,17 +4976,14 @@ namespace NodeEditorMod
                 if (answering && Row(source) == null
                     && Kinded(which) == Place.Output)
                 {
-                    // An end at both ends of the wire, with no row to carry it --
-                    // see `Join`. Said before the node is made rather than after,
-                    // so a refusal does not leave one standing on the board.
+                    // End to end with no row to carry it (see `Join`): said before
+                    // any node is made.
                     Told(source, 0, "cannot directly\nconnect to output");
                     return;
                 }
-                // The rows are numbered first and the ends after them, so making
-                // a gate moves every end along one -- and the port this wire came
-                // out of may be one of those. Without this, a wire drawn out of an
-                // input end and finished off with a new gate landed on whichever
-                // end had taken over its number.
+                // Making a gate renumbers every end, perhaps the wire's own port:
+                // shifted here, or the wire landed on whichever end took its
+                // number.
                 int was = Rows;
                 int born = Made(which, at);
                 if (born < 0)
@@ -4850,9 +5045,8 @@ namespace NodeEditorMod
             return Born(kind, kind < 0 ? gate : -1, at, true);
         }
 
-        /// <summary>What that list's nth entry is: one of the two ends, a comment,
-        /// or a gate -- which is -1, with the gate's own number three along.
-        /// </summary>
+        /// <summary>What that list's entry is: an end kind, a comment, or -1 for a
+        /// gate (the gate's own number three along).</summary>
         private static int Kinded(int which)
         {
             if (which == 0)
@@ -4866,28 +5060,15 @@ namespace NodeEditorMod
             return which == 2 ? Place.Note : -1;
         }
 
-        /// <summary>
-        /// The one port the pointer is on: the nearest to it within a port's
-        /// forgiving reach, or null where there is none.
-        ///
-        /// Two ports that overlap are two answers to "what is under the pointer",
-        /// and the raycast gives the one drawn last. Distance gives the one
-        /// somebody aimed at -- and it gives one port, so what happens next is
-        /// asked of that port alone and never of a neighbour almost as near.
-        /// </summary>
-        /// <param name="from">The port the drag began on, which counts whatever
-        /// sort it is: a hand back where it started has changed its mind.</param>
-        /// <param name="answers">Whether what is wanted is a node's answer rather
-        /// than one of its inputs. A port of the other sort is no use to the wire in
-        /// hand, and one of them is always nearer than it looks.</param>
+        /// <summary>The one port the pointer is on: the nearest within a port's
+        /// reach, or null. By distance rather than the raycast, which picks
+        /// whichever overlapping port was drawn last.</summary>
+        /// <param name="from">The drag's own port, which counts whatever its
+        /// kind.</param>
+        /// <param name="answers">Whether a node's answer is wanted rather than an
+        /// input.
+        /// </param>
         private PortMark Aimed(PortMark from, bool answers)
-        {
-            return Aimed(from, answers, null);
-        }
-
-        /// <param name="also">One more port that counts whatever sort it is: the
-        /// far end of a wire handed over, where letting go takes it off.</param>
-        private PortMark Aimed(PortMark from, bool answers, RectTransform also)
         {
             RectTransform own = from == null ? null
                 : Held(from.Output ? from.Node * 3 : from.Node * 3 + 1 + from.Port);
@@ -4896,8 +5077,7 @@ namespace NodeEditorMod
             for (int i = 0; i < ports.Count; i++)
             {
                 // Three ports to a node, the answer first.
-                if (ports[i] == null || ((i % 3 == 0) != answers && ports[i] != own
-                                         && ports[i] != also))
+                if (ports[i] == null || ((i % 3 == 0) != answers && ports[i] != own))
                 {
                     continue;
                 }
@@ -4915,56 +5095,8 @@ namespace NodeEditorMod
             return closest.GetComponent<PortMark>();
         }
 
-        /// <summary>
-        /// A wire that came off an input let go of: onto another input, which is
-        /// where it goes now, or onto anything else, which leaves it off.
-        ///
-        /// The cut was written when the drag began, so this is the other half of
-        /// one edit: whichever way it ends, one step of the undo.
-        /// </summary>
-        private void Landing(PortMark from, PortMark to)
-        {
-            int source = carried;
-            carried = -1;
-            if (source < 0 || from == null)
-            {
-                Strings();
-                return;
-            }
-            if (to != null && to.Node == from.Node && to.Port == from.Port)
-            {
-                // Put back where it came from, which costs nothing: the wire is
-                // taken off at the drop, so up to this moment it was never off at
-                // all. Nothing to commit and nothing to undo.
-                Strings();
-                return;
-            }
-            List<MapperType> touched = new List<MapperType>();
-            Unwire(source, from.Node, from.Port, touched);
-            if (to != null && !to.Output && to.Node != source
-                && !Wired(source, to.Node, to.Port))
-            {
-                // Onto another input: the wire moved rather than came off, and the
-                // two halves of that are one edit.
-                Join(source, to.Node, to.Port, touched);
-                return;
-            }
-            if (to != null && to.Output && to.Node != from.Node && to.Node != source)
-            {
-                // Onto another answer: this port reads that one now, which is the
-                // same move seen from the other end of the wire. Onto the answer
-                // it already came from, it falls through and comes off.
-                Join(to.Node, from.Node, from.Port, touched);
-                return;
-            }
-            Commit(touched);
-            Redraw();
-        }
-
-        /// <summary>
-        /// One of a port's several wires, picked out by the drag and let go of over
-        /// nothing: it comes off, and it is the only wire this can touch.
-        /// </summary>
+        /// <summary>One of a port's several wires, picked out by the drag and let
+        /// go over nothing: that one alone comes off.</summary>
         private void Dropping(PortMark from)
         {
             List<MapperType> touched = new List<MapperType>();
@@ -5000,9 +5132,9 @@ namespace NodeEditorMod
         /// its own list, because the asker may be walking another.</summary>
         private readonly List<int> joined = new List<int>();
 
-        /// <summary>Takes that wire off, into a list somebody else commits. An
-        /// output end is fed by rows pressing its name; anything else by a row's
-        /// input reading one.</summary>
+        /// <summary>Takes a wire off, into a list the caller commits: from an
+        /// output end by the row's pressing, from anything else by the input's
+        /// reading.</summary>
         private void Unwire(int from, int to, int port, List<MapperType> touched)
         {
             Place end = Placed(to);
@@ -5016,9 +5148,8 @@ namespace NodeEditorMod
             {
                 return;
             }
-            // One wire off a port that may hold several: whatever the node at the
-            // other end answers to comes off the list, and the rest of the list
-            // stays where it is.
+            // Only what the source answers to comes off; the input's other wires
+            // stay.
             MKey input = port == 0 ? row.InputA : row.InputB;
             string said;
             KeyCode code;
@@ -5033,51 +5164,58 @@ namespace NodeEditorMod
             }
             else
             {
-                Bindings.Dropped(input, code);
+                List<KeyCode> codes = new List<KeyCode>();
+                Codes(from, codes);
+                for (int i = 0; i < codes.Count; i++)
+                {
+                    Bindings.Dropped(input, codes[i]);
+                }
             }
             touched.Add(input);
         }
 
-        /// <summary>
-        /// A port was clicked: an output arms the wire, an input lands it.
-        ///
-        /// A click takes nothing off. Unwiring is a wire dragged off its port --
-        /// which is where a hand reaches for it anyway, and a click that undid a
-        /// connection was too easy to do by accident on a port the size of this
-        /// one.
-        /// </summary>
+        /// <summary>A port clicked: the first click arms it, of either kind, and a
+        /// click on a port of the other kind ends the wire there by the same rule
+        /// as a drop (<see cref="Decided"/>). The armed port again disarms; another
+        /// of the same kind is armed instead.</summary>
         private void Touched(int node, int port, bool output)
         {
             if (served == null)
             {
                 return;
             }
-            if (output)
+            int slot = output ? -1 : port;
+            bool armedOutput = pendingPort < 0;
+            if (pending == node && pendingPort == slot)
             {
-                pending = pending == node ? -1 : node;
-                Strings();
+                pending = -1;
+            }
+            else if (pending < 0 || armedOutput == output)
+            {
+                pending = node;
+                pendingPort = slot;
+            }
+            else
+            {
+                int armed = pending;
+                int armedPort = pendingPort;
+                pending = -1;
+                Decided(armed, armedPort, armedOutput, node, port, output);
                 return;
             }
-            if (pending < 0)
-            {
-                return;
-            }
-            int armed = pending;
-            pending = -1;
-            Join(armed, node, port);
+            Strings();
         }
 
-        /// <summary>
-        /// Which wire is which, as three numbers each: the node that answers it,
-        /// the node that reads it, and which of that node's inputs.
-        ///
-        /// Worked out when the board is drawn rather than when it is strung. A wire
-        /// is a name, and finding the node behind a name means asking every node
-        /// what it answers to and comparing lists of strings -- for every port on
-        /// the board, and `Strings` runs on every frame of a drag, a pan and a
-        /// zoom. The graph only changes when the board is drawn again, and that is
-        /// where this is filled.
-        /// </summary>
+        /// <summary>The armed port as one number, for telling one drawing's from
+        /// the next: -1 when none.</summary>
+        private int Armed()
+        {
+            return pending < 0 ? -1 : pending * 3 + 1 + pendingPort;
+        }
+
+        /// <summary>Every wire as three numbers: the answering node, the reading
+        /// node, and which input. Worked out when the board is drawn, not on every
+        /// frame of <see cref="Strings"/>.</summary>
         private readonly List<int> wired = new List<int>();
 
         /// <summary>What feeds one port while that is being written down.</summary>
@@ -5086,6 +5224,7 @@ namespace NodeEditorMod
         private void Wired()
         {
             wired.Clear();
+            wiredAt++;
             if (served == null)
             {
                 return;
@@ -5138,26 +5277,37 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>Draws every wire: a thin plate from one port to the other,
-        /// turned to point at it.</summary>
+        /// <summary>Draws every wire into the one mesh: each wire is worked out
+        /// into its own <see cref="Trace"/>, then all are copied into the mesh. A
+        /// drag names the nodes it moves, so only their wires are worked out
+        /// again.</summary>
         private void Strings()
         {
-            // The pieces already made are moved rather than thrown away: this runs
-            // on every frame of a drag, a pan and a zoom, and a curve is a dozen
-            // pieces a wire. Building them again each time was a hundred objects a
-            // frame made and destroyed.
-            strung = 0;
+            Strings(null);
+        }
+
+        /// <param name="moved">The nodes moved since the wires were last drawn, or
+        /// null where anything at all may have changed.</param>
+        private void Strings(List<int> moved)
+        {
             Faded();
-            if (served == null || sheet == null)
+            if (skein == null)
             {
-                Spare();
                 return;
             }
+            skein.Clear();
+            if (served == null || sheet == null)
+            {
+                skein.Shown();
+                return;
+            }
+            loose.Clear();
+            tracing = loose;
             if (pulling && pullFrom != null)
             {
-                // What the loose end hangs from: the node that answers a wire taken
-                // off an input, the far end of one being moved off an answer, or
-                // the port a new wire is being drawn out of.
+                // The loose end hangs from the answer of a wire taken off an input,
+                // the far end of one moved off an answer, or the port a new wire
+                // leaves.
                 bool answering = carried >= 0 || (pullFrom.Output && held < 0);
                 int fixedEnd = carried >= 0 ? carried * 3
                     : (held >= 0 ? held * 3 + 1 + heldPort
@@ -5166,9 +5316,7 @@ namespace NodeEditorMod
                 RectTransform end = Held(fixedEnd);
                 if (end != null)
                 {
-                    // Always drawn from the answer end: a curve leaves one end
-                    // sideways and arrives at the other sideways, so drawn the
-                    // other way round it bows backwards.
+                    // Always drawn from the answer end, or a curve bows backwards.
                     if (answering)
                     {
                         String(Middle(end), pullTo, LiveInk);
@@ -5180,13 +5328,27 @@ namespace NodeEditorMod
                 }
             }
 
-            // Every wire there is, as it was worked out when the board was last
-            // drawn.
-            for (int i = 0; i + 2 < wired.Count; i += 3)
+            // A drag's own frames keep every wire but those on moved nodes, so long
+            // as the last drawing had the same wires, the same armed one and
+            // nothing in hand.
+            int count = wired.Count / 3;
+            bool some = moved != null && !pulling && tracedWhole
+                && tracedFor == wiredAt && tracedPending == Armed();
+            while (traces.Count < count)
             {
-                int from = wired[i];
-                int node = wired[i + 1];
-                int port = wired[i + 2];
+                traces.Add(new Trace());
+            }
+            for (int w = 0; w < count; w++)
+            {
+                int from = wired[w * 3];
+                int node = wired[w * 3 + 1];
+                int port = wired[w * 3 + 2];
+                if (some && !moved.Contains(from) && !moved.Contains(node))
+                {
+                    continue;
+                }
+                Trace trace = traces[w];
+                trace.Clear();
                 if (held == node && heldPort == port && pullFrom != null
                     && from == pullFrom.Node)
                 {
@@ -5197,20 +5359,64 @@ namespace NodeEditorMod
                 {
                     continue;               // the same, off the other end of it
                 }
-                Draw(from * 3, node * 3 + 1 + port, from == pending);
+                tracing = trace;
+                // The armed port's wires are lit: all out of an answer, or those
+                // into one input.
+                Draw(from * 3, node * 3 + 1 + port, pendingPort < 0 ? from == pending
+                     : node == pending && port == pendingPort);
             }
-            Spare();
+            tracing = null;
+            tracedFor = wiredAt;
+            tracedPending = Armed();
+            tracedWhole = !pulling;
+
+            Poured(loose);
+            for (int w = 0; w < count; w++)
+            {
+                Poured(traces[w]);
+            }
+            skein.Shown();
         }
 
-        /// <summary>Hides whatever pieces this drawing did not need.</summary>
-        private void Spare()
+        /// <summary>One wire as it was last worked out: its straight pieces, each a
+        /// start, an end and a colour.</summary>
+        private sealed class Trace
         {
-            for (int i = strung; i < wires.Count; i++)
+            public readonly List<Vector2> From = new List<Vector2>();
+            public readonly List<Vector2> To = new List<Vector2>();
+            public readonly List<Color> Inks = new List<Color>();
+
+            public void Clear()
             {
-                if (wires[i] != null && wires[i].activeSelf)
-                {
-                    wires[i].SetActive(false);
-                }
+                From.Clear();
+                To.Clear();
+                Inks.Clear();
+            }
+        }
+
+        /// <summary>The mesh every wire is drawn into.</summary>
+        private WireMesh skein;
+
+        /// <summary>Every wire in <see cref="wired"/>, by index over three; the
+        /// loose one following the pointer; and the one <see cref="Piece"/> is
+        /// writing.</summary>
+        private readonly List<Trace> traces = new List<Trace>();
+        private readonly Trace loose = new Trace();
+        private Trace tracing;
+
+        /// <summary>Bumped whenever the wire list is rebuilt, and the state the
+        /// traces were last worked out in: that list, the armed wire, nothing in
+        /// hand.</summary>
+        private int wiredAt;
+        private int tracedFor = -1;
+        private int tracedPending = -1;
+        private bool tracedWhole;
+
+        private void Poured(Trace trace)
+        {
+            for (int i = 0; i < trace.From.Count; i++)
+            {
+                skein.Add(trace.From[i], trace.To[i], trace.Inks[i]);
             }
         }
 
@@ -5266,43 +5472,30 @@ namespace NodeEditorMod
                 ? Bindings.Variable(said.Emulate) : null;
             if (place.Variable != null)
             {
-                return Carries(names, place.Variable);
+                return Bindings.Carries(names, place.Variable);
             }
-            return names == null && place.Key != KeyCode.None
-                && Bindings.Code(said.Emulate) == place.Key;
+            return names == null && Bindings.Holds(said.Emulate, place.Key);
         }
 
-        /// <summary>Takes down every wire there is. Only when the board itself is
-        /// being drawn again -- between times they are reused.</summary>
+        /// <summary>Takes every wire off the board, until they are next drawn.
+        /// </summary>
         private void Cut()
         {
-            for (int i = 0; i < wires.Count; i++)
+            if (skein != null)
             {
-                if (wires[i] != null)
-                {
-                    // Switched off as well as destroyed: Destroy is deferred to the
-                    // end of the frame, and a wire drawn over the one that replaced
-                    // it is exactly the mess this is clearing up.
-                    wires[i].SetActive(false);
-                    Destroy(wires[i]);
-                }
+                skein.Clear();
+                skein.Shown();
             }
-            wires.Clear();
-            strung = 0;
         }
-
-        /// <summary>How many of the pieces are in use by the drawing being made.
-        /// </summary>
-        private int strung;
 
         private RectTransform Held(int at)
         {
             return at < 0 || at >= ports.Count ? null : ports[at];
         }
 
-        /// <summary>Where a port is, in the coordinates the wires are drawn in --
-        /// which are the content's, so a wire pans and scales with what it
-        /// joins.</summary>
+        /// <summary>A port's middle in the content's coordinates, where the wires
+        /// are drawn.
+        /// </summary>
         private readonly Vector3[] edges = new Vector3[4];
 
         private Vector2 Middle(RectTransform port)
@@ -5312,21 +5505,17 @@ namespace NodeEditorMod
             return content.InverseTransformPoint(middle);
         }
 
-        /// <summary>
-        /// One wire, in whichever of the three ways the switch says.
-        ///
-        /// All three are made of the same straight pieces: a curve is a handful of
-        /// them along a bezier, and a square wire is three. Drawing a real curve
-        /// would want a mesh of our own, and a wire is two pixels wide.
+        /// <summary>One wire in the chosen style, of straight pieces -- a handful
+        /// along a bezier for a curve, three for a square -- each a quad in <see
+        /// cref="WireMesh"/>.
         /// </summary>
         private void String(Vector2 from, Vector2 to, Color colour)
         {
             String(from, to, colour, colour);
         }
 
-        /// <summary>The same, shading from one colour at the start to another at
-        /// the end. A wire of one colour keeps the few pieces it always had; one
-        /// that shades is cut finer, since each piece is one colour.</summary>
+        /// <summary>The same, shading between two colours; a shaded wire is cut
+        /// finer, as each piece is one colour.</summary>
         private void String(Vector2 from, Vector2 to, Color start, Color end)
         {
             bool even = start == end;
@@ -5401,45 +5590,16 @@ namespace NodeEditorMod
                  + d * (t * t * t);
         }
 
+        /// <summary>One straight piece of the wire being worked out.</summary>
         private void Piece(Vector2 from, Vector2 to, Color colour)
         {
-            GameObject go;
-            Image line;
-            if (strung < wires.Count && wires[strung] != null)
+            if (tracing == null)
             {
-                go = wires[strung];
-                line = go.GetComponent<Image>();
-                if (!go.activeSelf)
-                {
-                    go.SetActive(true);
-                }
+                return;
             }
-            else
-            {
-                go = new GameObject("Wire");
-                go.transform.SetParent(content, false);
-                go.AddComponent<RectTransform>();
-                line = go.AddComponent<Image>();
-                line.raycastTarget = false;
-                // Behind the nodes: a wire crossing a node should pass under it.
-                go.transform.SetAsFirstSibling();
-                wires.Add(go);
-            }
-            if (line != null)
-            {
-                line.color = colour;
-            }
-
-            Vector2 span = to - from;
-            RectTransform rect = go.GetComponent<RectTransform>();
-            rect.anchorMin = new Vector2(0f, 1f);
-            rect.anchorMax = new Vector2(0f, 1f);
-            rect.pivot = new Vector2(0f, 0.5f);
-            rect.anchoredPosition = from;
-            rect.sizeDelta = new Vector2(span.magnitude, WireWidth);
-            rect.localRotation = Quaternion.Euler(0f, 0f,
-                Mathf.Atan2(span.y, span.x) * Mathf.Rad2Deg);
-            strung++;
+            tracing.From.Add(from);
+            tracing.To.Add(to);
+            tracing.Inks.Add(colour);
         }
 
         // ---- what the buttons do ---------------------------------------------
@@ -5449,26 +5609,18 @@ namespace NodeEditorMod
             Born(kind, gate, Vector2.zero, false);
         }
 
-        /// <summary>
-        /// A new node.
-        ///
-        /// A gate is a row of the table, so it is added there and the board only
-        /// remembers where it sits. The two ends are not rows and live in the
-        /// layout beside them.
-        /// </summary>
+        /// <summary>A new node: a gate is added as a row, with a place in the
+        /// layout; an end or a comment lives in the layout alone.</summary>
         private int Born(int kind, int gate, Vector2 where, bool placed)
         {
             if (served == null)
             {
                 return -1;
             }
-            // A node asked for rather than put somewhere lands near the middle of
-            // the board, beside whatever is there already.
-            Vector2 at = Fenced(Snapped(placed ? where
-                : new Vector2(Centre.x - 2f * (NodeWidth + 30f)
-                                  + (Nodes % 5) * (NodeWidth + 30f),
-                              Centre.y - 60f
-                                  + (Nodes / 5) * (NodeHeight + 20f))));
+            // A node asked for rather than put somewhere lands in the middle of
+            // the view, staggered off whatever is already sitting there.
+            Vector2 at = placed ? Fenced(Snapped(where))
+                                : Staggered(Sized(kind, gate));
             if (gate >= 0)
             {
                 int was = Rows;
@@ -5476,9 +5628,9 @@ namespace NodeEditorMod
                 int row = LogicTable.Add(served, touched);
                 if (row < 0)
                 {
-                    // A gate is a row and the block holds thirty-two of them; see
-                    // AGENTS.md for why that number cannot move.
-                    Warned(sheet, "reached 32\ngates limit");
+                    // A gate is a row, and the block holds up to MaxRows of them.
+                    Warned(sheet, "reached " + ComputerBehaviour.MaxRows
+                                  + "\ngates limit");
                     return -1;
                 }
                 LogicRow made = served.Rows[row];
@@ -5490,9 +5642,8 @@ namespace NodeEditorMod
                     // inputs; a node dropped on the board should arrive empty.
                     Bindings.Bind(made.InputA, KeyCode.None);
                     Bindings.Bind(made.InputB, KeyCode.None);
-                    // Its answer is a name of the board's own making, given now
-                    // rather than when a wire is drawn: a gate that answers to
-                    // nothing is a gate nothing can be wired to.
+                    // A gate gets a minted name now: one that answers nothing
+                    // cannot be wired to.
                     Bindings.BindVariable(made.Emulate, Minted());
                     touched.Add(made.InputA);
                     touched.Add(made.InputB);
@@ -5531,14 +5682,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// The selection after a row has been added.
-        ///
-        /// The rows are numbered first and the ends after them, so a row arriving
-        /// moves every end along one and a number that stood for an end now stands
-        /// for its neighbour. The same arithmetic as `Shuffled` below, the other
-        /// way up.
-        /// </summary>
+        /// <summary>The selection after a row is added: rows number before ends, so
+        /// every end moves along one. `Shuffled`, the other way up.</summary>
         private void Shifted(int was)
         {
             int by = Rows - was;
@@ -5566,15 +5711,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// The selection after one node has been taken off the board.
-        ///
-        /// A node is known by its number, and the numbers close up over the gap:
-        /// the rows come first and the ends after them, so removing anything at all
-        /// moves everything above it down one. Kept as they were, the numbers left
-        /// in the selection picked out whatever had moved into them -- which is one
-        /// node deleted and a different one selected in its place.
-        /// </summary>
+        /// <summary>The selection after a node is removed: the numbers above it
+        /// close up, or another node would be selected in its place.</summary>
         private void Shuffled(int gone)
         {
             for (int i = picked.Count - 1; i >= 0; i--)
@@ -5588,9 +5726,7 @@ namespace NodeEditorMod
                     picked[i] = picked[i] - 1;
                 }
             }
-            // And the answer waiting for somewhere to go, which is a number of the
-            // same kind: armed, then a node removed, and the wire it was going to
-            // draw would have come out of whatever took its place.
+            // The armed answer is a node number too, and closes up the same way.
             if (pending == gone)
             {
                 pending = -1;
@@ -5619,12 +5755,9 @@ namespace NodeEditorMod
             Place place = Placed(index);
             if (place != null)
             {
-                // An output's wires are rows pressing its name; an input's are rows
-                // reading it. They go with the node -- a wire left bound to a node
-                // that is gone is a wire nobody can see or cut -- but only if the
-                // name is this node's alone. A gate reading what an output end is
-                // called is wired to the *gate* that presses it, and taking that
-                // name off would cut a wire the hand never touched.
+                // An end's wires go with it -- a wire to nothing cannot be seen or
+                // cut -- but only if the name is the end's alone: a gate reading an
+                // output's name is wired to the gate that presses it.
                 bool shared = place.Kind == Place.Input
                     ? Elsewhere(index, place.Variable, place.Key)
                     : Read(place.Variable, place.Key);
@@ -5683,9 +5816,8 @@ namespace NodeEditorMod
                 return;
             }
             served.Prefix = typed;
-            // The wires already named keep their names: a name is a machine-wide
-            // thing and something else may be reading it. The prefix is what the
-            // *next* generated one starts with.
+            // Names already given are kept, as something else may read them; the
+            // prefix is for the next.
             LogicTable.Apply(served.PrefixControl);
             Kept();
             Redraw();
@@ -5708,14 +5840,8 @@ namespace NodeEditorMod
             Panned(by);
         }
 
-        /// <summary>
-        /// The same, saying how far it actually went.
-        ///
-        /// Which is not always how far it was asked to go: the view is kept over
-        /// the board, and a board being chased by a node dragged against its own
-        /// edge has run out of room. Whoever is compensating for the pan -- the
-        /// auto-pan holds the dragged node still against it -- has to know.
-        /// </summary>
+        /// <summary>Pans, and says how far it actually went: the view is kept over
+        /// the board, so an auto-pan at its edge may move less.</summary>
         private Vector2 Panned(Vector2 by)
         {
             if (content == null)
@@ -5724,17 +5850,17 @@ namespace NodeEditorMod
             }
             Vector2 was = content.anchoredPosition;
             content.anchoredPosition = Bounded(was + by);
-            Strings();
+            // The wires are drawn on the content and move with it. Only a loose end
+            // following the pointer, rather than the board, has anywhere new to be.
+            if (pulling)
+            {
+                Strings();
+            }
             return content.anchoredPosition - was;
         }
 
-        /// <summary>
-        /// The view kept over the board, give or take a margin.
-        ///
-        /// A little way past the edge, so a node against it is not jammed against
-        /// the window frame; no further, because panning into blank grid for ever
-        /// is how a board gets lost.
-        /// </summary>
+        /// <summary>The view kept over the board, give or take a margin, so a board
+        /// is never panned out of sight.</summary>
         private Vector2 Bounded(Vector2 at)
         {
             if (sheet == null || content == null)
@@ -5743,14 +5869,12 @@ namespace NodeEditorMod
             }
             float much = content.localScale.x;
             Rect room = sheet.rect;
-            // Half a view past the edge either way: enough that a node against the
-            // fence is not jammed against the window frame, and enough for ZOOM FIT
-            // to centre a small board without the next pan snapping it back.
+            // Half a view past either edge: nodes at the fence clear the frame, and
+            // ZOOM FIT can centre a small board.
             float overX = room.width * 0.5f;
             float overY = room.height * 0.5f;
-            // The content's corner is its top left, and it moves the other way from
-            // the view: to see the right of the board, its x goes negative. To see
-            // the foot of it, its y goes up.
+            // The content moves against the view: to see right, x goes negative;
+            // down, y up.
             float leftmost = room.width - BoardWide * much - overX;
             at.x = Mathf.Clamp(at.x, Mathf.Min(leftmost, overX), overX);
             float lowest = BoardTall * much - room.height + overY;
@@ -5758,10 +5882,7 @@ namespace NodeEditorMod
             return at;
         }
 
-        /// <summary>
-        /// The wheel zooms, about the pointer rather than about the corner: the
-        /// thing under the hand is the thing somebody is looking at, and it should
-        /// stay under the hand.
+        /// <summary>Zooms about the pointer, so what is under the hand stays there.
         /// </summary>
         private void Zooming(float wheel, Vector2 screen)
         {
@@ -5787,20 +5908,20 @@ namespace NodeEditorMod
             }
             content.localScale = new Vector3(now, now, 1f);
             content.anchoredPosition = Bounded(content.anchoredPosition);
-            Strings();
+            // The wires scale with the content they are drawn on. What does not is
+            // the grid's fade and the fence's thickness -- and a loose end.
+            if (pulling)
+            {
+                Strings();
+            }
+            else
+            {
+                Faded();
+            }
         }
 
-        /// <summary>
-        /// Besiege's own undo, which is the one this window's edits are in: every
-        /// change here goes through a mapper control and is filed with the machine
-        /// the same way a slider dragged in the mapper is.
-        /// </summary>
-        /// <summary>
-        /// Puts the whole board in the window: as far out as it takes to see
-        /// everything, and everything in the middle of what is left.
-        ///
-        /// A board panned somewhere else and zoomed a long way in is a board
-        /// somebody has lost, and looking for it by hand is a poor use of a hand.
+        /// <summary>ZOOM FIT: as far out as it takes to see the whole board, and
+        /// centred.
         /// </summary>
         private void Fitted()
         {
@@ -5829,9 +5950,8 @@ namespace NodeEditorMod
             Looking((low + high) * 0.5f);
         }
 
-        /// <summary>
-        /// The box everything drawn sits in, in the board's own units. False when
-        /// there is nothing drawn.
+        /// <summary>The box everything drawn sits in, in board units; false when
+        /// nothing is.
         /// </summary>
         private bool Spread(out Vector2 low, out Vector2 high)
         {
@@ -5861,9 +5981,92 @@ namespace NodeEditorMod
             return any;
         }
 
-        /// <summary>Puts a place on the board in the middle of the window, at
-        /// whatever the board is zoomed to. A node's y counts down from the board's
-        /// own top left, which is why it is the one that changes sign.</summary>
+        /// <summary>Rows added elsewhere -- the table's "+" -- from <paramref
+        /// name="from"/> on that have no place yet are put in the middle of the
+        /// view, one grid cell apart, before anything asks where they are: asked
+        /// first, the layout gives them a column off to the side.</summary>
+        private void Unplaced(int from)
+        {
+            if (served == null)
+            {
+                return;
+            }
+            Wiring layout = Board;
+            int first = Mathf.Max(from, layout.Spots.Count);
+            if (first >= Rows)
+            {
+                return;
+            }
+            for (int row = first; row < Rows; row++)
+            {
+                // One at a time: each is put before the next asks what is taken,
+                // so a run of them staggers rather than stacking.
+                layout.Put(row, Staggered(new Vector2(NodeWidth, NodeHeight)));
+            }
+            Keep();
+        }
+
+        /// <summary>Where a node nobody dropped goes: the middle of the view, and
+        /// one grid cell right and down for each node already standing there, so
+        /// the new one is on top of nothing and its title bar is reachable.
+        /// </summary>
+        private Vector2 Staggered(Vector2 span)
+        {
+            Vector2 at = Snapped(Viewed() - span * 0.5f);
+            Vector2 step = new Vector2(GridStep, GridStep);
+            // Bounded: a board packed on every cell of the diagonal would
+            // otherwise walk to the edge and back for ever.
+            for (int tries = 0; tries < 64 && Taken(at); tries++)
+            {
+                at = Snapped(at + step);
+            }
+            return Fenced(at, span);
+        }
+
+        /// <summary>Whether a node's corner already sits here, to within half a
+        /// grid cell: what <see cref="Staggered"/> steps past.</summary>
+        private bool Taken(Vector2 at)
+        {
+            Wiring layout = Board;
+            float near = GridStep * 0.5f;
+            int rows = Mathf.Min(Rows, layout.Spots.Count);
+            for (int row = 0; row < rows; row++)
+            {
+                Vector2 other = layout.Spots[row];
+                if (Mathf.Abs(other.x - at.x) < near
+                    && Mathf.Abs(other.y - at.y) < near)
+                {
+                    return true;
+                }
+            }
+            for (int i = 0; i < layout.Places.Count; i++)
+            {
+                Place place = layout.Places[i];
+                if (Mathf.Abs(place.X - at.x) < near
+                    && Mathf.Abs(place.Y - at.y) < near)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>The board place in the middle of the window, at the current
+        /// zoom and pan: <see cref="Looking"/> the other way round.</summary>
+        private Vector2 Viewed()
+        {
+            if (content == null || sheet == null || content.localScale.x < 0.0001f)
+            {
+                return Centre;
+            }
+            Rect room = sheet.rect;
+            float much = content.localScale.x;
+            return new Vector2((room.width * 0.5f - content.anchoredPosition.x) / much,
+                               (content.anchoredPosition.y + room.height * 0.5f) / much);
+        }
+
+        /// <summary>Centres a board place in the window at the current zoom; a
+        /// node's y counts down, hence the sign.</summary>
         private void Looking(Vector2 at)
         {
             if (content == null || sheet == null)
@@ -5875,7 +6078,8 @@ namespace NodeEditorMod
             content.anchoredPosition =
                 new Vector2(room.width * 0.5f - at.x * much,
                             at.y * much - room.height * 0.5f);
-            Strings();
+            // A pan: the wires go with the content.
+            Faded();
         }
 
         // ---- picking things out ----------------------------------------------
@@ -5912,40 +6116,35 @@ namespace NodeEditorMod
         /// </summary>
         private readonly List<GameObject> marks = new List<GameObject>();
 
-        /// <summary>The edge that says a node is picked out, and the text box of a
-        /// comment -- both of which follow the selection without the board being
-        /// drawn again.</summary>
+        /// <summary>Each node's picked-out edge, following the selection without a
+        /// redraw.
+        /// </summary>
         private readonly List<GameObject> rims = new List<GameObject>();
 
-        /// <summary>The text box in each comment, so that what is being typed into
-        /// one can be read back before the board is written down. See
-        /// <see cref="Voiced"/>.</summary>
+        /// <summary>Each comment's text box, read back before the layout is written
+        /// (<see cref="Voiced"/>).</summary>
         private readonly List<InputField> notes = new List<InputField>();
 
         /// <summary>The cross that removes a node, one to a node and made the first
         /// time the pointer finds that node.</summary>
         private readonly List<GameObject> bins = new List<GameObject>();
 
-        /// <summary>A comment's resizing corner, made the first time it is pointed
-        /// at like the cross; and the comment whose corner is being pulled, or -1.
-        /// </summary>
+        /// <summary>Each comment's resizing corner, made when first pointed at; and
+        /// the comment being resized, or -1.</summary>
         private readonly List<GameObject> grips = new List<GameObject>();
         private int sizing = -1;
 
-        /// <summary>The place each comment's box was drawn for, by the same number
-        /// as `notes`. The box is matched to its place by this and not by the
-        /// number: a gate added or removed renumbers every end after it before the
-        /// board is drawn again, and matching by number wrote one comment's box
-        /// over the comment that had taken its number -- an empty new comment
-        /// wiping out the one before it.</summary>
+        /// <summary>The place each comment box was drawn for. Boxes are matched to
+        /// places by this, not by number: renumbering once wrote one comment's box
+        /// over another's.
+        /// </summary>
         private readonly List<Place> noted = new List<Place>();
 
         /// <summary>Everything on the two rows EDIT COLORS puts out.</summary>
         private readonly List<RectTransform> shelf = new List<RectTransform>();
 
-        /// <summary>Where the board's top edge was last laid out, so that putting
-        /// the rows out or away can move what is drawn on the board by as much the
-        /// other way.</summary>
+        /// <summary>Where the board's top edge was last laid, so showing or hiding
+        /// the colour rows can move the drawing back by as much.</summary>
         private float boardTop;
 
         private int under = -1;
@@ -5992,9 +6191,7 @@ namespace NodeEditorMod
             }
             if (on && bins[node] != null)
             {
-                // Over everything else on the node. The dashed edge that says the
-                // node is picked out is made when it is picked, which may be long
-                // after the cross was, and the last child is the one drawn on top.
+                // Last sibling, so it is over the picked-out edge made after it.
                 bins[node].transform.SetAsLastSibling();
             }
 
@@ -6026,14 +6223,9 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// The scale that undoes the board's zoom, for what is drawn on a node but
-        /// should be one size on screen however far the board is zoomed: the
-        /// comment's resizing corner. On the node and zoomed with it, a board pulled
-        /// back shrank it to a speck and one zoomed in blew it up over the comment.
-        /// The cross is left to zoom with its node.
-        /// Asked every frame the pointer is on the node, so a zoom under a
-        /// pointer that stays put is followed.
+        /// <summary>The scale undoing the board's zoom, for a comment's corner,
+        /// which should be one size on screen. Asked every frame while hovered, so
+        /// a zoom is followed.
         /// </summary>
         private Vector3 Unzoomed()
         {
@@ -6042,14 +6234,9 @@ namespace NodeEditorMod
             return new Vector3(back, back, 1f);
         }
 
-        /// <summary>
-        /// A click on a node's own body picks it out.
-        ///
-        /// With a modifier held this stands aside and <see cref="Pointing"/> takes
-        /// the click from the pointer instead, so control-clicking a node's key
-        /// cell or its switch picks the node out rather than doing what the control
-        /// under the pointer would have done.
-        /// </summary>
+        /// <summary>A click on a node's body picks it. With a modifier held, <see
+        /// cref="Pointing"/> takes the click instead, so a control-click on a
+        /// node's controls picks the node.</summary>
         private void Chosen(int node)
         {
             if (Picking() || node < 0 || node >= Nodes)
@@ -6058,11 +6245,8 @@ namespace NodeEditorMod
             }
             if (dragging)
             {
-                // uGUI hands out the click at the end of a drag as well, whenever
-                // the object pressed is the object dragged -- which a node always
-                // is. Taking it would clear a selection somebody had just finished
-                // moving. The drag says it is still going: it is ended a moment
-                // after this, in the same release.
+                // uGUI clicks at the end of a drag as well; taking it would clear
+                // the selection just moved.
                 return;
             }
             Pick(node, false);
@@ -6083,32 +6267,23 @@ namespace NodeEditorMod
             return Deaf.Aside();
         }
 
-        /// <summary>
-        /// Shows the faint edge on whatever the pointer is over while control is
-        /// held, and takes the click that follows.
-        ///
-        /// The click is taken here rather than by the node, because every part of a
-        /// node -- its heading, its key cell, its ports, its cross -- has its own
-        /// idea of what a click means, and with control held none of them apply.
-        /// </summary>
+        /// <summary>With a modifier held, shows a faint edge on the hovered node
+        /// and takes the click, since each part of a node has its own idea of
+        /// one.</summary>
         private void Pointing()
         {
             bool armed = Picking();
             for (int i = 0; i < marks.Count; i++)
             {
-                // While a box is being dragged it says what it has caught; the rest
-                // of the time it is whatever the pointer is over with a modifier
-                // down.
+                // A box being dragged shows what it caught; otherwise the hovered
+                // node.
                 bool show = banding ? banded.Contains(i) : (armed && i == under);
                 if (show && marks[i] == null)
                 {
                     marks[i] = Edged(i, 0.5f);
                 }
-                // Null where the node has never been pointed at: the faint edges
-                // are made on demand, and asking one that does not exist whether it
-                // is shown threw here every frame -- which took everything after
-                // this in Update with it, selection and the fading message
-                // included.
+                // Edges are made on demand and may be null: asking one threw every
+                // frame.
                 if (marks[i] != null && marks[i].activeSelf != show)
                 {
                     marks[i].SetActive(show);
@@ -6121,9 +6296,8 @@ namespace NodeEditorMod
                 binned = under;
             }
             Binned(under, true);
-            // Taken when the button comes up rather than when it goes down: with
-            // control held a drag is an axis-locked move, and a press that picked
-            // the node out would change the selection every time one began.
+            // On release, not press: with control held, a press may begin an
+            // axis-locked drag.
             if (armed && under >= 0 && under < Nodes
                 && Input.GetMouseButtonDown(0))
             {
@@ -6149,11 +6323,8 @@ namespace NodeEditorMod
 
         // ---- moving what is picked out ---------------------------------------
 
-        /// <summary>What a drag is moving, where each of them started, and how far
-        /// the pointer has gone since it began. Held so that a drag with control
-        /// down can be measured from where it started rather than from the step
-        /// before it -- an axis lock worked out one step at a time drifts.
-        /// </summary>
+        /// <summary>What a drag moves, where each started, and how far the pointer
+        /// has gone: an axis lock measured step by step drifts.</summary>
         private readonly List<int> moving = new List<int>();
         private readonly List<Vector2> began = new List<Vector2>();
         private Vector2 travelled;
@@ -6167,13 +6338,8 @@ namespace NodeEditorMod
         private const float Verge = 44f;
         private const float Chase = 520f;
 
-        /// <summary>
-        /// The board panned under a node being dragged past its edge.
-        ///
-        /// The nodes go with it: the pointer is standing still and the view is
-        /// moving under it, so a node that did not move would slide out from under
-        /// the hand holding it.
-        /// </summary>
+        /// <summary>Pans the board under a node dragged past its edge, moving the
+        /// node with it so it stays under the hand.</summary>
         private void Verging()
         {
             if (!dragging || sheet == null || content == null
@@ -6218,10 +6384,8 @@ namespace NodeEditorMod
             float much = content.localScale.x;
             Vector2 gone = much > 0.001f ? push / much : push;
             Hauling(new Vector2(-gone.x, gone.y));
-            // And the drag is told the ground moved. It measures the pointer inside
-            // the board, so a board that moves reads as a pointer that moved -- and
-            // the node was carried away twice, once by this and once by the drag
-            // agreeing with it.
+            // The drag is told the ground moved, or it would carry the node twice
+            // as far.
             if (hauler != null)
             {
                 hauler.Shifted(new Vector2(-gone.x, -gone.y));
@@ -6239,9 +6403,7 @@ namespace NodeEditorMod
             moving.Clear();
             began.Clear();
             travelled = Vector2.zero;
-            // Dragging one of a picked-out set moves the set: a selection is made
-            // to be moved, and a subcircuit dragged a node at a time stops being
-            // the shape somebody picked out.
+            // Dragging one of a picked-out set moves the set.
             if (Picked(node) && picked.Count > 1)
             {
                 for (int i = 0; i < picked.Count; i++)
@@ -6259,12 +6421,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// One frame of that drag. With control held the whole thing runs along
-        /// whichever axis it has gone furthest down, from where it started -- so
-        /// the lock can be taken up and let go mid-drag and the nodes end up level
-        /// with where they were either way.
-        /// </summary>
+        /// <summary>One frame of a node drag; with control held it locks to
+        /// whichever axis it has gone furthest along since the start.</summary>
         private void Hauling(Vector2 step)
         {
             travelled += step;
@@ -6279,19 +6437,12 @@ namespace NodeEditorMod
             {
                 Put(moving[i], began[i] + gone);
             }
-            Strings();
+            Strings(moving);
         }
 
-        /// <summary>
-        /// Nodes whose cell has been switched to take a name but has nothing typed
-        /// into it yet.
-        ///
-        /// Nothing bound is nothing bound, so there is nowhere in the table or the
-        /// layout for "it is going to be a name" to live -- and the board is drawn
-        /// again the moment anything changes, which is what put the cell straight
-        /// back to a key and made the switch look dead. Held here, where a redraw
-        /// does not reach it.
-        /// </summary>
+        /// <summary>Nodes whose cell was switched to a name with nothing typed yet:
+        /// stored nowhere else, and a redraw would put the cell back to a
+        /// key.</summary>
         private readonly List<int> naming = new List<int>();
 
         private void Wants(int node, bool name)
@@ -6309,10 +6460,16 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>What a node's cell shows: the name it is bound to, or an empty
-        /// name where somebody has asked for one.</summary>
+        /// <summary>What a node's cell shows: the name it is bound to, an empty name
+        /// where somebody has asked for one, or nothing for a blank output, whose
+        /// name is a hidden one (see <see cref="Rebind"/>).</summary>
         private string Shown(int node, string variable, KeyCode key)
         {
+            Place place = Placed(node);
+            if (place != null && place.Kind == Place.Output && Mine(variable))
+            {
+                return "";
+            }
             return variable == null && key == KeyCode.None && naming.Contains(node)
                 ? "" : variable;
         }
@@ -6340,26 +6497,32 @@ namespace NodeEditorMod
             Rims();
         }
 
-        /// <summary>
-        /// A message over the control that would not take what was typed into it.
-        ///
-        /// Its own small bubble rather than a tooltip: a tooltip belongs to
-        /// whatever the pointer is on and goes when the pointer does, and this has
-        /// to stay long enough to be read. It fades out on its own.
-        /// </summary>
+        /// <summary>A message over whatever refused an action: its own bubble
+        /// rather than a tooltip, so it stays long enough to read, and then
+        /// fades.</summary>
         private GameObject warning;
         private Text warningLabel;
         private CanvasGroup warningFade;
         private float warnAt;
 
-        /// <summary>
-        /// The message put where the hand that was refused is: over one of a node's
-        /// ports, or over the whole node where the port is -1.
-        ///
-        /// Over the thing refused rather than in a corner of the window, because a
-        /// message somewhere else is a message about nothing in particular.
-        /// </summary>
+        /// <summary>What a gate says when a key and a variable would meet on its
+        /// answer: a Besiege key presses keycodes or names, never both.</summary>
+        private const string KeyAndName =
+            "Can't mix key and variable.\nUse an OR gate.";
+
+        /// <summary>How long news worth reading twice stays up: an import's count,
+        /// or a refusal that says what to do instead.</summary>
+        private const float NewsSeconds = 6f;
+
+        /// <summary>The message over the refused node's port, or over the whole
+        /// node when the port is -1.</summary>
         private void Told(int node, int port, string words)
+        {
+            Told(node, port, words, 0f);
+        }
+
+        /// <param name="lasting">Seconds on screen, or 0 for the usual.</param>
+        private void Told(int node, int port, string words, float lasting)
         {
             RectTransform over = port >= 0 ? Held(node * 3 + port) : null;
             if (over == null && node >= 0 && node < parts.Count
@@ -6367,7 +6530,7 @@ namespace NodeEditorMod
             {
                 over = parts[node].transform as RectTransform;
             }
-            Warned(over != null ? over : sheet, words);
+            Warned(over != null ? over : sheet, words, Hot, lasting);
         }
 
         private void Warned(RectTransform over, string words)
@@ -6405,9 +6568,8 @@ namespace NodeEditorMod
             }
             warningLabel.text = words.ToUpperInvariant();
             warningLabel.color = ink;
-            // As many lines as it was written with: a refusal that needs a clause
-            // to be understood -- what cannot be done, and what to do instead --
-            // reads as two short lines and not as one long one.
+            // As many lines as it was written with: a refusal and its fix read as
+            // two lines.
             int lines = 1;
             for (int i = 0; i < words.Length; i++)
             {
@@ -6419,10 +6581,8 @@ namespace NodeEditorMod
             warnWide = Mathf.Max(90f, warningLabel.preferredWidth + 18f);
             warnTall = 22f + (lines - 1) * 15f;
             warnOver = over;
-            // News about the board as a whole -- an import, a full block -- has no
-            // control to sit over, and put over the middle of the board it covered
-            // the nodes it was about. It goes in the board's top-left corner and
-            // stays twice as long, since nothing drew the eye to it.
+            // News about the whole board goes in its top-left corner rather than
+            // over its nodes, and stays twice as long.
             cornered = over == sheet;
             warning.SetActive(true);
             if (!Placing())
@@ -6441,11 +6601,8 @@ namespace NodeEditorMod
         private float warnTall;
         private bool cornered;
 
-        /// <summary>
-        /// Puts the message where it belongs: just above the control that refused
-        /// it, or tucked into the board's top-left corner. Asked again every frame
-        /// for the corner, which moves when the window is dragged.
-        /// </summary>
+        /// <summary>Places the message above its control or in the board's corner,
+        /// which is followed every frame as the window moves.</summary>
         private bool Placing()
         {
             if (canvas == null || warnOver == null)
@@ -6499,14 +6656,9 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// Holds the game off for the rest of this frame.
-        ///
-        /// `BlockSelectionTool.LateUpdate` returns without looking at the keyboard
-        /// while `StatMaster.inMenu` is up, and a `LateUpdate` always runs after
-        /// every `Update` -- so raising it here, in the frame the key went down, is
-        /// in time for the one place the game would have deleted with it.
-        /// </summary>
+        /// <summary>Holds the game off for the rest of this frame:
+        /// `BlockSelectionTool` skips the keyboard in its LateUpdate while `inMenu`
+        /// is up.</summary>
         private void Muffle()
         {
             muffled = ZoomGuard.Grip(true, muffled);
@@ -6540,13 +6692,8 @@ namespace NodeEditorMod
             return on != null && on.GetComponent<InputField>() != null;
         }
 
-        /// <summary>
-        /// Removes everything picked out, as one edit.
-        ///
-        /// Highest number first: a row taken out of the table shuffles the ones
-        /// after it up, and an end taken out of the layout does the same -- so
-        /// working down leaves every number still to be removed where it was.
-        /// </summary>
+        /// <summary>Removes everything picked out, as one edit, highest number
+        /// first so the removals do not renumber what is left.</summary>
         private void Erase()
         {
             List<int> going = new List<int>(picked);
@@ -6564,9 +6711,7 @@ namespace NodeEditorMod
             Rebuilt();
         }
 
-        /// <summary>A click on the empty board puts the selection down: what was
-        /// picked out is what the next drag or copy acts on, and clicking away from
-        /// all of it is how that is said everywhere else.</summary>
+        /// <summary>A click on empty board drops the selection.</summary>
         private void Nobody()
         {
             if (picked.Count == 0)
@@ -6577,14 +6722,8 @@ namespace NodeEditorMod
             Rims();
         }
 
-        /// <summary>
-        /// Shows the picked-out edges the selection says, and takes a picked
-        /// comment's text box out of the way.
-        ///
-        /// This is the whole of what changes when a node is picked out, and it is
-        /// why picking one is instant: the board used to be torn down and built
-        /// again for it.
-        /// </summary>
+        /// <summary>Shows the picked-out edges the selection says: all a pick
+        /// changes, which is why picking is instant.</summary>
         private void Rims()
         {
             for (int i = 0; i < rims.Count; i++)
@@ -6601,11 +6740,8 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// A rectangle dragged over the board with shift held: everything inside it
-        /// is picked out. Drawn while the drag is going on, and settled when it
-        /// ends.
-        /// </summary>
+        /// <summary>A box dragged over the board picks out what is inside: drawn
+        /// during the drag, settled at its end.</summary>
         private void Boxing(Vector2 from, Vector2 to, bool done)
         {
             if (band == null)
@@ -6620,9 +6756,7 @@ namespace NodeEditorMod
             Dashes(band, box.width, box.height);
             band.SetActive(true);
 
-            // What the box is over as it is dragged, which is what wears the faint
-            // edge until it is let go: a rectangle over a board says nothing about
-            // what it has caught unless the things it has caught say so.
+            // What the box is over wears the faint edge until it is let go.
             banded.Clear();
             for (int node = 0; node < Nodes && node < parts.Count; node++)
             {
@@ -6630,9 +6764,8 @@ namespace NodeEditorMod
                 {
                     continue;
                 }
-                // The shared corner buffer: this runs for every node on every
-                // frame of the drag, and a four-element array a node a frame is
-                // rubbish for the collector to pick up afterwards.
+                // The shared corner buffer: this runs for every node on every frame
+                // of the drag.
                 (parts[node].transform as RectTransform).GetWorldCorners(edges);
                 Vector2 low = sheet.InverseTransformPoint(edges[0]);
                 Vector2 high = sheet.InverseTransformPoint(edges[2]);
@@ -6649,10 +6782,8 @@ namespace NodeEditorMod
             }
             band.SetActive(false);
 
-            // A box on its own starts again with what it caught. With shift it adds
-            // to what is picked out; with control it works on it -- everything in
-            // the box that was out comes in, and everything in it that was in goes
-            // out.
+            // A box alone replaces the selection; with shift it adds; with control
+            // it toggles.
             bool toggling = Ctrl();
             bool adding = Picking() && !toggling;
             if (!toggling && !adding)
@@ -6712,13 +6843,8 @@ namespace NodeEditorMod
             return go;
         }
 
-        /// <summary>
-        /// Sets how many dashes each edge of one of those carries.
-        ///
-        /// One dash every <see cref="Glyphs.DashStep"/> pixels, counted from the
-        /// box's own size, so the dashes stay the same length whatever the box is
-        /// and a box dragged wider gets more of them rather than longer ones.
-        /// </summary>
+        /// <summary>Sets each dashed edge's dash count from the box's size, one per
+        /// <see cref="Glyphs.DashStep"/>, so dashes keep their length.</summary>
         private static void Dashes(GameObject edges, float wide, float high)
         {
             if (edges == null)
@@ -6742,9 +6868,8 @@ namespace NodeEditorMod
 
         // ---- copying ----------------------------------------------------------
 
-        /// <summary>
-        /// Copies what is picked out. The copies follow the pointer until they are
-        /// put down, which is what says they are waiting to be.
+        /// <summary>Copies what is picked out; the copies follow the pointer until
+        /// put down.
         /// </summary>
         private void Copy()
         {
@@ -6780,15 +6905,13 @@ namespace NodeEditorMod
                     made.Loop = row.Loop.IsActive;
                     made.Wire = Bindings.IsVariable(row.Emulate)
                         ? Bindings.Variable(row.Emulate) : null;
-                    made.Answers = made.Wire == null ? Bindings.Code(row.Emulate)
-                                                     : KeyCode.None;
+                    made.Answers = Bindings.Codes(row.Emulate).ToArray();
                     for (int port = 0; port < 2; port++)
                     {
                         MKey input = port == 0 ? row.InputA : row.InputB;
                         made.Inputs[port] = Bindings.IsVariable(input)
                             ? Bindings.Variable(input) : null;
-                        made.Keys[port] = made.Inputs[port] == null
-                            ? Bindings.Code(input) : KeyCode.None;
+                        made.Keys[port] = Bindings.Codes(input).ToArray();
                     }
                 }
                 else
@@ -6880,14 +7003,9 @@ namespace NodeEditorMod
             ghosts.Clear();
         }
 
-        /// <summary>
-        /// Puts the copies down where the pointer is.
-        ///
-        /// Wires between copied gates are reproduced under fresh names: two copied
-        /// gates keep their connection to each other, and a wire that came from
-        /// outside the copy keeps the name it had, so it still reads whatever it
-        /// read before.
-        /// </summary>
+        /// <summary>Puts the copies down at the pointer. Wires between copied gates
+        /// get fresh names; a wire from outside keeps its name and still reads what
+        /// it read.</summary>
         private void Paste()
         {
             if (served == null || clipboard.Count == 0 || content == null)
@@ -6904,11 +7022,8 @@ namespace NodeEditorMod
 
             List<MapperType> touched = new List<MapperType>();
 
-            // What each copied binding became. A wire inside the copy is a name at
-            // both ends of it, so reproducing the copy is a matter of reproducing
-            // the names -- and any name that is already answered to on the board is
-            // given a new one, or the copy would be wired into the circuit it was
-            // taken from rather than to itself.
+            // What each copied name became: a name already answered on the board
+            // gets a new one, or the copy would be wired into the original.
             List<string> was = new List<string>();
             List<string> now = new List<string>();
             List<KeyCode> wasKeys = new List<KeyCode>();
@@ -6947,10 +7062,8 @@ namespace NodeEditorMod
                 if (copy.Kind != Place.Note
                     && Elsewhere(-1, copy.Variable, copy.Key))
                 {
-                    // Something on the board already answers to this. Pasted as it
-                    // was, the copy and the original would be one end drawn twice
-                    // and every wire on it would be shared; given a name of its
-                    // own, the copy is a circuit of its own.
+                    // Something already answers to this: a new name makes the copy
+                    // an end of its own.
                     string name = Minted();
                     if (copy.Variable != null)
                     {
@@ -7010,11 +7123,8 @@ namespace NodeEditorMod
                 touched.Add(fresh.Hold);
                 touched.Add(fresh.Stop);
                 touched.Add(fresh.Loop);
-                // A name of its own, and one nothing else on the block is using:
-                // two rows answering to the same name are one node as far as the
-                // board is concerned, and the pasted one would never be drawn.
-                // Beside it, whatever a copied output end it fed is called now, so
-                // that wire is copied along with the two ends of it.
+                // A fresh name for the pasted gate, and whatever a copied output it
+                // fed is called now, so that wire comes along.
                 string name = Minted();
                 string said = name;
                 if (copy.Wire != null)
@@ -7038,9 +7148,16 @@ namespace NodeEditorMod
                         now.Add(name);
                     }
                 }
-                else if (copy.Answers != KeyCode.None)
+                for (int k = 0; k < copy.Answers.Length; k++)
                 {
-                    wasKeys.Add(copy.Answers);
+                    // Each key it pressed: whatever a copied end on that key is
+                    // called now is pressed beside the new name, as for a name.
+                    int ended = wasKeys.IndexOf(copy.Answers[k]);
+                    if (ended >= 0)
+                    {
+                        said += ";" + nowKeys[ended];
+                    }
+                    wasKeys.Add(copy.Answers[k]);
                     nowKeys.Add(name);
                 }
                 Bindings.BindVariable(fresh.Emulate, said);
@@ -7060,11 +7177,10 @@ namespace NodeEditorMod
                 for (int port = 0; port < 2; port++)
                 {
                     string wanted = clipboard[i].Inputs[port];
-                    KeyCode key = clipboard[i].Keys[port];
+                    KeyCode[] keys = clipboard[i].Keys[port];
                     MKey input = port == 0 ? fresh.InputA : fresh.InputB;
                     // Empty to start with: only the wires whose other end came
-                    // along go back on, so a pasted gate arrives reading the copy
-                    // rather than the circuit it was taken from.
+                    // along go back on.
                     Bindings.Bind(input, KeyCode.None);
                     if (wanted != null)
                     {
@@ -7080,16 +7196,22 @@ namespace NodeEditorMod
                             }
                         }
                     }
-                    else if (key != KeyCode.None)
+                    else
                     {
-                        int onKey = wasKeys.IndexOf(key);
-                        if (onKey >= 0)
+                        for (int k = 0; k < keys.Length; k++)
                         {
-                            Bindings.Added(input, nowKeys[onKey]);
-                        }
-                        else if (keptKeys.Contains(key))
-                        {
-                            Bindings.Added(input, key);
+                            // The last to take a key is the gate that pressed it,
+                            // pasted after the ends: an output end on the same key
+                            // feeds nothing.
+                            int onKey = wasKeys.LastIndexOf(keys[k]);
+                            if (onKey >= 0)
+                            {
+                                Bindings.Added(input, nowKeys[onKey]);
+                            }
+                            else if (keptKeys.Contains(keys[k]))
+                            {
+                                Bindings.Added(input, keys[k]);
+                            }
                         }
                     }
                     touched.Add(input);
@@ -7114,31 +7236,21 @@ namespace NodeEditorMod
 
 
 
-        /// <summary>The switches in the title bar.</summary>
-        /// <summary>
-        /// Takes every one of Besiege's own logic gates off the machine and into
-        /// this block.
-        ///
-        /// The board is laid out again afterwards: a dozen gates arriving have no
-        /// places of their own, and a column of nodes stacked in the corner is not
-        /// the circuit somebody just imported.
-        /// </summary>
+        /// <summary>IMPORT: takes Besiege's logic gates and timers off the machine
+        /// into this block, then lays the board out.</summary>
         private void Import()
         {
             if (served == null)
             {
                 return;
             }
-            // Blocks are taken off the machine through the game's own selection
-            // tool, and the game answers a deleted block by closing the block
-            // mapper -- which would take this window with it, on the one gesture
-            // whose whole point is to fill it.
+            // The game closes the block mapper for the removal, which would take
+            // this window.
             lingering = true;
             try
             {
-                // The block as it stands, so that everything this does -- the rows,
-                // the ends made for what they read, where all of it is drawn, and
-                // the blocks leaving the machine -- is one press of undo.
+                // The whole block, so the rows, the ends, the layout and the
+                // removed blocks undo as one step.
                 BlockInfo before = LogicTable.Marked(served);
                 int left;
                 List<UndoAction> undo;
@@ -7166,31 +7278,19 @@ namespace NodeEditorMod
                 Ours();
                 Warned(sheet, took + (took == 1 ? " block imported" : " blocks imported")
                        + (left > 0 ? "\n" + left + " left on the machine" : ""),
-                       UIF.Live, 6f);       // longer: a count worth reading twice
+                       UIF.Live, NewsSeconds);
             }
             catch (Exception e)
             {
                 Warned(sheet, e.Message);
                 Log.Warn("import failed: " + e);
             }
-            finally
-            {
-                // And the menu, if the removal took it: the board stayed, and the
-                // table under it should be there when the board is looked away
-                // from.
-                Remenu();
-            }
         }
 
-        /// <summary>
-        /// The rows out onto the machine as Besiege's own logic gates: IMPORT the
-        /// other way round, and the conversion the table ran from under the mapper
-        /// before it came up here.
-        ///
-        /// The gates arrive as the selection under the move tool, and a new
-        /// selection closes the block's menu, so the board is held up through that
-        /// as an import holds it (see `lingering`). The menu is not put back: that
-        /// would take the new gates out of the hand they were just put in.
+        /// <summary>EXPORT: the rows out onto the machine as Besiege's own blocks,
+        /// arriving selected under the move tool. The board closes, pinned or not,
+        /// so they are in view; held up (`lingering`) while the selection closes
+        /// the menu, so a failure can still be said.
         /// </summary>
         private void Export()
         {
@@ -7201,9 +7301,14 @@ namespace NodeEditorMod
             lingering = true;
             try
             {
-                int made = Conversion.Into(served);
-                Warned(sheet, made + (made == 1 ? " gate exported" : " gates exported"),
-                       UIF.Live, 6f);
+                if (Conversion.Into(served) > 0)
+                {
+                    Close();
+                }
+                else
+                {
+                    Warned(sheet, "nothing to export");
+                }
             }
             catch (Exception e)
             {
@@ -7238,12 +7343,9 @@ namespace NodeEditorMod
         private const float UniWide = 96f;
         private const float ResetWide = 120f;
 
-        /// <summary>
-        /// A way-of-colouring selector for the unicolour row, built like the wire
-        /// style's: a word saying which, a click for the next, a right-click for
-        /// the list. For every board that is open, since the colours are the
-        /// player's and not the block's.
-        /// </summary>
+        /// <summary>A way-of-colouring selector: a word, a click for the next, a
+        /// right-click for the list. Every open board follows, as the colours are
+        /// the player's.</summary>
         private Text Selector(out RectTransform rect, bool nodes)
         {
             rect = null;
@@ -7256,7 +7358,7 @@ namespace NodeEditorMod
             UIF.NoSwell(go);
             Text label = Caption(go, Hues.Named(nodes ? Hues.NodeMode : Hues.WireMode),
                                  TextAnchor.MiddleCenter);
-            Grow(go, label.transform);
+            UIF.Grow(go, label.transform);
             Tip.On(go, (nodes ? "Nodes" : "Wires")
                        + ": click for the next, right-click for the list");
             bool mine = nodes;
@@ -7306,11 +7408,9 @@ namespace NodeEditorMod
                 Shown(shelf[i], on);
             }
             Painted();
-            // The board's top edge comes down by the rows' height, or goes back up,
-            // and what is drawn on it hangs from that edge. Moved back by as much,
-            // the nodes stay where they were on screen: the rows cover the top of
-            // the board rather than pushing everything on it down. And a node let
-            // go over the rows is let go outside the board, which places nothing.
+            // The board's top edge moves with the colour rows; the drawing moves
+            // back by as much, so nodes stay put on screen and the rows cover the
+            // board's top.
             float was = boardTop;
             Arrange();
             if (content != null && Mathf.Abs(boardTop - was) > 0.01f)
@@ -7383,7 +7483,7 @@ namespace NodeEditorMod
             {
                 resetRect = reset.GetComponent<RectTransform>();
                 UIF.NoSwell(reset);
-                Grow(reset, Caption(reset, "RESET COLORS",
+                UIF.Grow(reset, Caption(reset, "RESET COLORS",
                                     TextAnchor.MiddleCenter).transform);
                 Tip.On(reset, "Every color back to how it started");
                 Button click = reset.GetComponent<Button>();
@@ -7424,12 +7524,9 @@ namespace NodeEditorMod
             return rect;
         }
 
-        /// <summary>
-        /// A colour changed, or the way of colouring did: every open board takes
-        /// it up. The colour being dragged is left alone on the board it is being
-        /// dragged on -- written back to itself, a band's hue read out of the
-        /// colour it just made wanders under the knob.
-        /// </summary>
+        /// <summary>A colour or a way of colouring changed: every open board takes
+        /// it up, except the swatch being dragged, whose hue would
+        /// wander.</summary>
         private static void Recoloured(Swatch source)
         {
             for (int i = 0; i < all.Count; i++)
@@ -7487,10 +7584,9 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>The colour a palette button is drawn in: the colour a node of
-        /// its kind is drawn in, the way nodes are being coloured -- the unicolour,
-        /// its kind's colour, or one picked from the row for it. The row of colours
-        /// over the buttons shows the kind colours themselves.</summary>
+        /// <summary>A palette button's colour: the colour a node of its kind is
+        /// drawn in.
+        /// </summary>
         private Color Shelf(int slot)
         {
             return Hues.NodeOf(slot, Hues.Mix(5, slot));
@@ -7549,34 +7645,28 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// The number a node's random colour is chosen by, as steady as the node
-        /// is: a gate by its row, an end by the key or name it stands for -- which
-        /// is what it is, wherever it sits in the list -- and a comment by its
-        /// place in the list, having nothing else.
-        /// </summary>
+        /// <summary>A node's random-colour seed: a gate's row, an end's binding, a
+        /// comment's place in the list.</summary>
         private int Seed(int node)
         {
             if (node < Rows)
             {
-                return Hues.Mix(1, node);
+                // Kept in the layout beside the row's place, so a removal above it
+                // does not change its colour.
+                return Board.Seed(node);
             }
             Place place = Placed(node);
             if (place == null || place.Kind == Place.Note)
             {
-                return Hues.Mix(2, node);
+                // Its place among the places, which a new gate does not move.
+                return Hues.Mix(2, node - Rows);
             }
             string name = place.Variable != null ? place.Variable : place.Key.ToString();
             return Hues.Mix(3 + place.Kind, Hues.Hashed(name));
         }
 
-        /// <summary>
-        /// The furthest the wheel zooms out: far enough to see the whole board in
-        /// the window, or the usual limit where that is further still.
-        ///
-        /// A fixed limit stopped the view short of the board's own edges once the
-        /// board had grown, so the only way to see all of it was a pan at a time.
-        /// </summary>
+        /// <summary>The furthest the wheel zooms out: far enough to see the whole
+        /// board, or the usual limit if that is further.</summary>
         private float Least()
         {
             if (sheet == null)
@@ -7588,12 +7678,8 @@ namespace NodeEditorMod
                                                   room.height / BoardTall));
         }
 
-        /// <summary>
-        /// The grid put away as the view pulls back past where it can be drawn. A
-        /// square of thirty-two a tenth the size is three pixels, and the grid at
-        /// that is a grey shimmer over the whole board rather than lines; the
-        /// fence still says where the board ends.
-        /// </summary>
+        /// <summary>Fades the grid out as the view pulls back to where its lines
+        /// would shimmer; the fence stays.</summary>
         private void Faded()
         {
             if (content == null)
@@ -7605,7 +7691,7 @@ namespace NodeEditorMod
             {
                 return;
             }
-            float alpha = 0.5f * Mathf.InverseLerp(0.12f, 0.3f, content.localScale.x);
+            float alpha = GridInk * Mathf.InverseLerp(0.12f, 0.3f, content.localScale.x);
             if (Mathf.Abs(gridLines.color.a - alpha) > 0.01f)
             {
                 gridLines.color = new Color(1f, 1f, 1f, alpha);
@@ -7616,13 +7702,13 @@ namespace NodeEditorMod
         /// whatever the zoom.</summary>
         private const float RailWide = 1.5f;
 
-        /// <summary>
-        /// The edge of the board kept the same thickness on screen at any zoom.
-        ///
-        /// It is drawn on the content, which the zoom scales, so a line one and a
-        /// half units thick was a tenth of a pixel with the whole board in view --
-        /// gone, just when the edge of the board is the thing worth seeing. Made
-        /// thicker on the board as the board is drawn smaller.
+        /// <summary>The grid's strength over its faint texture, at zooms that show
+        /// it.
+        /// </summary>
+        private const float GridInk = 0.85f;
+
+        /// <summary>Keeps the board's edge line one thickness on screen at any
+        /// zoom.
         /// </summary>
         private void Railed(float much)
         {
@@ -7645,9 +7731,9 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>A selector's list, where the right-click was -- the same list a
-        /// right-click on the board opens: every choice, to go straight to one
-        /// rather than stepping through.</summary>
+        /// <summary>A selector's whole list at the right-click, to go straight to a
+        /// choice.
+        /// </summary>
         private static void Listed(Vector2 screen, List<string> names,
                                    Action<int> picked)
         {
@@ -7687,13 +7773,8 @@ namespace NodeEditorMod
             return which == Straight ? "LINE" : (which == Curved ? "CURVE" : "SQUARE");
         }
 
-        /// <summary>
-        /// The grid switch: on, every node sits on an intersection.
-        ///
-        /// Turning it on takes what is already drawn with it -- the switch is a
-        /// promise about where nodes are, not only about where the next one lands
-        /// -- and TIDY lays the board out and then falls on the grid like anything
-        /// else, because it moves nodes the same way a hand does.
+        /// <summary>The grid switch. Turned on, it snaps the nodes already drawn
+        /// too.
         /// </summary>
         private void Snapping(bool on)
         {
@@ -7714,9 +7795,8 @@ namespace NodeEditorMod
             Redraw();
         }
 
-        /// <summary>A place taken to the nearest intersection, while the grid is
-        /// on. A node's corner rather than its middle: the grid is drawn from the
-        /// board's own corner, so that is where the lines cross.</summary>
+        /// <summary>A place snapped to the nearest intersection while the grid is
+        /// on, by the node's corner, where the lines cross.</summary>
         private static Vector2 Snapped(Vector2 at)
         {
             if (!grid)
@@ -7752,29 +7832,14 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>
-        /// Lays the board out: inputs down the left, outputs down the right, and
-        /// the gates in columns by how far they are from an input.
-        ///
-        /// The depth is the longest path back to something that feeds nothing,
-        /// which is what puts a gate to the right of everything feeding it. A loop
-        /// has no such path, so it is counted once and left where the walk found
-        /// it.
-        /// </summary>
+        /// <summary>TIDY, as an edit.</summary>
         private void Tidy() { Tidy(false); }
 
         /// <summary>
-        /// Lays the board out: inputs down the left, outputs down the right, gates
-        /// in columns by how far they stand from an input, each column ordered to
-        /// keep the wires from crossing and centred on the same line as the rest.
-        ///
-        /// It moves things and removes nothing. An end with no wires on it is one
-        /// somebody is about to wire, not litter -- the red cross is how a node
-        /// goes.
-        ///
-        /// <paramref name="quiet"/> is the board laying itself out the first time
-        /// it is opened, which is not an edit anybody made and does not belong in
-        /// the undo.
+        /// Lays the board out: inputs left, outputs right, gates in columns by
+        /// distance from an input, ordered to cut crossings. It moves nodes and
+        /// never removes one.
+        /// <paramref name="quiet"/> is a first opening's layout, kept off the undo.
         /// </summary>
         private void Tidy(bool quiet)
         {
@@ -7782,9 +7847,8 @@ namespace NodeEditorMod
             {
                 return;
             }
-            // The graph is asked about a few thousand times below -- every node
-            // against every other, four times over -- and it does not change while
-            // this runs. See `named`.
+            // The graph is asked thousands of times and does not change: indexed
+            // (`named`).
             Sourced();
             try
             {
@@ -7802,11 +7866,7 @@ namespace NodeEditorMod
             int[] depth = new int[many];
             for (int pass = 0; pass < many; pass++)
             {
-                // Settled by repetition rather than by a walk: the graph is read
-                // out of the rows every time it is asked about, and a board of a
-                // few dozen nodes settles in a few dozen passes. A loop stops
-                // moving once every node in it has been counted once, which is
-                // what the cap is for.
+                // Settled by repetition, capped so a loop stops.
                 bool moved = false;
                 for (int node = 0; node < many; node++)
                 {
@@ -7855,11 +7915,8 @@ namespace NodeEditorMod
                     depth[node] = widest + 1;
                 }
             }
-            // Which column each node is in, and then what order they stand in
-            // within it. The order is what decides how many wires cross: a node
-            // put level with the middle of whatever feeds it has its wire running
-            // straight across instead of over its neighbours. Settled by repeating
-            // the average a few times, which is the usual way of it.
+            // Columns, then an order within each: a node level with the average of
+            // its feeders gets straighter wires. A few passes of averaging.
             List<List<int>> columns = new List<List<int>>();
             for (int column = 0; column <= widest + 1; column++)
             {
@@ -7870,9 +7927,7 @@ namespace NodeEditorMod
                 Place noted = Placed(node);
                 if (noted != null && noted.Kind == Place.Note)
                 {
-                    // A comment is not in the circuit and belongs where it was put:
-                    // laying it out with the gates would move it away from whatever
-                    // it is a comment on.
+                    // A comment stays where it was put, beside what it comments on.
                     continue;
                 }
                 columns[depth[node]].Add(node);
@@ -7945,16 +8000,13 @@ namespace NodeEditorMod
             // Every column on one centreline, so a column of three and a column of
             // five read as one board rather than two stacks both hung from the top.
             float pitch = NodeHeight + 26f;
-            // On the grid, a whole number of squares: the nodes are cells wide and
-            // tall, so a pitch that is not costs every row a shove sideways when
-            // it lands, and a column that was evenly spaced arrives ragged.
+            // A whole number of squares on the grid, or the rows land ragged.
             if (grid)
             {
                 pitch = Mathf.Ceil(pitch / GridStep) * GridStep;
             }
-            // Middled on the board rather than tucked into its corner: see
-            // `Centre`. The columns are measured first so the lot can be put down
-            // with its own middle on the board's.
+            // Centred on the board's middle (`Centre`), so the columns are measured
+            // first.
             float centre = Centre.y;
             float across = 0f;
             for (int column = 0; column < columns.Count; column++)
@@ -7971,12 +8023,8 @@ namespace NodeEditorMod
                 across += span + (column > 0
                     ? (grid ? Mathf.Ceil(90f / GridStep) * GridStep : 90f) : 0f);
             }
-            // The gap between columns, not the distance between their left edges:
-            // a column of gates is narrower than a column of ends, so one pitch for
-            // all of them leaves more clear board after the gates than after the
-            // ends and the columns read as unevenly spaced. Wide enough that a wire
-            // which has to pass a node passes between the columns rather than
-            // behind it.
+            // A gap between columns rather than a pitch, so narrow gate columns
+            // space evenly with wide end columns, and wires pass between them.
             float gap = grid ? Mathf.Ceil(90f / GridStep) * GridStep : 90f;
             float left = Centre.x - across * 0.5f;
             if (grid)
@@ -8001,9 +8049,8 @@ namespace NodeEditorMod
                 }
                 for (int i = 0; i < columns[column].Count; i++)
                 {
-                    // Middled in the column, for the column that holds both sorts
-                    // -- and against its left edge on the grid, where half a node's
-                    // difference is half a square.
+                    // Centred in a mixed column; left-aligned on the grid, where
+                    // half a node is half a square.
                     float mine = Wide(columns[column][i]);
                     float aside = grid ? 0f : (span - mine) * 0.5f;
                     Move(columns[column][i],
@@ -8032,39 +8079,10 @@ namespace NodeEditorMod
             GameObject go = new GameObject("Node");
             go.transform.SetParent(host, false);
             go.AddComponent<RectTransform>();
-            // Nine-sliced, so a node twice the width of another has corners of the
-            // same radius rather than twice the curve. A comment grows with what is
-            // written in it, which is where a stretched corner shows.
+            // Nine-sliced, so the corners keep their radius at any width.
             Image image = go.AddComponent<Image>();
             image.sprite = Glyphs.Plated;
             image.type = Image.Type.Sliced;
-            image.color = colour;
-            UIF.Fit(go.GetComponent<RectTransform>(), x, y, w, h);
-            return go;
-        }
-
-        /// <summary>Grows what it is given while the pointer is on the control,
-        /// the way the tables' buttons do.</summary>
-        private static void Grow(GameObject control, Transform grows)
-        {
-            UIF.Grow(control, grows);
-        }
-
-        /// <summary>The same, by a given amount. The two crosses want more of it:
-        /// a letter that small growing by a tenth is a change nobody sees, and a
-        /// button that does not answer the pointer reads as a dead one.</summary>
-        private static void Grow(GameObject control, Transform grows, float by)
-        {
-            UIF.Grow(control, grows, by);
-        }
-
-        private static GameObject Plate(Transform host, float x, float y,
-                                        float w, float h, Color colour)
-        {
-            GameObject go = new GameObject("Plate");
-            go.transform.SetParent(host, false);
-            go.AddComponent<RectTransform>();
-            Image image = go.AddComponent<Image>();
             image.color = colour;
             UIF.Fit(go.GetComponent<RectTransform>(), x, y, w, h);
             return go;

@@ -178,12 +178,12 @@ if (skip && one.isDefaultValue) continue;
 one.Serialize() -> holder.Write(...)
 ```
 
-This is what makes a block with a *fixed pool* of controls affordable. Timer Plus
-registers 227 mapper types — thirty-two rows of seven, plus three — because `MKey`
-is the only mapper type that carries a variable and keys can only be registered in
-`SafeAwake`, so a table that can be automated has to allocate its rows up front.
-A machine using three rows pays for three: the other twenty-nine are at their
-defaults and are not written.
+This is what makes a block with a *fixed pool* of controls affordable, and both of
+this mod's tables were once one: thirty-two rows of controls, of which a machine
+using three paid for three in its save. Neither is now — both keep their rows as
+text and make their keys when a run starts, filing the listening ones by hand (see
+AGENTS.md) — because every copy of the block still built the whole pool. For a
+block that does allocate up front:
 
 Two consequences worth planning for:
 
