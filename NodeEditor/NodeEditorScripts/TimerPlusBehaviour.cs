@@ -129,9 +129,15 @@ namespace NodeEditorMod
             // the skin picker is an empty choice.
             Skins.Hide(BlockBehaviour);
 
-            masterKey = AddKey("Activate", "Activate", KeyCode.B);
-            automatic = AddToggle("Automatic", "AutomaticKey", false);
-            pinBlocks = AddToggle("Pin blocks", "PinKey", true);
+            // The first of each pair is the word shown; the second is the save's
+            // own key and stays English whatever the language is.
+            masterKey = AddKey(Words.Of("mapper.activate"), "Activate", KeyCode.B);
+            automatic = AddToggle(Words.Of("mapper.automatic"), "AutomaticKey", false);
+            pinBlocks = AddToggle(Words.Of("mapper.pins"), "PinKey", true);
+            if (!live.Contains(this))
+            {
+                live.Add(this);
+            }
 
             // A new block's rows are the text's default, so a table left as it came
             // is not written into the save.
@@ -320,6 +326,42 @@ namespace NodeEditorMod
         {
             // The material and the texture are this block's own.
             glow.Undress();
+            live.Remove(this);
+        }
+
+        /// <summary>Every Timer Plus on the machine, so a language change can put
+        /// the new words on their mapper controls. Besiege's own mapper listens for
+        /// a name changing, so an open one takes them up as they are set.</summary>
+        private static readonly List<TimerPlusBehaviour> live =
+            new List<TimerPlusBehaviour>();
+
+        public static void Retitle()
+        {
+            for (int i = live.Count - 1; i >= 0; i--)
+            {
+                if (live[i] == null)
+                {
+                    live.RemoveAt(i);
+                    continue;
+                }
+                live[i].Titled();
+            }
+        }
+
+        private void Titled()
+        {
+            if (masterKey != null)
+            {
+                masterKey.DisplayName = Words.Of("mapper.activate");
+            }
+            if (automatic != null)
+            {
+                automatic.DisplayName = Words.Of("mapper.automatic");
+            }
+            if (pinBlocks != null)
+            {
+                pinBlocks.DisplayName = Words.Of("mapper.pins");
+            }
         }
     }
 }

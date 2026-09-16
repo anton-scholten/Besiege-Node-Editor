@@ -1,0 +1,105 @@
+// Italian (Italiano) for the Besiege Node Editor mod.
+//
+// Named as Besiege names its own language files. Keep each key on the left
+// of the = exactly as it is. \n is a line break; {0} is a number the mod
+// fills in -- keep it, and put it where the grammar wants it. Anything left
+// out falls back to English.
+//
+// Translated without a native speaker's eye: corrections welcome.
+
+// the node editor's title bar and rows
+bar.edit = MODIFICA
+bar.tidy = ORDINA
+bar.fit = ADATTA
+bar.import = IMPORTA
+bar.pins = FISSA
+bar.export = ESPORTA
+bar.grid = GRIGLIA
+bar.empty = INIZIA VUOTO
+bar.reset-colours = RIPRIST. COLORI
+bar.reset-size = RIPRIST. DIMENSIONE
+bar.canvas-size = DIMENSIONE AREA
+bar.node = NODO
+bar.wire = FILO
+
+// what a tip says
+tip.style = Stile dei fili
+tip.grid = Allinea i nodi alla griglia
+tip.empty = Inizia con un'area vuota
+tip.edit = Modifica colori e impostazioni
+tip.import = Porta qui tutte le porte logiche e i timer della macchina
+tip.pins = Aggiungi blocchi di fissaggio all'esportazione
+tip.export = Converti in blocchi porta logica
+tip.prefix = Prefisso delle variabili create collegando i nodi
+tip.keep-open = Tieni aperto l'editor
+
+// what a box says before anything is typed in it
+ghost.name = nome
+ghost.prefix = prefisso
+ghost.comment = commento
+
+// Shown only. What the file holds is `Hues.names`, which stays English.
+mode.unicolor = UN COLORE
+mode.color = COLORE
+mode.random = CASUALE
+
+// the wire styles
+style.line = LINEA
+style.curve = CURVA
+style.square = ANGOLI
+
+// what the board says when it refuses
+board.key-and-name = Tasto e variabile:\nusa una porta OR.
+board.input-full-names = ingresso pieno\n100 nomi
+board.input-full-keys = ingresso pieno\n{0} tasti
+board.answer-full-names = uscita piena\n100 nomi
+board.answer-full-keys = uscita piena\n{0} tasti
+board.key-name-share = tasto e nome\nnon si mescolano
+board.needs-input = deve andare\na un ingresso
+board.needs-output = deve andare\na un'uscita
+board.no-direct-output = collegamento diretto\nimpossibile
+board.assigned = già assegnato!
+board.gates-limit = limite di {0}\nporte raggiunto
+board.imported-one = {0} blocco importato
+board.imported-many = {0} blocchi importati
+board.left-behind = \n{0} rimasti sulla macchina
+board.nothing-to-export = niente da esportare
+
+// the table under the mapper
+table.open = EDITOR DI NODI
+table.import = IMPORTA
+table.pins = FISSA
+table.export = ESPORTA
+table.wait = ATTESA
+table.duration = DURATA
+table.hold = T
+table.stop = F
+table.loop = C
+table.emulate = TASTO
+table.input-a = INGRESSO A
+table.input-b = INGRESSO B
+table.gate = PORTA
+table.mode = M
+table.output = USCITA
+tip.wait = Secondi dall'avvio alla pressione
+tip.duration = Quanto dura la pressione
+tip.hold = Tieni premuto per eseguire
+tip.stop = Permetti di fermare
+tip.loop = Ripeti
+tip.emulate = Il tasto o la variabile che questa riga preme
+tip.mode = Rilevatore di fronte: inverti\nAltre porte: commuta
+
+// what the table says back
+table.gates-limit = LIMITE DI {0} PORTE RAGGIUNTO
+table.timers-limit = LIMITE DI {0} TIMER RAGGIUNTO
+table.no-timers = NESSUN TIMER\nDA ESPORTARE
+table.export-failed = ESPORTAZIONE FALLITA
+table.timer-added = {0} TIMER AGGIUNTO
+table.timers-added = {0} TIMER AGGIUNTI
+table.imported = {0} IMPORTATI
+table.imported-differ = {0} OK, CONTROLLA ATTIVAZIONE
+
+// the mapper's own controls
+mapper.activate = Attiva
+mapper.automatic = Automatico
+mapper.pins = Blocchi di fissaggio

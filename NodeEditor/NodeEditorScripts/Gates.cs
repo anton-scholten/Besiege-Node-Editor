@@ -52,6 +52,15 @@ namespace NodeEditorMod
 
         private static string[] names;
 
+        /// <summary>Asks the game for the gates' names again. They are the game's
+        /// own words, looked up once and kept; a player changing Besiege's language
+        /// mid-session would otherwise read the old one until the next start.
+        /// </summary>
+        public static void Forget()
+        {
+            names = null;
+        }
+
         public static string[] Names
         {
             get

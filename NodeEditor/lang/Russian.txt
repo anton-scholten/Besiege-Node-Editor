@@ -1,0 +1,105 @@
+// Russian (Русский) for the Besiege Node Editor mod.
+//
+// Named as Besiege names its own language files. Keep each key on the left
+// of the = exactly as it is. \n is a line break; {0} is a number the mod
+// fills in -- keep it, and put it where the grammar wants it. Anything left
+// out falls back to English.
+//
+// Translated without a native speaker's eye: corrections welcome.
+
+// the node editor's title bar and rows
+bar.edit = ПРАВКА
+bar.tidy = УПОРЯДОЧИТЬ
+bar.fit = ВПИСАТЬ
+bar.import = ИМПОРТ
+bar.pins = ЗАКРЕПИТЬ
+bar.export = ЭКСПОРТ
+bar.grid = СЕТКА
+bar.empty = ПУСТОЕ ПОЛЕ
+bar.reset-colours = СБРОС ЦВЕТОВ
+bar.reset-size = СБРОС РАЗМЕРА
+bar.canvas-size = РАЗМЕР ПОЛЯ
+bar.node = УЗЕЛ
+bar.wire = ПРОВОД
+
+// what a tip says
+tip.style = Стиль проводов
+tip.grid = Выравнивать узлы по сетке
+tip.empty = Начинать с пустого поля
+tip.edit = Изменить цвета и настройки
+tip.import = Перенести сюда все логические блоки и таймеры машины
+tip.pins = Добавлять крепёжные блоки при экспорте
+tip.export = Превратить в блоки логических вентилей
+tip.prefix = Префикс переменных, создаваемых при соединении узлов
+tip.keep-open = Не закрывать редактор
+
+// what a box says before anything is typed in it
+ghost.name = имя
+ghost.prefix = префикс
+ghost.comment = заметка
+
+// Shown only. What the file holds is `Hues.names`, which stays English.
+mode.unicolor = ОДИН ЦВЕТ
+mode.color = ПО ВИДУ
+mode.random = СЛУЧАЙНО
+
+// the wire styles
+style.line = ЛИНИЯ
+style.curve = КРИВАЯ
+style.square = УГЛЫ
+
+// what the board says when it refuses
+board.key-and-name = Клавиша и переменная:\nдобавьте вентиль ИЛИ.
+board.input-full-names = вход заполнен\n100 имён
+board.input-full-keys = вход заполнен\n{0} клавиш
+board.answer-full-names = выход заполнен\n100 имён
+board.answer-full-keys = выход заполнен\n{0} клавиш
+board.key-name-share = клавиша и имя\nнесовместимы
+board.needs-input = должно вести\nко входу
+board.needs-output = должно вести\nк выходу
+board.no-direct-output = прямое соединение\nневозможно
+board.assigned = уже занято!
+board.gates-limit = достигнут предел\n{0} вентилей
+board.imported-one = импортирован {0} блок
+board.imported-many = импортировано {0} блоков
+board.left-behind = \n{0} осталось на машине
+board.nothing-to-export = нечего экспортировать
+
+// the table under the mapper
+table.open = РЕДАКТОР УЗЛОВ
+table.import = ИМПОРТ
+table.pins = ЗАКРЕПИТЬ
+table.export = ЭКСПОРТ
+table.wait = ЗАДЕРЖКА
+table.duration = ДЛИТЕЛЬНОСТЬ
+table.hold = У
+table.stop = С
+table.loop = Ц
+table.emulate = КЛАВИША
+table.input-a = ВХОД A
+table.input-b = ВХОД B
+table.gate = ВЕНТИЛЬ
+table.mode = М
+table.output = ВЫХОД
+tip.wait = Секунды от старта до нажатия
+tip.duration = Сколько длится нажатие
+tip.hold = Держать для работы
+tip.stop = Разрешить остановку
+tip.loop = Повторять
+tip.emulate = Клавиша или переменная, которую жмёт эта строка
+tip.mode = Детектор фронта: инверсия\nОстальные вентили: переключение
+
+// what the table says back
+table.gates-limit = ДОСТИГНУТ ПРЕДЕЛ {0} ВЕНТИЛЕЙ
+table.timers-limit = ДОСТИГНУТ ПРЕДЕЛ {0} ТАЙМЕРОВ
+table.no-timers = НЕТ ТАЙМЕРОВ\nДЛЯ ЭКСПОРТА
+table.export-failed = ЭКСПОРТ НЕ УДАЛСЯ
+table.timer-added = ДОБАВЛЕН {0} ТАЙМЕР
+table.timers-added = ДОБАВЛЕНО {0} ТАЙМЕРОВ
+table.imported = {0} ИМПОРТИРОВАНО
+table.imported-differ = {0} ОК, ПРОВЕРЬТЕ АКТИВАЦИЮ
+
+// the mapper's own controls
+mapper.activate = Активация
+mapper.automatic = Автоматически
+mapper.pins = Крепёжные блоки

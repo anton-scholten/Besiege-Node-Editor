@@ -1,0 +1,112 @@
+// Every word this mod shows, in English -- the list a translation works from.
+//
+// A translation is this file under the name Besiege uses for the language:
+// French.txt, German.txt, ChineseSimplified.txt -- the same names as the
+// game's own 'Localisation Files' folder. Put it beside the mod, or in the
+// mod's data folder to override one that shipped.
+//
+// Keep each key on the left of the = exactly as it is. \n is a line break.
+// {0} is a number the mod fills in: keep it, and put it where your grammar
+// wants it. Anything left out stays English.
+
+
+// the node editor's title bar and rows
+bar.edit = EDIT
+bar.tidy = TIDY
+bar.fit = ZOOM FIT
+bar.import = IMPORT
+bar.pins = PIN BLOCKS
+bar.export = EXPORT
+bar.grid = GRID
+bar.empty = START EMPTY
+bar.reset-colours = RESET COLORS
+bar.reset-size = RESET SIZE
+bar.canvas-size = CANVAS SIZE
+bar.node = NODE
+bar.wire = WIRE
+bar.by = x
+
+// what a tip says
+tip.style = Wire style
+tip.grid = Align nodes to the grid
+tip.empty = Start with empty board
+tip.edit = Edit colors and settings
+tip.import = Take all logic gates and timers of the machine into this editor
+tip.pins = Add pin blocks when exporting
+tip.export = Convert to logic gate blocks
+tip.prefix = Prefix for variables created when connecting nodes
+tip.keep-open = Keep the editor open
+
+// what a box says before anything is typed in it
+ghost.name = name
+ghost.prefix = prefix
+ghost.comment = comment
+ghost.zero = 0
+ghost.hash = #
+
+// Shown only. What the file holds is `Hues.names`, which stays English.
+mode.unicolor = UNICOLOR
+mode.color = COLOR
+mode.random = RANDOM
+
+// the wire styles
+style.line = LINE
+style.curve = CURVE
+style.square = SQUARE
+
+// what the board says when it refuses
+board.key-and-name = Can't mix key and variable.\nUse an OR gate.
+board.input-full-names = that input is full\n100 names
+board.input-full-keys = that input is full\n{0} keys
+board.answer-full-names = that answer is full\n100 names
+board.answer-full-keys = that answer is full\n{0} keys
+board.key-name-share = a key and a name\ncannot share
+board.needs-input = has to connect\nto an input
+board.needs-output = has to connect\nto an output
+board.no-direct-output = cannot directly\nconnect to output
+board.assigned = already assigned!
+board.gates-limit = reached {0}\ngates limit
+board.imported-one = {0} block imported
+board.imported-many = {0} blocks imported
+board.left-behind = \n{0} left on the machine
+board.nothing-to-export = nothing to export
+
+// the table under the mapper
+table.open = NODE EDITOR
+table.add = +
+table.import = IMPORT
+table.pins = PIN BLOCKS
+table.export = EXPORT
+table.wait = WAIT
+table.duration = DURATION
+table.hold = H
+table.stop = S
+table.loop = L
+table.emulate = EMULATE
+table.input-a = INPUT A
+table.input-b = INPUT B
+table.gate = GATE
+table.mode = M
+table.output = OUTPUT
+tip.wait = Seconds from the start to the press
+tip.duration = How long the press is held
+tip.hold = Hold to run
+tip.stop = Allow stop
+tip.loop = Loop
+tip.emulate = The key or variable this row presses
+tip.mode = Edge detector: invert\nOther gates: toggle
+
+// what the table says back
+table.gates-limit = REACHED THE {0} GATES LIMIT
+table.timers-limit = REACHED THE {0} TIMERS LIMIT
+table.no-timers = NO TIMERS\nTO EXPORT
+table.export-failed = COULD NOT EXPORT
+table.timer-added = {0} TIMER ADDED
+table.timers-added = {0} TIMERS ADDED
+table.imported = {0} IMPORTED
+table.imported-differ = {0} IN, CHECK ACTIVATE
+
+// the mapper's own controls
+mapper.activate = Activate
+mapper.automatic = Automatic
+mapper.pins = Pin blocks

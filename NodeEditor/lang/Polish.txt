@@ -1,0 +1,105 @@
+// Polish (Polski) for the Besiege Node Editor mod.
+//
+// Named as Besiege names its own language files. Keep each key on the left
+// of the = exactly as it is. \n is a line break; {0} is a number the mod
+// fills in -- keep it, and put it where the grammar wants it. Anything left
+// out falls back to English.
+//
+// Translated without a native speaker's eye: corrections welcome.
+
+// the node editor's title bar and rows
+bar.edit = EDYTUJ
+bar.tidy = UPORZĄDKUJ
+bar.fit = DOPASUJ
+bar.import = IMPORT
+bar.pins = PRZYPNIJ
+bar.export = EKSPORT
+bar.grid = SIATKA
+bar.empty = PUSTA PLANSZA
+bar.reset-colours = RESET KOLORÓW
+bar.reset-size = RESET ROZMIARU
+bar.canvas-size = ROZMIAR PLANSZY
+bar.node = WĘZEŁ
+bar.wire = PRZEWÓD
+
+// what a tip says
+tip.style = Styl przewodów
+tip.grid = Wyrównaj węzły do siatki
+tip.empty = Zacznij z pustą planszą
+tip.edit = Edytuj kolory i ustawienia
+tip.import = Wczytaj wszystkie bramki logiczne i timery z maszyny
+tip.pins = Dodaj bloki przypinające przy eksporcie
+tip.export = Zamień na bloki bramek logicznych
+tip.prefix = Przedrostek zmiennych tworzonych przy łączeniu węzłów
+tip.keep-open = Nie zamykaj edytora
+
+// what a box says before anything is typed in it
+ghost.name = nazwa
+ghost.prefix = przedrostek
+ghost.comment = komentarz
+
+// Shown only. What the file holds is `Hues.names`, which stays English.
+mode.unicolor = JEDEN KOLOR
+mode.color = KOLOR
+mode.random = LOSOWO
+
+// the wire styles
+style.line = LINIA
+style.curve = KRZYWA
+style.square = KĄTY
+
+// what the board says when it refuses
+board.key-and-name = Klawisz i zmienna:\nużyj bramki LUB.
+board.input-full-names = wejście pełne\n100 nazw
+board.input-full-keys = wejście pełne\n{0} klawiszy
+board.answer-full-names = wyjście pełne\n100 nazw
+board.answer-full-keys = wyjście pełne\n{0} klawiszy
+board.key-name-share = klawisz i nazwa\nnie mogą razem
+board.needs-input = musi trafić\ndo wejścia
+board.needs-output = musi trafić\ndo wyjścia
+board.no-direct-output = bezpośrednie połączenie\nniemożliwe
+board.assigned = już przypisane!
+board.gates-limit = osiągnięto limit\n{0} bramek
+board.imported-one = zaimportowano {0} blok
+board.imported-many = zaimportowano {0} bloków
+board.left-behind = \n{0} zostało na maszynie
+board.nothing-to-export = nie ma co eksportować
+
+// the table under the mapper
+table.open = EDYTOR WĘZŁÓW
+table.import = IMPORT
+table.pins = PRZYPNIJ
+table.export = EKSPORT
+table.wait = CZEKAJ
+table.duration = CZAS
+table.hold = P
+table.stop = Z
+table.loop = L
+table.emulate = KLAWISZ
+table.input-a = WEJŚCIE A
+table.input-b = WEJŚCIE B
+table.gate = BRAMKA
+table.mode = M
+table.output = WYJŚCIE
+tip.wait = Sekundy od startu do naciśnięcia
+tip.duration = Jak długo trwa naciśnięcie
+tip.hold = Trzymaj, by działało
+tip.stop = Pozwól zatrzymać
+tip.loop = Powtarzaj
+tip.emulate = Klawisz lub zmienna naciskana przez ten wiersz
+tip.mode = Detektor zbocza: odwróć\nInne bramki: przełącz
+
+// what the table says back
+table.gates-limit = OSIĄGNIĘTO LIMIT {0} BRAMEK
+table.timers-limit = OSIĄGNIĘTO LIMIT {0} TIMERÓW
+table.no-timers = BRAK TIMERÓW\nDO EKSPORTU
+table.export-failed = EKSPORT NIEUDANY
+table.timer-added = DODANO {0} TIMER
+table.timers-added = DODANO {0} TIMERÓW
+table.imported = {0} ZAIMPORTOWANO
+table.imported-differ = {0} OK, SPRAWDŹ AKTYWACJĘ
+
+// the mapper's own controls
+mapper.activate = Aktywuj
+mapper.automatic = Automatycznie
+mapper.pins = Bloki przypinające

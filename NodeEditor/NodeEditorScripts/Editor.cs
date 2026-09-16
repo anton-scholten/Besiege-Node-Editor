@@ -37,13 +37,39 @@ namespace NodeEditorMod
         private const int Curved = 1;
         private const int Square = 2;
 
-        /// <summary>The wire style, kept between openings rather than saved: a way
-        /// of looking, not part of the board.</summary>
-        private static int style = Curved;
+        /// <summary>
+        /// The wire style, the grid and START EMPTY. The player's rather than the
+        /// block's: they are ways of working, not part of any board, so they are
+        /// shared by every open board and kept in the mod's data folder beside the
+        /// colours (see <see cref="Hues"/>) to stand between sessions. Properties
+        /// under their old names, so every use of them reads and writes that one
+        /// store.
+        /// </summary>
+        private static int style
+        {
+            get { return Hues.Style; }
+            set { Hues.Style = value; }
+        }
 
-        /// <summary>Whether nodes snap to the grid; kept like the wire
-        /// style.</summary>
-        private static bool grid = true;
+        /// <summary>Whether nodes snap to the grid. On to begin with.</summary>
+        private static bool grid
+        {
+            get { return Hues.Grid; }
+            set { Hues.Grid = value; }
+        }
+
+        /// <summary>Whether a block placed from now on starts with nothing on its
+        /// board. Off to begin with: a first block that arrives with a circuit on it
+        /// is how the thing explains itself.</summary>
+        private static bool empty
+        {
+            get { return Hues.Empty; }
+            set { Hues.Empty = value; }
+        }
+
+        /// <summary>What <see cref="ComputerBehaviour"/> asks before it lays a new
+        /// block's first rows.</summary>
+        public static bool StartEmpty { get { return empty; } }
         private const float BarHeight = 26f;
         private const float Margin = 8f;
         /// <summary>An end's or a timer's size: five grid squares by two, so a node
@@ -754,6 +780,12 @@ namespace NodeEditorMod
                 gridBox.isOn = grid;
                 hushed = false;
             }
+            if (emptyBox != null && emptyBox.isOn != empty)
+            {
+                hushed = true;
+                emptyBox.isOn = empty;
+                hushed = false;
+            }
             ComputerBehaviour was = served;
             Following();
             if (served != was)
@@ -894,6 +926,86 @@ namespace NodeEditorMod
         }
 
         // ---- the window ------------------------------------------------------
+
+        /// <summary>The player changed Besiege's language: every board takes up the
+        /// new words. The window is made again rather than re-captioned, since what
+        /// a caption says is not kept anywhere once it is drawn -- but everything
+        /// the player set is carried across it, so only the words change.</summary>
+        public static void Retranslate()
+        {
+            for (int i = 0; i < all.Count; i++)
+            {
+                if (all[i] != null)
+                {
+                    all[i].Remade();
+                }
+            }
+        }
+
+        private void Remade()
+        {
+            if (window == null)
+            {
+                return;                 // never opened: it will be built in the new
+            }                           // words when it is
+            bool up = window.activeSelf;
+            Vector2 where = windowRect != null ? windowRect.anchoredPosition
+                                               : Vector2.zero;
+            Vector3 much = content != null ? content.localScale : Vector3.one;
+            Vector2 looking = content != null ? content.anchoredPosition
+                                              : Vector2.zero;
+
+            // Everything the furniture is kept in. `Frame` appends to these, so a
+            // second one would leave the old window's pieces in front of the new.
+            shelf.Clear();
+            swatches.Clear();
+            inks.Clear();
+            palette.Clear();
+            rails.Clear();
+            corners.Clear();
+            railed = -1f;
+
+            Destroy(window);
+            window = null;
+            if (!Build())
+            {
+                return;
+            }
+            if (windowRect != null)
+            {
+                windowRect.anchoredPosition = where;
+            }
+            window.SetActive(up);
+            // The colour rows were out, so they are out again; `Editing` lays the
+            // window out either way.
+            hushed = true;
+            if (editBox != null)
+            {
+                editBox.isOn = editing;
+            }
+            hushed = false;
+            Editing(editing);
+            if (content != null)
+            {
+                content.localScale = much;
+                content.anchoredPosition = looking;
+            }
+            if (warningLabel != null)
+            {
+                // The message hangs on the canvas rather than the window, so it
+                // survives: it would be a sentence in the old language.
+                warningLabel.text = "";
+            }
+            if (warning != null)
+            {
+                warning.SetActive(false);
+            }
+            // Nothing drawn belongs to this board any more: the nodes went with the
+            // window.
+            drawnFor = null;
+            Redraw();
+            Strings();
+        }
 
         private bool Build()
         {
@@ -1074,6 +1186,7 @@ namespace NodeEditorMod
         private RectTransform nameRect;
         private RectTransform styleRect;
         private RectTransform gridRect;
+        private RectTransform emptyRect;
         private RectTransform tidyRect;
         private RectTransform fitRect;
         private RectTransform importRect;
@@ -1090,6 +1203,7 @@ namespace NodeEditorMod
         /// <summary>The grid switch. Every board shares the one setting, so each
         /// keeps its own switch in step with it in `Ticking`.</summary>
         private Toggle gridBox;
+        private Toggle emptyBox;
 
         /// <summary>The two ways-of-colouring selectors on the unicolour row, and
         /// the words in front of them.</summary>
@@ -1189,7 +1303,7 @@ namespace NodeEditorMod
                 {
                     click.onClick.AddListener(Styling);
                 }
-                Tip.On(wireStyle, "Wires: click for the next, right-click for the list");
+                Tip.On(wireStyle, Words.Of("tip.style"));
                 Asks asks = wireStyle.AddComponent<Asks>();
                 asks.Asked = Restyling;
             }
@@ -1203,9 +1317,9 @@ namespace NodeEditorMod
                 squares.SetActive(false);
                 shelf.Add(gridRect);
                 UIF.NoSwell(squares);
-                UIF.Grow(squares, Caption(squares, "GRID",
+                UIF.Grow(squares, Caption(squares, Words.Of("bar.grid"),
                                       TextAnchor.MiddleCenter).transform);
-                Tip.On(squares, "Align nodes to the grid");
+                Tip.On(squares, Words.Of("tip.grid"));
                 gridBox = squares.GetComponent<Toggle>();
                 if (gridBox != null)
                 {
@@ -1216,12 +1330,36 @@ namespace NodeEditorMod
                 }
             }
 
+            // Beside GRID: whether the next block placed comes with a circuit on it
+            // or with nothing at all. It changes no board that exists, only what the
+            // next one starts as.
+            GameObject blank = UIF.Spawn(UIF.TogglePrefab, window.transform);
+            if (blank != null)
+            {
+                emptyRect = blank.GetComponent<RectTransform>();
+                blank.SetActive(false);
+                shelf.Add(emptyRect);
+                UIF.NoSwell(blank);
+                UIF.Grow(blank, Caption(blank, Words.Of("bar.empty"),
+                                    TextAnchor.MiddleCenter).transform);
+                Tip.On(blank, Words.Of("tip.empty"));
+                emptyBox = blank.GetComponent<Toggle>();
+                if (emptyBox != null)
+                {
+                    hushed = true;
+                    emptyBox.isOn = empty;
+                    hushed = false;
+                    emptyBox.onValueChanged.AddListener(Emptying);
+                }
+            }
+
             GameObject tidy = UIF.Spawn(UIF.ButtonPrefab, bar.transform);
             if (tidy != null)
             {
                 tidyRect = tidy.GetComponent<RectTransform>();
                 UIF.NoSwell(tidy);
-                UIF.Grow(tidy, Caption(tidy, "TIDY", TextAnchor.MiddleCenter).transform);
+                UIF.Grow(tidy, Caption(tidy, Words.Of("bar.tidy"),
+                                   TextAnchor.MiddleCenter).transform);
                 Button click = tidy.GetComponent<Button>();
                 if (click != null)
                 {
@@ -1234,7 +1372,7 @@ namespace NodeEditorMod
             {
                 fitRect = whole.GetComponent<RectTransform>();
                 UIF.NoSwell(whole);
-                UIF.Grow(whole, Caption(whole, "ZOOM FIT",
+                UIF.Grow(whole, Caption(whole, Words.Of("bar.fit"),
                                     TextAnchor.MiddleCenter).transform);
                 Button click = whole.GetComponent<Button>();
                 if (click != null)
@@ -1248,9 +1386,9 @@ namespace NodeEditorMod
             {
                 importRect = brought.GetComponent<RectTransform>();
                 UIF.NoSwell(brought);
-                UIF.Grow(brought, Caption(brought, "IMPORT",
+                UIF.Grow(brought, Caption(brought, Words.Of("bar.import"),
                                       TextAnchor.MiddleCenter).transform);
-                Tip.On(brought, "Take all logic gates and timers of the machine into this editor");
+                Tip.On(brought, Words.Of("tip.import"));
                 Button click = brought.GetComponent<Button>();
                 if (click != null)
                 {
@@ -1264,9 +1402,9 @@ namespace NodeEditorMod
             {
                 pinsRect = stakes.GetComponent<RectTransform>();
                 UIF.NoSwell(stakes);
-                UIF.Grow(stakes, Caption(stakes, "PIN BLOCKS",
+                UIF.Grow(stakes, Caption(stakes, Words.Of("bar.pins"),
                                      TextAnchor.MiddleCenter).transform);
-                Tip.On(stakes, "Pin logic gate blocks when exported");
+                Tip.On(stakes, Words.Of("tip.pins"));
                 pinsBox = stakes.GetComponent<Toggle>();
                 if (pinsBox != null)
                 {
@@ -1282,8 +1420,9 @@ namespace NodeEditorMod
             {
                 exportRect = sent.GetComponent<RectTransform>();
                 UIF.NoSwell(sent);
-                UIF.Grow(sent, Caption(sent, "EXPORT", TextAnchor.MiddleCenter).transform);
-                Tip.On(sent, "Convert to logic gate blocks");
+                UIF.Grow(sent, Caption(sent, Words.Of("bar.export"),
+                                   TextAnchor.MiddleCenter).transform);
+                Tip.On(sent, Words.Of("tip.export"));
                 Button click = sent.GetComponent<Button>();
                 if (click != null)
                 {
@@ -1296,9 +1435,9 @@ namespace NodeEditorMod
             {
                 editRect = edits.GetComponent<RectTransform>();
                 UIF.NoSwell(edits);
-                UIF.Grow(edits, Caption(edits, "EDIT",
+                UIF.Grow(edits, Caption(edits, Words.Of("bar.edit"),
                                     TextAnchor.MiddleCenter).transform);
-                Tip.On(edits, "Pick the colors nodes and wires are drawn in");
+                Tip.On(edits, Words.Of("tip.edit"));
                 editBox = edits.GetComponent<Toggle>();
                 if (editBox != null)
                 {
@@ -1330,7 +1469,7 @@ namespace NodeEditorMod
                     Quaternion.Euler(0f, 0f, 45f);
                 Paint();
                 UIF.Grow(shut, pinIcon.transform, 1.15f);
-                Tip.On(shut, "Keep the editor open");
+                Tip.On(shut, Words.Of("tip.keep-open"));
                 Button click = shut.GetComponent<Button>();
                 if (click != null)
                 {
@@ -1448,12 +1587,13 @@ namespace NodeEditorMod
 
             // How big the board is, in squares: on the row EDIT puts out, after the
             // wire's unicolour and before RESET COLORS.
-            sizeWords = Words("CANVAS SIZE");
+            sizeWords = Worded(Words.Of("bar.canvas-size"));
             cellsBox = SizeBox(out cellsRect, true);
             GameObject cross = UIF.Plate(window.transform, 0f, 0f, ByWide, UniTall,
                                          new Color(0f, 0f, 0f, 0f));
             byRect = cross.GetComponent<RectTransform>();
-            UIF.Label(cross, "x", UIF.QuietInk, TextAnchor.MiddleCenter, 0, true);
+            UIF.Label(cross, Words.Of("bar.by"), UIF.QuietInk,
+                      TextAnchor.MiddleCenter, 0, true);
             cross.SetActive(false);
             linesBox = SizeBox(out linesRect, false);
             Showing(true);
@@ -1475,12 +1615,12 @@ namespace NodeEditorMod
                     UIF.Style(ghostText, UIF.Ink, TextAnchor.MiddleCenter);
                     if (ghostText != null)
                     {
-                        ghostText.text = "prefix";
+                        ghostText.text = Words.Of("ghost.prefix");
                     }
                     prefixBox.onEndEdit.AddListener(Renamed);
                     Marquee.On(prefixBox);
                 }
-                Tip.On(named, "Variable prefix");
+                Tip.On(named, Words.Of("tip.prefix"));
             }
 
             // The middle button on the window itself -- its bar, its rows, the air
@@ -1631,6 +1771,7 @@ namespace NodeEditorMod
                 third += SizeWide + 30f;
                 third = Laid(styleRect, third, StyleWide, below);
                 third = Laid(gridRect, third, GridWide, below);
+                third = Laid(emptyRect, third, EmptyWide, below);
                 // And the board back to the size it started at, at the far end of
                 // its own row as RESET COLORS is of the row above.
                 UIF.Fit(sizeBackRect, size.x - Margin - ResetWide, below, ResetWide,
@@ -2501,7 +2642,7 @@ namespace NodeEditorMod
             {
                 // Both ends are ends of the board: no row can carry that wire, so a
                 // gate goes between. Refused before anything is written.
-                Told(to, 1, "cannot directly\nconnect to output");
+                Told(to, 1, Words.Of("board.no-direct-output"));
                 Strings();
                 return;
             }
@@ -2530,7 +2671,7 @@ namespace NodeEditorMod
                 {
                     // A Besiege key answers the keyboard or a list of names and
                     // never both, so these two cannot share an input.
-                    Told(to, 1 + port, "a key and a name\ncannot share");
+                    Told(to, 1 + port, Words.Of("board.key-name-share"));
                     Strings();
                     return;
                 }
@@ -2539,8 +2680,8 @@ namespace NodeEditorMod
                 if (!room)
                 {
                     Told(to, 1 + port, variable != null
-                         ? "that input is full\n100 names"
-                         : "that input is full\n" + Bindings.MostKeys + " keys");
+                         ? Words.Of("board.input-full-names")
+                         : Words.Of("board.input-full-keys", Bindings.MostKeys));
                     Strings();
                     return;
                 }
@@ -2549,7 +2690,7 @@ namespace NodeEditorMod
                 if (coin && !Coined(from, variable, touched))
                 {
                     Bindings.Dropped(input, variable);
-                    Told(from, 0, "that answer is full\n100 names");
+                    Told(from, 0, Words.Of("board.answer-full-names"));
                     Strings();
                     return;
                 }
@@ -2597,7 +2738,7 @@ namespace NodeEditorMod
                         string name = Minted();
                         if (!Coined(from, name, touched))
                         {
-                            Told(from, 0, "that answer is full\n100 names");
+                            Told(from, 0, Words.Of("board.answer-full-names"));
                             Strings();
                             return;
                         }
@@ -2621,7 +2762,7 @@ namespace NodeEditorMod
                         && Bindings.Count(said.Emulate) - idle.Count
                            >= Bindings.MostNames)
                     {
-                        Told(from, 0, "that answer is full\n100 names");
+                        Told(from, 0, Words.Of("board.answer-full-names"));
                         Strings();
                         return;
                     }
@@ -2643,8 +2784,7 @@ namespace NodeEditorMod
                     if (!Bindings.Holds(said.Emulate, place.Key)
                         && Bindings.Codes(said.Emulate).Count >= Bindings.MostKeys)
                     {
-                        Told(from, 0, "that answer is full\n"
-                             + Bindings.MostKeys + " keys");
+                        Told(from, 0, Words.Of("board.answer-full-keys", Bindings.MostKeys));
                         Strings();
                         return;
                     }
@@ -3986,7 +4126,7 @@ namespace NodeEditorMod
             box.transform.localScale = Magnified(Lettering(place));
             if (ghostText != null)
             {
-                ghostText.text = "comment";
+                ghostText.text = Words.Of("ghost.comment");
             }
             field.text = place.Words == null ? "" : place.Words;
             notes[index] = field;
@@ -4144,7 +4284,7 @@ namespace NodeEditorMod
             }
             if (Doubled(node, place.Kind, wanted, wantedKey))
             {
-                Warned(cell.transform as RectTransform, "already assigned!");
+                Warned(cell.transform as RectTransform, Words.Of("board.assigned"));
                 // Another end already stands for this: refused, and the cell shows
                 // what this end is.
                 cell.Load(Shown(node, was, wasKey), wasKey);
@@ -5038,8 +5178,9 @@ namespace NodeEditorMod
             }
             if (output == otherOutput)
             {
-                Told(other, otherOutput ? 0 : 1 + otherPort, otherOutput
-                     ? "has to connect\nto an input" : "has to connect\nto an output");
+                Told(other, otherOutput ? 0 : 1 + otherPort,
+                     Words.Of(otherOutput ? "board.needs-input"
+                                          : "board.needs-output"));
                 Strings();
                 return;
             }
@@ -5089,7 +5230,7 @@ namespace NodeEditorMod
                 {
                     // End to end with no row to carry it (see `Join`): said before
                     // any node is made.
-                    Told(source, 0, "cannot directly\nconnect to output");
+                    Told(source, 0, Words.Of("board.no-direct-output"));
                     return;
                 }
                 // Making a gate renumbers every end, perhaps the wire's own port:
@@ -5959,8 +6100,7 @@ namespace NodeEditorMod
                 if (row < 0)
                 {
                     // A gate is a row, and the block holds up to MaxRows of them.
-                    Warned(sheet, "reached " + ComputerBehaviour.MaxRows
-                                  + "\ngates limit");
+                    Warned(sheet, Words.Of("board.gates-limit", ComputerBehaviour.MaxRows));
                     return -1;
                 }
                 LogicRow made = served.Rows[row];
@@ -6840,8 +6980,7 @@ namespace NodeEditorMod
 
         /// <summary>What a gate says when a key and a variable would meet on its
         /// answer: a Besiege key presses keycodes or names, never both.</summary>
-        private const string KeyAndName =
-            "Can't mix key and variable.\nUse an OR gate.";
+        private static string KeyAndName { get { return Words.Of("board.key-and-name"); } }
 
         /// <summary>How long news worth reading twice stays up: an import's count,
         /// or a refusal that says what to do instead.</summary>
@@ -7609,8 +7748,9 @@ namespace NodeEditorMod
                 Fitted();
                 // Everything above is this board's own doing, ends included.
                 Ours();
-                Warned(sheet, took + (took == 1 ? " block imported" : " blocks imported")
-                       + (left > 0 ? "\n" + left + " left on the machine" : ""),
+                Warned(sheet, Words.Of(took == 1 ? "board.imported-one"
+                                         : "board.imported-many", took)
+                       + (left > 0 ? Words.Of("board.left-behind", left) : ""),
                        UIF.Live, NewsSeconds);
             }
             catch (Exception e)
@@ -7640,7 +7780,7 @@ namespace NodeEditorMod
                 }
                 else
                 {
-                    Warned(sheet, "nothing to export");
+                    Warned(sheet, Words.Of("board.nothing-to-export"));
                 }
             }
             catch (Exception e)
@@ -7675,6 +7815,7 @@ namespace NodeEditorMod
         /// the only two buttons of the window not on its bar.</summary>
         private const float StyleWide = 84f;
         private const float GridWide = 64f;
+        private const float EmptyWide = 116f;
 
         /// <summary>One thing on the third row at `at`, and where the next one
         /// goes: `Slot` for a row that is not the title bar.</summary>
@@ -7708,8 +7849,8 @@ namespace NodeEditorMod
             Text label = Caption(go, Hues.Named(nodes ? Hues.NodeMode : Hues.WireMode),
                                  TextAnchor.MiddleCenter);
             UIF.Grow(go, label.transform);
-            Tip.On(go, (nodes ? "Nodes" : "Wires")
-                       + ": click for the next, right-click for the list");
+            // No tip: the word on the button is the setting, and NODE or WIRE
+            // stands beside it saying what it is for.
             bool mine = nodes;
             Button click = go.GetComponent<Button>();
             if (click != null)
@@ -7815,7 +7956,7 @@ namespace NodeEditorMod
                 one.Root.gameObject.SetActive(false);
                 swatches.Add(one);
             }
-            nodeWords = Words("NODE");
+            nodeWords = Worded(Words.Of("bar.node"));
             nodeModeLabel = Selector(out nodeModeRect, true);
             uniNode = Swatch.Make(window.transform);
             uniNode.Value = Hues.Node;
@@ -7825,7 +7966,7 @@ namespace NodeEditorMod
                 Recoloured(uniNode);
             };
             uniNode.Root.gameObject.SetActive(false);
-            wireWords = Words("WIRE");
+            wireWords = Worded(Words.Of("bar.wire"));
             wireModeLabel = Selector(out wireModeRect, false);
             uniWire = Swatch.Make(window.transform);
             uniWire.Value = Hues.Wire;
@@ -7843,13 +7984,13 @@ namespace NodeEditorMod
                 UIF.NoSwell(reset);
                 // The one button on the board that undoes rather than makes, so it
                 // wears the game's red whatever it is doing.
-                Text says = Caption(reset, "RESET COLORS", TextAnchor.MiddleCenter);
+                Text says = Caption(reset, Words.Of("bar.reset-colours"),
+                                    TextAnchor.MiddleCenter);
                 if (says != null)
                 {
                     says.color = UIF.Hot;
                     UIF.Grow(reset, says.transform);
                 }
-                Tip.On(reset, "Every color back to how it started");
                 Button click = reset.GetComponent<Button>();
                 if (click != null)
                 {
@@ -7869,13 +8010,13 @@ namespace NodeEditorMod
                 UIF.NoSwell(sizeBack);
                 // Red like RESET COLORS, and for the same reason: it undoes rather
                 // than makes.
-                Text tells = Caption(sizeBack, "RESET SIZE", TextAnchor.MiddleCenter);
+                Text tells = Caption(sizeBack, Words.Of("bar.reset-size"),
+                                     TextAnchor.MiddleCenter);
                 if (tells != null)
                 {
                     tells.color = UIF.Hot;
                     UIF.Grow(sizeBack, tells.transform);
                 }
-                Tip.On(sizeBack, "The board back to the size it started at");
                 Button press = sizeBack.GetComponent<Button>();
                 if (press != null)
                 {
@@ -7902,7 +8043,10 @@ namespace NodeEditorMod
             shelf.Add(sizeBackRect);
         }
 
-        private RectTransform Words(string said)
+        /// <summary>A word on a row, drawn rather than spawned. Named apart from
+        /// <see cref="NodeEditorMod.Words"/>, which is where the wording itself
+        /// comes from.</summary>
+        private RectTransform Worded(string said)
         {
             GameObject go = new GameObject("Words");
             go.transform.SetParent(window.transform, false);
@@ -8568,7 +8712,8 @@ namespace NodeEditorMod
 
         private static string Styled(int which)
         {
-            return which == Straight ? "LINE" : (which == Curved ? "CURVE" : "SQUARE");
+            return Words.Of(which == Straight ? "style.line"
+                            : (which == Curved ? "style.curve" : "style.square"));
         }
 
         /// <summary>The grid switch. Turned on, it snaps the nodes already drawn
@@ -8591,6 +8736,17 @@ namespace NodeEditorMod
             }
             Kept();
             Redraw();
+        }
+
+        /// <summary>START EMPTY: nothing to redraw, since it settles what the next
+        /// block placed starts with rather than anything on this board.</summary>
+        private void Emptying(bool on)
+        {
+            if (hushed)
+            {
+                return;
+            }
+            empty = on;
         }
 
         /// <summary>A place snapped to the nearest intersection while the grid is

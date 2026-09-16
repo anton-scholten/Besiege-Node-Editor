@@ -301,9 +301,13 @@ in the game's red. A colour box sits beside the mode it belongs to, with no word
 between, and only while that mode is **UNICOLOR** — COLOR and RANDOM make their
 own — though its room is kept either way, so the wire half does not shift as the
 modes are clicked through. The third row runs **CANVAS SIZE** and its numbers, the
-wire-style button (line, curve, square), **GRID**, and **RESET SIZE** at the right,
-red, which puts the board back to the size it started at: what is about the board
-rather than about any one node, together on a row of its own. Nodes and wires
+wire-style button (line, curve, square), **GRID**, **START EMPTY**, and **RESET
+SIZE** at the right, red, which puts the board back to the size it started at:
+what is about the board rather than about any one node, together on a row of its
+own. **START EMPTY** is off to begin with, and while it is on a newly placed
+Computer arrives with nothing on its board at all — no gates, no ends — rather
+than with the starter circuit. It changes no board that already exists, only what
+the next block starts as. Nodes and wires
 are coloured each their own way:
 
 | | Nodes | Wires |
@@ -322,7 +326,10 @@ hex characters, or drag sideways off the box to run through the hues. A drag ins
 the box selects text and a double-click selects all six, as in the spot light's. The palette buttons are
 drawn the way nodes are being coloured. The unicolour boxes are only as wide as
 the colour written in them. Colours are yours rather than the machine's — every open board shares
-them, and they are kept in the mod's data folder between sessions.
+them, and they are kept in the mod's data folder between sessions. So are the
+three switches on the row below: the wire style, **GRID** and **START EMPTY** are
+where you left them next time you play. **RESET COLORS** puts the colours back and
+leaves the switches alone.
 
 **GRID** is a switch like PIN BLOCKS, on to start with and red while it is, and while it is on every node
 sits on the grid's intersections — dragged, dropped, pasted, adopted or laid out.
@@ -569,6 +576,35 @@ one history is the honest number, since an edit on the board and an edit in the
 table are the same edit. Note that Besiege closes the block's menu when it undoes,
 and an unpinned board is part of that menu — pin the board if you want it to stay
 up across an undo.
+
+## Other languages
+
+The mod speaks every language Besiege does: French, German, Spanish, Italian,
+Portuguese, Polish, Russian, Turkish, Japanese, Korean and Chinese — pick the
+language in Besiege's own options and the mod follows **as you pick it**. Nothing
+to restart: the table redraws where it was scrolled to, any open board comes back
+with the same nodes, zoom and position, and the block's own mapper controls change
+name under the pointer.
+
+Every word it puts on screen is a key in `lang/example.txt`, beside the mod. To
+correct a translation or add one, copy that file to the name Besiege uses for the
+language — `French.txt`, `German.txt`, `ChineseSimplified.txt`, the same names as
+the game's own `Localisation Files` — translate the right-hand side of each line,
+and pick that language in Besiege. Keep the key on the left of the `=`; `\n` is a line break and
+`{0}` is a number the mod fills in, which you may put wherever your grammar wants
+it. Anything you leave out stays English, so a part-finished translation is worth
+shipping. Dropping the same file into the mod's data folder overrides one that came
+with the mod, without touching the install.
+
+The gate names — AND, OR, XOR — are not in that file: they come from Besiege's own
+translations, so they already match the rest of the game. Neither is anything
+written into a save file, which stays English so that a machine built in one
+language opens in another.
+
+The mod draws its words in the same font the game does, and asks the game which
+font that is — so Japanese, Korean and Chinese come out in Besiege's own CJK
+lettering rather than as empty boxes. The French for *nodes* is spelled `NOEUDS`
+rather than `NŒUDS`, which is how Besiege's own French writes it.
 
 ## Converting
 

@@ -1,0 +1,105 @@
+// Turkish (Türkçe) for the Besiege Node Editor mod.
+//
+// Named as Besiege names its own language files. Keep each key on the left
+// of the = exactly as it is. \n is a line break; {0} is a number the mod
+// fills in -- keep it, and put it where the grammar wants it. Anything left
+// out falls back to English.
+//
+// Translated without a native speaker's eye: corrections welcome.
+
+// the node editor's title bar and rows
+bar.edit = DÜZENLE
+bar.tidy = TOPARLA
+bar.fit = SIĞDIR
+bar.import = İÇE AKTAR
+bar.pins = SABİTLE
+bar.export = DIŞA AKTAR
+bar.grid = IZGARA
+bar.empty = BOŞ BAŞLA
+bar.reset-colours = RENKLERİ SIFIRLA
+bar.reset-size = BOYUTU SIFIRLA
+bar.canvas-size = TUVAL BOYUTU
+bar.node = DÜĞÜM
+bar.wire = KABLO
+
+// what a tip says
+tip.style = Kablo biçimi
+tip.grid = Düğümleri ızgaraya hizala
+tip.empty = Boş bir tuvalle başla
+tip.edit = Renkleri ve ayarları düzenle
+tip.import = Makinedeki tüm mantık kapılarını ve zamanlayıcıları buraya al
+tip.pins = Dışa aktarırken sabitleme blokları ekle
+tip.export = Mantık kapısı bloklarına dönüştür
+tip.prefix = Düğümler bağlanınca oluşan değişkenlerin öneki
+tip.keep-open = Düzenleyiciyi açık tut
+
+// what a box says before anything is typed in it
+ghost.name = ad
+ghost.prefix = önek
+ghost.comment = not
+
+// Shown only. What the file holds is `Hues.names`, which stays English.
+mode.unicolor = TEK RENK
+mode.color = RENK
+mode.random = RASTGELE
+
+// the wire styles
+style.line = ÇİZGİ
+style.curve = EĞRİ
+style.square = KÖŞELİ
+
+// what the board says when it refuses
+board.key-and-name = Tuş ve değişken:\nVEYA kapısı ekleyin.
+board.input-full-names = giriş dolu\n100 ad
+board.input-full-keys = giriş dolu\n{0} tuş
+board.answer-full-names = çıkış dolu\n100 ad
+board.answer-full-keys = çıkış dolu\n{0} tuş
+board.key-name-share = tuş ve ad\nbir arada olmaz
+board.needs-input = bir girişe\nbağlanmalı
+board.needs-output = bir çıkışa\nbağlanmalı
+board.no-direct-output = doğrudan bağlantı\nolmaz
+board.assigned = zaten atanmış!
+board.gates-limit = {0} kapı sınırına\nulaşıldı
+board.imported-one = {0} blok alındı
+board.imported-many = {0} blok alındı
+board.left-behind = \n{0} makinede kaldı
+board.nothing-to-export = aktarılacak bir şey yok
+
+// the table under the mapper
+table.open = DÜĞÜM DÜZENLEYİCİ
+table.import = İÇE AKTAR
+table.pins = SABİTLE
+table.export = DIŞA AKTAR
+table.wait = BEKLEME
+table.duration = SÜRE
+table.hold = B
+table.stop = D
+table.loop = T
+table.emulate = TUŞ
+table.input-a = GİRİŞ A
+table.input-b = GİRİŞ B
+table.gate = KAPI
+table.mode = M
+table.output = ÇIKIŞ
+tip.wait = Başlangıçtan basışa kadar geçen saniye
+tip.duration = Basış ne kadar sürer
+tip.hold = Çalışması için basılı tut
+tip.stop = Durdurmaya izin ver
+tip.loop = Tekrarla
+tip.emulate = Bu satırın bastığı tuş ya da değişken
+tip.mode = Kenar algılayıcı: ters çevir\nDiğer kapılar: değiştir
+
+// what the table says back
+table.gates-limit = {0} KAPI SINIRINA ULAŞILDI
+table.timers-limit = {0} ZAMANLAYICI SINIRINA ULAŞILDI
+table.no-timers = AKTARILACAK\nZAMANLAYICI YOK
+table.export-failed = AKTARILAMADI
+table.timer-added = {0} ZAMANLAYICI EKLENDİ
+table.timers-added = {0} ZAMANLAYICI EKLENDİ
+table.imported = {0} ALINDI
+table.imported-differ = {0} TAMAM, ETKİNLEŞTİRMEYİ KONTROL EDİN
+
+// the mapper's own controls
+mapper.activate = Etkinleştir
+mapper.automatic = Otomatik
+mapper.pins = Sabitleme blokları

@@ -1,0 +1,105 @@
+// Spanish (Español) for the Besiege Node Editor mod.
+//
+// Named as Besiege names its own language files. Keep each key on the left
+// of the = exactly as it is. \n is a line break; {0} is a number the mod
+// fills in -- keep it, and put it where the grammar wants it. Anything left
+// out falls back to English.
+//
+// Translated without a native speaker's eye: corrections welcome.
+
+// the node editor's title bar and rows
+bar.edit = EDITAR
+bar.tidy = ORDENAR
+bar.fit = AJUSTAR
+bar.import = IMPORTAR
+bar.pins = FIJAR
+bar.export = EXPORTAR
+bar.grid = CUADRÍCULA
+bar.empty = EMPEZAR VACÍO
+bar.reset-colours = REINIC. COLORES
+bar.reset-size = REINIC. TAMAÑO
+bar.canvas-size = TAMAÑO DEL LIENZO
+bar.node = NODO
+bar.wire = CABLE
+
+// what a tip says
+tip.style = Estilo de los cables
+tip.grid = Alinear los nodos a la cuadrícula
+tip.empty = Empezar con un lienzo vacío
+tip.edit = Editar colores y ajustes
+tip.import = Traer todas las puertas lógicas y temporizadores de la máquina
+tip.pins = Añadir bloques de fijación al exportar
+tip.export = Convertir en bloques de puerta lógica
+tip.prefix = Prefijo de las variables creadas al conectar nodos
+tip.keep-open = Mantener el editor abierto
+
+// what a box says before anything is typed in it
+ghost.name = nombre
+ghost.prefix = prefijo
+ghost.comment = comentario
+
+// Shown only. What the file holds is `Hues.names`, which stays English.
+mode.unicolor = UN COLOR
+mode.color = COLOR
+mode.random = ALEATORIO
+
+// the wire styles
+style.line = LÍNEA
+style.curve = CURVA
+style.square = ÁNGULOS
+
+// what the board says when it refuses
+board.key-and-name = Tecla y variable:\nusa una puerta O.
+board.input-full-names = entrada llena\n100 nombres
+board.input-full-keys = entrada llena\n{0} teclas
+board.answer-full-names = salida llena\n100 nombres
+board.answer-full-keys = salida llena\n{0} teclas
+board.key-name-share = tecla y nombre\nno se mezclan
+board.needs-input = debe ir\na una entrada
+board.needs-output = debe ir\na una salida
+board.no-direct-output = conexión directa\nimposible
+board.assigned = ¡ya asignado!
+board.gates-limit = límite de {0}\npuertas alcanzado
+board.imported-one = {0} bloque importado
+board.imported-many = {0} bloques importados
+board.left-behind = \n{0} quedan en la máquina
+board.nothing-to-export = nada que exportar
+
+// the table under the mapper
+table.open = EDITOR DE NODOS
+table.import = IMPORTAR
+table.pins = FIJAR
+table.export = EXPORTAR
+table.wait = ESPERA
+table.duration = DURACIÓN
+table.hold = M
+table.stop = P
+table.loop = B
+table.emulate = TECLA
+table.input-a = ENTRADA A
+table.input-b = ENTRADA B
+table.gate = PUERTA
+table.mode = M
+table.output = SALIDA
+tip.wait = Segundos desde el inicio hasta la pulsación
+tip.duration = Cuánto dura la pulsación
+tip.hold = Mantener para ejecutar
+tip.stop = Permitir detener
+tip.loop = Repetir
+tip.emulate = La tecla o variable que pulsa esta fila
+tip.mode = Detector de flanco: invertir\nOtras puertas: alternar
+
+// what the table says back
+table.gates-limit = LÍMITE DE {0} PUERTAS ALCANZADO
+table.timers-limit = LÍMITE DE {0} TEMPORIZADORES ALCANZADO
+table.no-timers = NO HAY TEMPORIZADORES\nQUE EXPORTAR
+table.export-failed = NO SE PUDO EXPORTAR
+table.timer-added = {0} TEMPORIZADOR AÑADIDO
+table.timers-added = {0} TEMPORIZADORES AÑADIDOS
+table.imported = {0} IMPORTADOS
+table.imported-differ = {0} OK, REVISA ACTIVACIÓN
+
+// the mapper's own controls
+mapper.activate = Activar
+mapper.automatic = Automático
+mapper.pins = Bloques de fijación

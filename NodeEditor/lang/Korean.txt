@@ -1,0 +1,105 @@
+// Korean (한국어) for the Besiege Node Editor mod.
+//
+// Named as Besiege names its own language files. Keep each key on the left
+// of the = exactly as it is. \n is a line break; {0} is a number the mod
+// fills in -- keep it, and put it where the grammar wants it. Anything left
+// out falls back to English.
+//
+// Translated without a native speaker's eye: corrections welcome.
+
+// the node editor's title bar and rows
+bar.edit = 편집
+bar.tidy = 정렬
+bar.fit = 전체 보기
+bar.import = 가져오기
+bar.pins = 고정
+bar.export = 내보내기
+bar.grid = 격자
+bar.empty = 빈 화면으로 시작
+bar.reset-colours = 색 초기화
+bar.reset-size = 크기 초기화
+bar.canvas-size = 캔버스 크기
+bar.node = 노드
+bar.wire = 선
+
+// what a tip says
+tip.style = 선 모양
+tip.grid = 노드를 격자에 맞추기
+tip.empty = 빈 캔버스로 시작
+tip.edit = 색과 설정 편집
+tip.import = 기계의 모든 논리 게이트와 타이머를 가져오기
+tip.pins = 내보낼 때 고정 블록 추가
+tip.export = 논리 게이트 블록으로 변환
+tip.prefix = 노드를 연결할 때 만들어지는 변수의 접두사
+tip.keep-open = 편집기를 열어 두기
+
+// what a box says before anything is typed in it
+ghost.name = 이름
+ghost.prefix = 접두사
+ghost.comment = 메모
+
+// Shown only. What the file holds is `Hues.names`, which stays English.
+mode.unicolor = 단색
+mode.color = 종류별
+mode.random = 무작위
+
+// the wire styles
+style.line = 직선
+style.curve = 곡선
+style.square = 직각
+
+// what the board says when it refuses
+board.key-and-name = 키와 변수는 섞을 수 없음\nOR 게이트를 쓰세요
+board.input-full-names = 입력이 가득 참\n이름 100개
+board.input-full-keys = 입력이 가득 참\n키 {0}개
+board.answer-full-names = 출력이 가득 참\n이름 100개
+board.answer-full-keys = 출력이 가득 참\n키 {0}개
+board.key-name-share = 키와 이름은\n함께 쓸 수 없음
+board.needs-input = 입력에\n연결해야 함
+board.needs-output = 출력에\n연결해야 함
+board.no-direct-output = 직접 연결할 수\n없음
+board.assigned = 이미 사용 중!
+board.gates-limit = 게이트 {0}개\n한도에 도달
+board.imported-one = 블록 {0}개 가져옴
+board.imported-many = 블록 {0}개 가져옴
+board.left-behind = \n{0}개가 기계에 남음
+board.nothing-to-export = 내보낼 것이 없음
+
+// the table under the mapper
+table.open = 노드 편집기
+table.import = 가져오기
+table.pins = 고정
+table.export = 내보내기
+table.wait = 대기
+table.duration = 길이
+table.hold = 유
+table.stop = 정
+table.loop = 반
+table.emulate = 키
+table.input-a = 입력 A
+table.input-b = 입력 B
+table.gate = 게이트
+table.mode = 모
+table.output = 출력
+tip.wait = 시작부터 누를 때까지의 초
+tip.duration = 누르고 있는 시간
+tip.hold = 누르고 있는 동안만 작동
+tip.stop = 도중에 멈출 수 있음
+tip.loop = 반복
+tip.emulate = 이 줄이 누르는 키 또는 변수
+tip.mode = 엣지 감지: 반전\n다른 게이트: 토글
+
+// what the table says back
+table.gates-limit = 게이트 {0}개 한도에 도달
+table.timers-limit = 타이머 {0}개 한도에 도달
+table.no-timers = 내보낼 타이머가\n없습니다
+table.export-failed = 내보내기 실패
+table.timer-added = 타이머 {0}개 추가
+table.timers-added = 타이머 {0}개 추가
+table.imported = {0}개 가져옴
+table.imported-differ = {0}개, 작동키 확인
+
+// the mapper's own controls
+mapper.activate = 작동
+mapper.automatic = 자동
+mapper.pins = 고정 블록

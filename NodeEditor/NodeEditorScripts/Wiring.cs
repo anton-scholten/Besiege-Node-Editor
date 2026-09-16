@@ -142,14 +142,14 @@ namespace NodeEditorMod
         {
             System.Text.StringBuilder text = new System.Text.StringBuilder();
             Seeded();
-            // The board's own size first: a layout from before it was settable has
-            // no such line and loads at the size every board used to be.
+            // The board's own size first, so a layout says how big the board it was
+            // laid out on is before it says where anything sits on it.
             text.Append("b ").Append(Cells.ToString(CultureInfo.InvariantCulture))
                 .Append(' ').Append(Lines.ToString(CultureInfo.InvariantCulture))
                 .Append('\n');
             for (int i = 0; i < Spots.Count; i++)
             {
-                // The seed last: a layout from before seeds has four fields.
+                // Row, x, y, then the colour seed: five fields, all of them wanted.
                 text.Append("g ").Append(i).Append(' ')
                     .Append(Whole(Spots[i].x)).Append(' ')
                     .Append(Whole(Spots[i].y)).Append(' ')
@@ -214,7 +214,7 @@ namespace NodeEditorMod
                 {
                     continue;
                 }
-                if (parts[0] == "g")
+                if (parts[0] == "g" && parts.Length >= 5)
                 {
                     int row = Number(parts[1], -1);
                     if (row < 0)
@@ -228,10 +228,7 @@ namespace NodeEditorMod
                     made.Seeded();
                     made.Spots[row] = new Vector2(Number(parts[2], 0),
                                                   Number(parts[3], 0));
-                    if (parts.Length >= 5)
-                    {
-                        made.Seeds[row] = Number(parts[4], made.Seeds[row]);
-                    }
+                    made.Seeds[row] = Number(parts[4], made.Seeds[row]);
                 }
                 else if (parts[0] == "n" && parts.Length >= 5)
                 {

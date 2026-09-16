@@ -4,24 +4,10 @@
 	<Version>0.1.0</Version>
 
 	<Description>
-	Two blocks, each of which is many of Besiege's own.
-
-	Timer Plus is up to a thousand of Besiege's timer blocks. Each row of its
-	table is a timer with the same settings the game's own has -- activation key
-	or variable, hold to run, allow stop, loop, wait, emulation duration and the
-	key or variable it presses -- and the rows can be sorted by any column. A
-	button at the bottom converts the table into that many real timer blocks,
-	laid out on one horizontal plane and handed over as a selection.
-
-	Computer is the same table, up to a thousand rows, for Besiege's logic
-	gates: two inputs, the
-	gate, its one switch and the key it presses, a row apiece -- and a board to
-	wire those rows on as nodes, timers among them.
-
-	Block models by Poly by Google and Robert Schlyter, from Poly Pizza, under
-	CC-BY 3.0. The settings
-	panel needs UI Factory (Workshop item 2913469777): without it the blocks
-	still run the rows they hold, but the rows cannot be edited.
+	Adds a Computer block with a Node Editor to edit logic circuits.
+	Allows you to import any logic gate and timer blocks from your machine to the node editor and export them back to as Besiege blocks.
+	Also adds a Timer Plus block that allows you to quickly import or create many timers and export them to your machine.
+	Needs UI Factory.
 	</Description>
 
 	<!-- The node editor's own hotkeys. Declared here so Besiege puts them in its

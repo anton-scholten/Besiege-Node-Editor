@@ -188,7 +188,7 @@ namespace NodeEditorMod
                 Text ghost = box.placeholder as Text;
                 if (ghost != null)
                 {
-                    ghost.text = "name";
+                    ghost.text = Words.Of("ghost.name");
                 }
                 box.onEndEdit.AddListener(Typed);
                 // A name longer than the cell slides along to show all of it.

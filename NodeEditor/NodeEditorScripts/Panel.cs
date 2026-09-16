@@ -121,6 +121,17 @@ namespace NodeEditorMod
             }
         }
 
+        /// <summary>The player changed Besiege's language: the table is built again
+        /// in the new words. `Rebuild` keeps where it was scrolled to, so a long
+        /// table does not jump to the top.</summary>
+        public static void Retranslate()
+        {
+            if (only != null && only.window != null && only.window.activeSelf)
+            {
+                only.Rebuild();
+            }
+        }
+
         private static Panel only;
 
         /// <summary>Whether the first open has been reported. See
@@ -909,7 +920,8 @@ namespace NodeEditorMod
         /// show a picture, with these names as the fallback.</summary>
         private static readonly string[] HeadNames =
         {
-            "", "WAIT", "DURATION", "H", "S", "L", "EMULATE"
+            "", "table.wait", "table.duration", "table.hold", "table.stop",
+            "table.loop", "table.emulate"
         };
 
         /// <summary>Heading tooltips, which is where the pictured switch columns
@@ -917,13 +929,8 @@ namespace NodeEditorMod
         /// </summary>
         private static readonly string[] HeadTips =
         {
-            "",
-            "Seconds from the start to the press",
-            "How long the press is held",
-            "Hold to run",
-            "Allow stop",
-            "Loop",
-            "The key or variable this row presses"
+            "", "tip.wait", "tip.duration", "tip.hold", "tip.stop", "tip.loop",
+            "tip.emulate"
         };
 
 
@@ -953,7 +960,7 @@ namespace NodeEditorMod
                 }
                 else
                 {
-                    Text label = Pin(go, HeadNames[c], UIF.Ink);
+                    Text label = Pin(go, Words.Of(HeadNames[c]), UIF.Ink);
                     if (sorts)
                     {
                         UIF.Grow(go, label);
@@ -961,7 +968,7 @@ namespace NodeEditorMod
                     }
                 }
 
-                Tip.On(go, HeadTips[c]);
+                Tip.On(go, Words.Of(HeadTips[c]));
 
                 Button click = go.GetComponent<Button>();
                 if (click == null)
@@ -1051,17 +1058,13 @@ namespace NodeEditorMod
         /// <summary>The logic table's headings and their tooltips.</summary>
         private static readonly string[] GateHeads =
         {
-            "", "INPUT A", "INPUT B", "GATE", "M", "OUTPUT"
+            "", "table.input-a", "table.input-b", "table.gate", "table.mode",
+            "table.output"
         };
 
         private static readonly string[] GateHeadTips =
         {
-            "",
-            "",
-            "",
-            "",
-            "Edge detector: invert\nOther gates: toggle",
-            ""
+            "", "", "", "", "tip.mode", ""
         };
 
         private float LogicHeader(float y, float[] x, float[] w)
@@ -1077,13 +1080,13 @@ namespace NodeEditorMod
                 UIF.NoSwell(go);
 
                 bool sorts = c == LGate;
-                Text label = Pin(go, GateHeads[c], UIF.Ink);
+                Text label = Pin(go, Words.Of(GateHeads[c]), UIF.Ink);
                 if (sorts)
                 {
                     UIF.Grow(go, label);
                     marks[c] = Mark(go);
                 }
-                Tip.On(go, GateHeadTips[c]);
+                Tip.On(go, Words.Of(GateHeadTips[c]));
 
                 Button click = go.GetComponent<Button>();
                 if (click == null)
@@ -1260,7 +1263,7 @@ namespace NodeEditorMod
             {
                 UIF.Fit(go.GetComponent<RectTransform>(), Edge, y, Wide, RowHeight);
                 UIF.NoSwell(go);
-                plusLabel = Pin(go, "+", UIF.Ink);
+                plusLabel = Pin(go, Words.Of("table.add"), UIF.Ink);
                 UIF.Grow(go, plusLabel);
                 Button click = go.GetComponent<Button>();
                 if (click != null)
@@ -1283,7 +1286,7 @@ namespace NodeEditorMod
                 {
                     UIF.Fit(board.GetComponent<RectTransform>(), Edge, y, Wide, tall);
                     UIF.NoSwell(board);
-                    UIF.Grow(board, Pin(board, "NODE EDITOR", UIF.Ink));
+                    UIF.Grow(board, Pin(board, Words.Of("table.open"), UIF.Ink));
                     boardBox = board.GetComponent<Toggle>();
                     if (boardBox != null)
                     {
@@ -1301,7 +1304,7 @@ namespace NodeEditorMod
             {
                 UIF.Fit(import.GetComponent<RectTransform>(), Edge, y, third, tall);
                 UIF.NoSwell(import);
-                importLabel = Pin(import, "IMPORT", UIF.Ink);
+                importLabel = Pin(import, Words.Of("table.import"), UIF.Ink);
                 UIF.Grow(import, importLabel);
                 Button click = import.GetComponent<Button>();
                 if (click != null)
@@ -1316,7 +1319,7 @@ namespace NodeEditorMod
                 UIF.Fit(pin.GetComponent<RectTransform>(), Edge + third + ColGap, y,
                         third, tall);
                 UIF.NoSwell(pin);
-                Text label = Pin(pin, "PIN BLOCKS", UIF.Ink);
+                Text label = Pin(pin, Words.Of("table.pins"), UIF.Ink);
                 UIF.Grow(pin, label);
                 pinBox = pin.GetComponent<Toggle>();
                 if (pinBox != null)
@@ -1331,7 +1334,7 @@ namespace NodeEditorMod
                 UIF.Fit(go.GetComponent<RectTransform>(), Edge + (third + ColGap) * 2f,
                         y, third, tall);
                 UIF.NoSwell(go);
-                convertLabel = Pin(go, "EXPORT", UIF.Ink);
+                convertLabel = Pin(go, Words.Of("table.export"), UIF.Ink);
                 UIF.Grow(go, convertLabel);
                 Button click = go.GetComponent<Button>();
                 if (click != null)
@@ -1462,7 +1465,7 @@ namespace NodeEditorMod
                 Text ghost = field.placeholder as Text;
                 if (ghost != null)
                 {
-                    ghost.text = "0";
+                    ghost.text = Words.Of("ghost.zero");
                 }
                 field.contentType = InputField.ContentType.DecimalNumber;
                 Marquee.On(field);
@@ -2391,8 +2394,8 @@ namespace NodeEditorMod
                 List<MapperType> gateTouched = new List<MapperType>();
                 if (LogicTable.Add(logic, gateTouched) < 0)
                 {
-                    Flash(plusLabel, "REACHED THE "
-                          + ComputerBehaviour.MaxRows + " GATES LIMIT",
+                    Flash(plusLabel,
+                          Words.Of("table.gates-limit", ComputerBehaviour.MaxRows),
                           UIF.Hot);
                     return;
                 }
@@ -2408,8 +2411,9 @@ namespace NodeEditorMod
             int made = Table.Add(served, touched);
             if (made < 0)
             {
-                Flash(plusLabel, "REACHED THE " + TimerPlusBehaviour.MaxRows
-                      + " TIMERS LIMIT", UIF.Hot);
+                Flash(plusLabel,
+                      Words.Of("table.timers-limit", TimerPlusBehaviour.MaxRows),
+                      UIF.Hot);
                 return;
             }
             Commit(touched);
@@ -2495,7 +2499,9 @@ namespace NodeEditorMod
                 Log.Info(took + " timer(s) imported" + (left > 0 ? ", " + left
                          + " left on the machine" : "") + (differ
                          ? "; they did not all start the way the block does" : "."));
-                Flash(importLabel, took + (differ ? " IN, CHECK ACTIVATE" : " IMPORTED"),
+                Flash(importLabel,
+                      Words.Of(differ ? "table.imported-differ"
+                                      : "table.imported", took),
                       differ ? UIF.Hot : UIF.Live);
                 Rebuild();
             }
@@ -2518,7 +2524,7 @@ namespace NodeEditorMod
             {
                 // Nothing to make blocks of is the table being empty, not the
                 // export going wrong: say which.
-                Flash(convertLabel, "NO TIMERS\nTO EXPORT", UIF.Hot);
+                Flash(convertLabel, Words.Of("table.no-timers"), UIF.Hot);
                 return;
             }
             try
@@ -2527,12 +2533,13 @@ namespace NodeEditorMod
                 // Logged as well: selecting the new blocks closes the mapper, and
                 // this panel with it.
                 Log.Info(made + " timer block(s) added from the table.");
-                Flash(convertLabel,
-                      made + (made == 1 ? " TIMER ADDED" : " TIMERS ADDED"), UIF.Live);
+                Flash(convertLabel, Words.Of(made == 1 ? "table.timer-added"
+                                               : "table.timers-added", made),
+                      UIF.Live);
             }
             catch (Exception e)
             {
-                Flash(convertLabel, "COULD NOT EXPORT", UIF.Hot);
+                Flash(convertLabel, Words.Of("table.export-failed"), UIF.Hot);
                 Log.Warn("convert failed: " + e);
             }
         }

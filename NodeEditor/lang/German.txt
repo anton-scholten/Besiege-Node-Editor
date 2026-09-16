@@ -1,0 +1,105 @@
+// German (Deutsch) for the Besiege Node Editor mod.
+//
+// Named as Besiege names its own language files. Keep each key on the left
+// of the = exactly as it is. \n is a line break; {0} is a number the mod
+// fills in -- keep it, and put it where the grammar wants it. Anything left
+// out falls back to English.
+//
+// Translated without a native speaker's eye: corrections welcome.
+
+// the node editor's title bar and rows
+bar.edit = BEARBEITEN
+bar.tidy = ORDNEN
+bar.fit = EINPASSEN
+bar.import = IMPORT
+bar.pins = STIFTE
+bar.export = EXPORT
+bar.grid = RASTER
+bar.empty = LEER STARTEN
+bar.reset-colours = FARBEN ZURÜCK
+bar.reset-size = GRÖSSE ZURÜCK
+bar.canvas-size = FLÄCHENGRÖSSE
+bar.node = KNOTEN
+bar.wire = KABEL
+
+// what a tip says
+tip.style = Kabelstil
+tip.grid = Knoten am Raster ausrichten
+tip.empty = Mit leerer Fläche beginnen
+tip.edit = Farben und Einstellungen bearbeiten
+tip.import = Alle Logikgatter und Zeitschalter der Maschine übernehmen
+tip.pins = Beim Export Stiftblöcke hinzufügen
+tip.export = In Logikgatter-Blöcke umwandeln
+tip.prefix = Präfix für Variablen, die beim Verbinden entstehen
+tip.keep-open = Editor offen halten
+
+// what a box says before anything is typed in it
+ghost.name = Name
+ghost.prefix = Präfix
+ghost.comment = Kommentar
+
+// Shown only. What the file holds is `Hues.names`, which stays English.
+mode.unicolor = EINFARBIG
+mode.color = FARBE
+mode.random = ZUFÄLLIG
+
+// the wire styles
+style.line = LINIE
+style.curve = KURVE
+style.square = WINKEL
+
+// what the board says when it refuses
+board.key-and-name = Taste und Variable:\nODER-Gatter nutzen.
+board.input-full-names = Eingang voll\n100 Namen
+board.input-full-keys = Eingang voll\n{0} Tasten
+board.answer-full-names = Ausgang voll\n100 Namen
+board.answer-full-keys = Ausgang voll\n{0} Tasten
+board.key-name-share = Taste und Name\ngehen nicht zusammen
+board.needs-input = muss an einen\nEingang führen
+board.needs-output = muss an einen\nAusgang führen
+board.no-direct-output = keine direkte\nVerbindung zum Ausgang
+board.assigned = schon vergeben!
+board.gates-limit = Grenze von {0}\nGattern erreicht
+board.imported-one = {0} Block übernommen
+board.imported-many = {0} Blöcke übernommen
+board.left-behind = \n{0} auf der Maschine geblieben
+board.nothing-to-export = nichts zu exportieren
+
+// the table under the mapper
+table.open = KNOTEN-EDITOR
+table.import = IMPORT
+table.pins = STIFTE
+table.export = EXPORT
+table.wait = WARTEN
+table.duration = DAUER
+table.hold = H
+table.stop = S
+table.loop = W
+table.emulate = TASTE
+table.input-a = EINGANG A
+table.input-b = EINGANG B
+table.gate = GATTER
+table.mode = M
+table.output = AUSGANG
+tip.wait = Sekunden vom Start bis zum Druck
+tip.duration = Wie lange gedrückt wird
+tip.hold = Zum Ausführen halten
+tip.stop = Abbrechen erlauben
+tip.loop = Wiederholen
+tip.emulate = Taste oder Variable, die diese Zeile drückt
+tip.mode = Flankenerkennung: invertieren\nAndere Gatter: umschalten
+
+// what the table says back
+table.gates-limit = GRENZE VON {0} GATTERN ERREICHT
+table.timers-limit = GRENZE VON {0} ZEITSCHALTERN ERREICHT
+table.no-timers = KEINE ZEITSCHALTER\nZUM EXPORT
+table.export-failed = EXPORT FEHLGESCHLAGEN
+table.timer-added = {0} ZEITSCHALTER ERSTELLT
+table.timers-added = {0} ZEITSCHALTER ERSTELLT
+table.imported = {0} ÜBERNOMMEN
+table.imported-differ = {0} OK, AKTIVIERUNG PRÜFEN
+
+// the mapper's own controls
+mapper.activate = Aktivieren
+mapper.automatic = Automatisch
+mapper.pins = Stiftblöcke

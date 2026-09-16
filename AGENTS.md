@@ -17,6 +17,7 @@ NodeEditor/TimerPlus.xml             the Timer Plus block: mesh, colliders, modu
 NodeEditor/Computer.xml              the Computer block, the same
 NodeEditor/NodeEditor.dll            built by tools/build.sh (checked in, the game loads it)
 NodeEditor/Resources/                the meshes, their textures, the thumbnail, the UI icons
+NodeEditor/lang/                     every word the mod shows; example.txt is English
 NodeEditor/NodeEditorScripts/*.cs    mod source; not read by the game
 tools/build.sh                       compiles with Besiege's own compiler, and checks
 tools/verify-build.sh                the check to run after editing any .cs
@@ -97,6 +98,42 @@ What depends on what:
   settles what it is: the sides are a value, the top and bottom are a reach down
   the column, and `Panel.Pick`/`Reach` turn that into a selection and scroll the
   list under it.
+- **`Words`** is every word the mod shows, by key, with English compiled in as the
+  fallback and `lang/<language>.txt` read over it -- from beside the mod, then from
+  the mod's data folder. `Words.Watching`, called once from `Mod.OnLoad`, subscribes
+  to Besiege's `LocalisationManager.LanguageChanged`; on it the catalogue is read
+  again and `Editor.Retranslate`, `Panel.Retranslate` and each behaviour's `Retitle`
+  put the new words on what is already drawn. **A board is rebuilt, not
+  re-captioned** -- what a caption says is not kept once drawn -- so `Editor.Remade`
+  must clear every collection `Frame` appends to (`shelf`, `swatches`, `inks`,
+  `palette`, `rails`, `corners`) or the old window's pieces stay in the lists in
+  front of the new ones, and it must not re-run `Adopt`/`Tidy`, which would re-lay
+  the player's board. Mapper labels need no rebuild: setting `MapperType.DisplayName`
+  raises `NameChanged`, which `BlockMapper` listens to. The file is named as **Besiege** names its own language
+  files (`French.txt`, `ChineseSimplified.txt`): `currLangISO` returns the
+  `SystemLanguage` name, not an ISO code, whatever it is called. **Put no user-visible string anywhere else.** Besiege's own
+  `LocalisationManager` cannot carry them: it looks strings up by a number out of
+  the game's own table, and `ExternalLocalisations`, which looks like the hook for
+  a mod, is never read by anything in the game. Two things stay untranslated on
+  purpose, and both would be bugs if translated: `Hues.names`, the words written
+  into `board-colours.txt`, and every mapper *key* (`"PinKey"`, `"Activate"`), which
+  is what a save is keyed by. `Gates.Names` is already the game's own translation,
+  through `LocalisationManager.GetTranslation(id)` with the mod's spellings as
+  fallback -- so a gate is called what Besiege calls it, which is the point: the
+  game's own logic block sits on the same machine saying the same word. Those names
+  are asked for once and kept, so `Gates.Forget` clears them on a language change or
+  the board keeps the old language's gates while everything round them changes. A message with a number in it is one key with `{0}`, never two strings
+  glued together -- word order is not English's to decide. **Every label goes through
+  `UIF.Style`**, which is the one place a font is set: `UIF.Wording` asks
+  `LocalisationManager.GetFont(UIF.Font)` and uses what comes back, so the CJK swap
+  is the game's decision rather than the mod's. `UIF.Font` is GOST Common -- UI
+  Factory scrapes it off a scene `TextMesh` -- which draws every Latin and Cyrillic
+  character the `lang/` files use but no CJK at all, so a label that sets its own
+  font is a label that draws boxes in Japanese. All four `AddComponent<Text>()` sites
+  (`UIF.Label`, `RowNumber`, `Swatch`, and `Marquee`, which copies the font off the
+  label it shadows) call `Style` or inherit from something that did; keep it that
+  way. `Style` replaces a prefab's own font only when `GetFont` asks for one other
+  than the base, which is exactly the Asian-language case and needs no separate test.
 - **`Glow`** blinks the block's display when a row fires. The mesh is unwrapped
   onto a palette of flat patches, one per colour of the model, so the display's
   triangles all look at one patch: the block gets its own material and its own
@@ -200,9 +237,14 @@ What depends on what:
   text in the block's `LayoutKey`. `Editor`'s `boardCells`/`boardLines` are static
   because the helpers that snap and fence a node are, and they are re-read from the
   layout whenever one is loaded -- one board is open at a time. CANVAS SIZE, the
-  wire style, GRID and RESET SIZE are not on the title bar: they are `shelf` items
-  on the third row EDIT puts out, so they are built into the window rather than the
-  bar and hidden with the colour rows. `Laned` gives each square wire the corridor
+  wire style, GRID, START EMPTY and RESET SIZE are not on the title bar: they are
+  `shelf` items on the third row EDIT puts out, so they are built into the window
+  rather than the bar and hidden with the colour rows. The wire style, the grid and START
+  EMPTY are properties over `Hues`, which keeps them in the player's own file beside
+  the colours, so they stand between sessions and every open board shares them --
+  `Hues.Defaults` leaves them alone, so RESET COLORS resets colours only. The only
+  thing that reads START EMPTY is `ComputerBehaviour.SafeAwake`, through
+  `Editor.StartEmpty`, to decide whether a new block lays its first rows at all. `Laned` gives each square wire the corridor
   its middle leg runs down, a lane of `Lanes()` to the cell, and is why a square
   board loses the per-wire retrace fast path in `Strings`: a corridor is a question
   about every wire at once, so one node moving can move another wire's lane. It

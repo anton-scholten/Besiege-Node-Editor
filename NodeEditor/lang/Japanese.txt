@@ -1,0 +1,105 @@
+// Japanese (日本語) for the Besiege Node Editor mod.
+//
+// Named as Besiege names its own language files. Keep each key on the left
+// of the = exactly as it is. \n is a line break; {0} is a number the mod
+// fills in -- keep it, and put it where the grammar wants it. Anything left
+// out falls back to English.
+//
+// Translated without a native speaker's eye: corrections welcome.
+
+// the node editor's title bar and rows
+bar.edit = 編集
+bar.tidy = 整列
+bar.fit = 全体表示
+bar.import = 取り込み
+bar.pins = 固定
+bar.export = 書き出し
+bar.grid = グリッド
+bar.empty = 空で開始
+bar.reset-colours = 色をリセット
+bar.reset-size = 大きさをリセット
+bar.canvas-size = キャンバスの大きさ
+bar.node = ノード
+bar.wire = ワイヤー
+
+// what a tip says
+tip.style = ワイヤーの形
+tip.grid = ノードをグリッドに合わせる
+tip.empty = 空のキャンバスで始める
+tip.edit = 色と設定を編集
+tip.import = 機械上のロジックゲートとタイマーをすべて取り込む
+tip.pins = 書き出すときピンブロックを追加
+tip.export = ロジックゲートのブロックに変換
+tip.prefix = ノードをつないだときに作る変数の接頭辞
+tip.keep-open = エディタを開いたままにする
+
+// what a box says before anything is typed in it
+ghost.name = 名前
+ghost.prefix = 接頭辞
+ghost.comment = コメント
+
+// Shown only. What the file holds is `Hues.names`, which stays English.
+mode.unicolor = 単色
+mode.color = 種類別
+mode.random = ランダム
+
+// the wire styles
+style.line = 直線
+style.curve = 曲線
+style.square = 直角
+
+// what the board says when it refuses
+board.key-and-name = キーと変数は混ぜられない\nORゲートを使う
+board.input-full-names = 入力がいっぱい\n名前100個
+board.input-full-keys = 入力がいっぱい\nキー{0}個
+board.answer-full-names = 出力がいっぱい\n名前100個
+board.answer-full-keys = 出力がいっぱい\nキー{0}個
+board.key-name-share = キーと名前は\n同居できない
+board.needs-input = 入力へ\nつなぐこと
+board.needs-output = 出力へ\nつなぐこと
+board.no-direct-output = 直接つなぐことは\nできない
+board.assigned = すでに使用中!
+board.gates-limit = ゲート{0}個の\n上限に達した
+board.imported-one = ブロックを{0}個取り込み
+board.imported-many = ブロックを{0}個取り込み
+board.left-behind = \n{0}個が機械に残った
+board.nothing-to-export = 書き出すものがない
+
+// the table under the mapper
+table.open = ノードエディタ
+table.import = 取り込み
+table.pins = 固定
+table.export = 書き出し
+table.wait = 待機
+table.duration = 長さ
+table.hold = 保
+table.stop = 停
+table.loop = 繰
+table.emulate = キー
+table.input-a = 入力A
+table.input-b = 入力B
+table.gate = ゲート
+table.mode = モ
+table.output = 出力
+tip.wait = 開始から押すまでの秒数
+tip.duration = 押している長さ
+tip.hold = 押している間だけ動く
+tip.stop = 途中で止められる
+tip.loop = 繰り返す
+tip.emulate = この行が押すキーまたは変数
+tip.mode = エッジ検出: 反転\n他のゲート: トグル
+
+// what the table says back
+table.gates-limit = ゲート{0}個の上限に達した
+table.timers-limit = タイマー{0}個の上限に達した
+table.no-timers = 書き出すタイマーが\nありません
+table.export-failed = 書き出しに失敗
+table.timer-added = タイマーを{0}個追加
+table.timers-added = タイマーを{0}個追加
+table.imported = {0}個取り込み
+table.imported-differ = {0}個、起動キーを確認
+
+// the mapper's own controls
+mapper.activate = 起動
+mapper.automatic = 自動
+mapper.pins = ピンブロック

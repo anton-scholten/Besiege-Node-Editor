@@ -1,0 +1,105 @@
+// French (Français) for the Besiege Node Editor mod.
+//
+// Named as Besiege names its own language files. Keep each key on the left
+// of the = exactly as it is. \n is a line break; {0} is a number the mod
+// fills in -- keep it, and put it where the grammar wants it. Anything left
+// out falls back to English.
+//
+// Translated without a native speaker's eye: corrections welcome.
+
+// the node editor's title bar and rows
+bar.edit = ÉDITER
+bar.tidy = RANGER
+bar.fit = AJUSTER
+bar.import = IMPORTER
+bar.pins = ÉPINGLER
+bar.export = EXPORTER
+bar.grid = GRILLE
+bar.empty = DÉMARRER VIDE
+bar.reset-colours = RÉINIT. COULEURS
+bar.reset-size = RÉINIT. TAILLE
+bar.canvas-size = TAILLE DU PLAN
+bar.node = NOEUD
+bar.wire = FIL
+
+// what a tip says
+tip.style = Style des fils
+tip.grid = Aligner les noeuds sur la grille
+tip.empty = Commencer avec un plan vide
+tip.edit = Modifier les couleurs et les réglages
+tip.import = Importer toutes les portes logiques et minuteries de la machine
+tip.pins = Ajouter des blocs d'épingle à l'export
+tip.export = Convertir en blocs de portes logiques
+tip.prefix = Préfixe des variables créées en reliant les noeuds
+tip.keep-open = Garder l'éditeur ouvert
+
+// what a box says before anything is typed in it
+ghost.name = nom
+ghost.prefix = préfixe
+ghost.comment = commentaire
+
+// Shown only. What the file holds is `Hues.names`, which stays English.
+mode.unicolor = UNICOLORE
+mode.color = COULEUR
+mode.random = ALÉATOIRE
+
+// the wire styles
+style.line = LIGNE
+style.curve = COURBE
+style.square = ANGLES
+
+// what the board says when it refuses
+board.key-and-name = Touche et variable :\najoutez une porte OU.
+board.input-full-names = entrée pleine\n100 noms
+board.input-full-keys = entrée pleine\n{0} touches
+board.answer-full-names = sortie pleine\n100 noms
+board.answer-full-keys = sortie pleine\n{0} touches
+board.key-name-share = touche et nom\nincompatibles
+board.needs-input = doit aller\nvers une entrée
+board.needs-output = doit aller\nvers une sortie
+board.no-direct-output = connexion directe\nimpossible
+board.assigned = déjà assigné !
+board.gates-limit = limite de {0}\nportes atteinte
+board.imported-one = {0} bloc importé
+board.imported-many = {0} blocs importés
+board.left-behind = \n{0} laissés sur la machine
+board.nothing-to-export = rien à exporter
+
+// the table under the mapper
+table.open = ÉDITEUR DE NOEUDS
+table.import = IMPORTER
+table.pins = ÉPINGLER
+table.export = EXPORTER
+table.wait = ATTENTE
+table.duration = DURÉE
+table.hold = M
+table.stop = A
+table.loop = B
+table.emulate = TOUCHE
+table.input-a = ENTRÉE A
+table.input-b = ENTRÉE B
+table.gate = PORTE
+table.mode = M
+table.output = SORTIE
+tip.wait = Secondes entre le départ et l'appui
+tip.duration = Durée de l'appui
+tip.hold = Maintenir pour exécuter
+tip.stop = Autoriser l'arrêt
+tip.loop = Boucler
+tip.emulate = La touche ou variable que cette ligne appuie
+tip.mode = Détecteur de front : inverser\nAutres portes : bascule
+
+// what the table says back
+table.gates-limit = LIMITE DE {0} PORTES ATTEINTE
+table.timers-limit = LIMITE DE {0} MINUTERIES ATTEINTE
+table.no-timers = AUCUNE MINUTERIE\nÀ EXPORTER
+table.export-failed = ÉCHEC DE L'EXPORT
+table.timer-added = {0} MINUTERIE AJOUTÉE
+table.timers-added = {0} MINUTERIES AJOUTÉES
+table.imported = {0} IMPORTÉES
+table.imported-differ = {0} OK, VÉRIFIEZ ACTIVATION
+
+// the mapper's own controls
+mapper.activate = Activer
+mapper.automatic = Automatique
+mapper.pins = Blocs d'épingle

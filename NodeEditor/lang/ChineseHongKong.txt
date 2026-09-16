@@ -1,0 +1,105 @@
+// Chinese Hong Kong (繁體中文，香港) for the Besiege Node Editor mod.
+//
+// Named as Besiege names its own language files. Keep each key on the left
+// of the = exactly as it is. \n is a line break; {0} is a number the mod
+// fills in -- keep it, and put it where the grammar wants it. Anything left
+// out falls back to English.
+//
+// Translated without a native speaker's eye: corrections welcome.
+
+// the node editor's title bar and rows
+bar.edit = 編輯
+bar.tidy = 整理
+bar.fit = 適應視窗
+bar.import = 匯入
+bar.pins = 固定
+bar.export = 匯出
+bar.grid = 格線
+bar.empty = 空白開始
+bar.reset-colours = 重設顏色
+bar.reset-size = 重設大小
+bar.canvas-size = 畫布大小
+bar.node = 節點
+bar.wire = 連線
+
+// what a tip says
+tip.style = 連線樣式
+tip.grid = 讓節點對齊格線
+tip.empty = 從空白畫布開始
+tip.edit = 編輯顏色與設定
+tip.import = 把機器上所有邏輯閘與計時器收進來
+tip.pins = 匯出時加上固定方塊
+tip.export = 轉換成邏輯閘方塊
+tip.prefix = 連接節點時新建變數的前綴
+tip.keep-open = 保持編輯器開啟
+
+// what a box says before anything is typed in it
+ghost.name = 名稱
+ghost.prefix = 前綴
+ghost.comment = 備註
+
+// Shown only. What the file holds is `Hues.names`, which stays English.
+mode.unicolor = 單色
+mode.color = 依類型
+mode.random = 隨機
+
+// the wire styles
+style.line = 直線
+style.curve = 曲線
+style.square = 直角
+
+// what the board says when it refuses
+board.key-and-name = 按鍵和變數不能混用\n請加一個或閘
+board.input-full-names = 輸入已滿\n100 個名稱
+board.input-full-keys = 輸入已滿\n{0} 個按鍵
+board.answer-full-names = 輸出已滿\n100 個名稱
+board.answer-full-keys = 輸出已滿\n{0} 個按鍵
+board.key-name-share = 按鍵和名稱\n不能共用
+board.needs-input = 必須連到\n輸入端
+board.needs-output = 必須連到\n輸出端
+board.no-direct-output = 不能直接\n連到輸出
+board.assigned = 已被占用！
+board.gates-limit = 已達 {0} 個\n邏輯閘上限
+board.imported-one = 匯入了 {0} 個方塊
+board.imported-many = 匯入了 {0} 個方塊
+board.left-behind = \n還有 {0} 個留在機器上
+board.nothing-to-export = 沒有可匯出的內容
+
+// the table under the mapper
+table.open = 節點編輯器
+table.import = 匯入
+table.pins = 固定
+table.export = 匯出
+table.wait = 等待
+table.duration = 時長
+table.hold = 保
+table.stop = 停
+table.loop = 循
+table.emulate = 按鍵
+table.input-a = 輸入 A
+table.input-b = 輸入 B
+table.gate = 邏輯閘
+table.mode = 模
+table.output = 輸出
+tip.wait = 從開始到按下的秒數
+tip.duration = 按住多久
+tip.hold = 按住時才運作
+tip.stop = 允許中途停止
+tip.loop = 循環
+tip.emulate = 這一列按下的按鍵或變數
+tip.mode = 邊緣偵測：反轉\n其他邏輯閘：切換
+
+// what the table says back
+table.gates-limit = 已達 {0} 個邏輯閘上限
+table.timers-limit = 已達 {0} 個計時器上限
+table.no-timers = 沒有可匯出的\n計時器
+table.export-failed = 匯出失敗
+table.timer-added = 新增 {0} 個計時器
+table.timers-added = 新增 {0} 個計時器
+table.imported = 匯入了 {0} 個
+table.imported-differ = {0} 個，請檢查啟動鍵
+
+// the mapper's own controls
+mapper.activate = 啟動
+mapper.automatic = 自動
+mapper.pins = 固定方塊

@@ -268,6 +268,38 @@ namespace NodeEditorMod
             rect.anchoredPosition = new Vector2(x, -y);
         }
 
+        /// <summary>
+        /// The font the mod's words are drawn in: whatever the game would draw them
+        /// in. `Besiege.UI.Make.Font` is GOST Common, which carries Latin, the
+        /// accented Latin of Polish and Turkish, and Cyrillic -- but no CJK at all.
+        /// The game keeps a second font for that and swaps to it in the languages it
+        /// calls Asian, so the swap is asked of the game rather than repeated here:
+        /// `GetFont` hands back the font it was given except in those languages, and
+        /// there picks the weight to match. Repeating it by hand took the medium
+        /// weight always, which is only right while the font is a GOST one.
+        /// </summary>
+        public static Font Wording()
+        {
+            Font font = Font;
+            try
+            {
+                if (Localisation.LocalisationManager.hasInstance())
+                {
+                    Font said = Localisation.LocalisationManager.Instance.GetFont(font);
+                    if (said != null)
+                    {
+                        return said;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                // No manager yet: the Latin font is right for English, which is
+                // what a session starts in.
+            }
+            return font;
+        }
+
         /// <summary>Styles a label, giving it Besiege's font if it has none: the
         /// Input Field prefab's labels come without one and draw nothing.</summary>
         public static void Style(Text label, Color colour, TextAnchor align)
@@ -276,11 +308,15 @@ namespace NodeEditorMod
             {
                 return;
             }
-            if (label.font == null)
+            // A prefab's own font is left alone -- except in a language it cannot
+            // draw, where it is replaced rather than filled in. That is exactly the
+            // case where the game asks for a font other than the one it started
+            // from, so no separate test for the language is needed.
+            Font wanted = Wording();
+            if (label.font == null || (wanted != null && wanted != Font))
             {
-                Font font = Font;
-                label.font = font != null
-                    ? font : Resources.GetBuiltinResource<Font>("Arial.ttf");
+                label.font = wanted != null
+                    ? wanted : Resources.GetBuiltinResource<Font>("Arial.ttf");
             }
             label.color = colour;
             label.alignment = align;

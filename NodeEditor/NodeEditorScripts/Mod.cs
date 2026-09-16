@@ -10,6 +10,10 @@ namespace NodeEditorMod
     {
         public override void OnLoad()
         {
+            // Before anything is drawn: the words come from the language Besiege is
+            // set to, and change with it.
+            Words.Watching();
+
             CustomModules.AddBlockModule<TimerPlusModule, TimerPlusBehaviour>("TimerPlus", false);
             CustomModules.AddBlockModule<ComputerModule, ComputerBehaviour>(
                 "Computer", false);

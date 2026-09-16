@@ -1,0 +1,105 @@
+// Chinese Simplified (简体中文) for the Besiege Node Editor mod.
+//
+// Named as Besiege names its own language files. Keep each key on the left
+// of the = exactly as it is. \n is a line break; {0} is a number the mod
+// fills in -- keep it, and put it where the grammar wants it. Anything left
+// out falls back to English.
+//
+// Translated without a native speaker's eye: corrections welcome.
+
+// the node editor's title bar and rows
+bar.edit = 编辑
+bar.tidy = 整理
+bar.fit = 适应窗口
+bar.import = 导入
+bar.pins = 固定
+bar.export = 导出
+bar.grid = 网格
+bar.empty = 空白开始
+bar.reset-colours = 重置颜色
+bar.reset-size = 重置大小
+bar.canvas-size = 画布大小
+bar.node = 节点
+bar.wire = 连线
+
+// what a tip says
+tip.style = 连线样式
+tip.grid = 让节点对齐网格
+tip.empty = 从空白画布开始
+tip.edit = 编辑颜色和设置
+tip.import = 把机器上所有逻辑门和计时器收进来
+tip.pins = 导出时加上固定块
+tip.export = 转换成逻辑门方块
+tip.prefix = 连接节点时新建变量的前缀
+tip.keep-open = 保持编辑器打开
+
+// what a box says before anything is typed in it
+ghost.name = 名称
+ghost.prefix = 前缀
+ghost.comment = 备注
+
+// Shown only. What the file holds is `Hues.names`, which stays English.
+mode.unicolor = 单色
+mode.color = 按类型
+mode.random = 随机
+
+// the wire styles
+style.line = 直线
+style.curve = 曲线
+style.square = 直角
+
+// what the board says when it refuses
+board.key-and-name = 按键和变量不能混用\n请加一个或门
+board.input-full-names = 输入已满\n100 个名称
+board.input-full-keys = 输入已满\n{0} 个按键
+board.answer-full-names = 输出已满\n100 个名称
+board.answer-full-keys = 输出已满\n{0} 个按键
+board.key-name-share = 按键和名称\n不能共用
+board.needs-input = 必须连到\n输入端
+board.needs-output = 必须连到\n输出端
+board.no-direct-output = 不能直接\n连到输出
+board.assigned = 已被占用！
+board.gates-limit = 已达 {0} 个\n逻辑门上限
+board.imported-one = 导入了 {0} 个方块
+board.imported-many = 导入了 {0} 个方块
+board.left-behind = \n还有 {0} 个留在机器上
+board.nothing-to-export = 没有可导出的内容
+
+// the table under the mapper
+table.open = 节点编辑器
+table.import = 导入
+table.pins = 固定
+table.export = 导出
+table.wait = 等待
+table.duration = 时长
+table.hold = 保
+table.stop = 停
+table.loop = 循
+table.emulate = 按键
+table.input-a = 输入 A
+table.input-b = 输入 B
+table.gate = 逻辑门
+table.mode = 模
+table.output = 输出
+tip.wait = 从开始到按下的秒数
+tip.duration = 按住多久
+tip.hold = 按住时才运行
+tip.stop = 允许中途停止
+tip.loop = 循环
+tip.emulate = 这一行按下的按键或变量
+tip.mode = 边沿检测：反转\n其他逻辑门：切换
+
+// what the table says back
+table.gates-limit = 已达 {0} 个逻辑门上限
+table.timers-limit = 已达 {0} 个计时器上限
+table.no-timers = 没有可导出的\n计时器
+table.export-failed = 导出失败
+table.timer-added = 新增 {0} 个计时器
+table.timers-added = 新增 {0} 个计时器
+table.imported = 导入了 {0} 个
+table.imported-differ = {0} 个，请检查启动键
+
+// the mapper's own controls
+mapper.activate = 启动
+mapper.automatic = 自动
+mapper.pins = 固定块

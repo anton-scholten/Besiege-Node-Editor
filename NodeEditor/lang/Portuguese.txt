@@ -1,0 +1,105 @@
+// Portuguese (Português) for the Besiege Node Editor mod.
+//
+// Named as Besiege names its own language files. Keep each key on the left
+// of the = exactly as it is. \n is a line break; {0} is a number the mod
+// fills in -- keep it, and put it where the grammar wants it. Anything left
+// out falls back to English.
+//
+// Translated without a native speaker's eye: corrections welcome.
+
+// the node editor's title bar and rows
+bar.edit = EDITAR
+bar.tidy = ARRUMAR
+bar.fit = AJUSTAR
+bar.import = IMPORTAR
+bar.pins = FIXAR
+bar.export = EXPORTAR
+bar.grid = GRELHA
+bar.empty = COMEÇAR VAZIO
+bar.reset-colours = REPOR CORES
+bar.reset-size = REPOR TAMANHO
+bar.canvas-size = TAMANHO DA TELA
+bar.node = NÓ
+bar.wire = FIO
+
+// what a tip says
+tip.style = Estilo dos fios
+tip.grid = Alinhar os nós à grelha
+tip.empty = Começar com uma tela vazia
+tip.edit = Editar cores e definições
+tip.import = Trazer todas as portas lógicas e temporizadores da máquina
+tip.pins = Adicionar blocos de fixação ao exportar
+tip.export = Converter em blocos de porta lógica
+tip.prefix = Prefixo das variáveis criadas ao ligar nós
+tip.keep-open = Manter o editor aberto
+
+// what a box says before anything is typed in it
+ghost.name = nome
+ghost.prefix = prefixo
+ghost.comment = comentário
+
+// Shown only. What the file holds is `Hues.names`, which stays English.
+mode.unicolor = UMA COR
+mode.color = COR
+mode.random = ALEATÓRIO
+
+// the wire styles
+style.line = LINHA
+style.curve = CURVA
+style.square = ÂNGULOS
+
+// what the board says when it refuses
+board.key-and-name = Tecla e variável:\nuse uma porta OU.
+board.input-full-names = entrada cheia\n100 nomes
+board.input-full-keys = entrada cheia\n{0} teclas
+board.answer-full-names = saída cheia\n100 nomes
+board.answer-full-keys = saída cheia\n{0} teclas
+board.key-name-share = tecla e nome\nnão se misturam
+board.needs-input = tem de ir\npara uma entrada
+board.needs-output = tem de ir\npara uma saída
+board.no-direct-output = ligação direta\nimpossível
+board.assigned = já atribuído!
+board.gates-limit = limite de {0}\nportas atingido
+board.imported-one = {0} bloco importado
+board.imported-many = {0} blocos importados
+board.left-behind = \n{0} ficaram na máquina
+board.nothing-to-export = nada para exportar
+
+// the table under the mapper
+table.open = EDITOR DE NÓS
+table.import = IMPORTAR
+table.pins = FIXAR
+table.export = EXPORTAR
+table.wait = ESPERA
+table.duration = DURAÇÃO
+table.hold = M
+table.stop = P
+table.loop = R
+table.emulate = TECLA
+table.input-a = ENTRADA A
+table.input-b = ENTRADA B
+table.gate = PORTA
+table.mode = M
+table.output = SAÍDA
+tip.wait = Segundos do início até à pressão
+tip.duration = Quanto tempo fica premida
+tip.hold = Manter para executar
+tip.stop = Permitir parar
+tip.loop = Repetir
+tip.emulate = A tecla ou variável que esta linha prime
+tip.mode = Detetor de flanco: inverter\nOutras portas: alternar
+
+// what the table says back
+table.gates-limit = LIMITE DE {0} PORTAS ATINGIDO
+table.timers-limit = LIMITE DE {0} TEMPORIZADORES ATINGIDO
+table.no-timers = SEM TEMPORIZADORES\nPARA EXPORTAR
+table.export-failed = FALHA AO EXPORTAR
+table.timer-added = {0} TEMPORIZADOR ADICIONADO
+table.timers-added = {0} TEMPORIZADORES ADICIONADOS
+table.imported = {0} IMPORTADOS
+table.imported-differ = {0} OK, VERIFIQUE ATIVAÇÃO
+
+// the mapper's own controls
+mapper.activate = Ativar
+mapper.automatic = Automático
+mapper.pins = Blocos de fixação

@@ -115,7 +115,7 @@ namespace NodeEditorMod
             rect.anchoredPosition = new Vector2(Pad, 0f);
             hash = mark.AddComponent<Text>();
             UIF.Style(hash, UIF.QuietInk, TextAnchor.MiddleLeft);
-            hash.text = "#";
+            hash.text = Words.Of("ghost.hash");
             hash.raycastTarget = false;
 
             // A sheet over the box that tells a click from a sideways drag: a click

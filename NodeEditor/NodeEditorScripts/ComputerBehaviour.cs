@@ -284,7 +284,8 @@ namespace NodeEditorMod
             // One mesh, one texture, nothing to swap to.
             Skins.Hide(BlockBehaviour);
 
-            pinBlocks = AddToggle("Pin blocks", "PinKey", true);
+            // The word shown; "PinKey" is the save's own and stays English.
+            pinBlocks = AddToggle(Words.Of("mapper.pins"), "PinKey", true);
 
             // Edited in the node editor rather than the mapper: none of these is
             // something to type into a text box.
@@ -293,12 +294,52 @@ namespace NodeEditorMod
             prefix = BlockBehaviour.AddText("Prefix", "PrefixKey", "");
             prefix.DisplayInMapper = false;
 
-            int wanted = Mathf.Clamp(Module == null ? 3 : Module.Rows, 0, MaxRows);
+            // With START EMPTY on in the node editor, a block arrives with nothing
+            // on its board: no rows, and so no ends either, since the ends are made
+            // from what the rows read and press.
+            int wanted = Editor.StartEmpty
+                ? 0 : Mathf.Clamp(Module == null ? 3 : Module.Rows, 0, MaxRows);
             gates = BlockBehaviour.AddText("Gates", "GatesKey",
                                            LogicTable.Save(FirstRows(wanted)));
             gates.DisplayInMapper = false;
 
             ShowStock(!Panel.Serving(this));
+            if (!live.Contains(this))
+            {
+                live.Add(this);
+            }
+        }
+
+        /// <summary>Every Computer on the machine, so a language change can put the
+        /// new words on their mapper controls. Besiege's own mapper listens for a
+        /// name changing, so an open one takes them up as they are set.</summary>
+        private static readonly List<ComputerBehaviour> live =
+            new List<ComputerBehaviour>();
+
+        public static void Retitle()
+        {
+            for (int i = live.Count - 1; i >= 0; i--)
+            {
+                if (live[i] == null)
+                {
+                    live.RemoveAt(i);
+                    continue;
+                }
+                live[i].Titled();
+            }
+        }
+
+        private void Titled()
+        {
+            if (pinBlocks != null)
+            {
+                pinBlocks.DisplayName = Words.Of("mapper.pins");
+            }
+        }
+
+        private void OnDestroy()
+        {
+            live.Remove(this);
         }
 
         /// <summary>A fresh block's first three rows: two gates and a counter, one

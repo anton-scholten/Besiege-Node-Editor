@@ -110,7 +110,9 @@ gates and timers.
   RANDOM each, clicked for the next or right-clicked for the list, as the wire style
   is too -- with the unicolour node and wire colours beside them and **RESET
   COLORS**, always in the game's red, at the far end; and under that, from the left,
-  **CANVAS SIZE** and its numbers, the wire style and **GRID**, with **RESET SIZE**
+  **CANVAS SIZE** and its numbers, the wire style, **GRID** and **START EMPTY** --
+  off to begin with, and while it is on a newly placed block arrives with nothing on
+  its board rather than with the starter circuit -- with **RESET SIZE**
   -- red, and the board back to the size it started at -- at that row's far end:
   the things that are about the board rather than about one node, together on a row
   of their own. A board made bigger keeps the view on the middle of what is drawn,
@@ -146,7 +148,9 @@ gates and timers.
   landing on one that reads one, fills only A. Ends and comments neither land on a
   node nor are landed on, a node is never dropped on itself, and a gate over one of
   its own kind neither lights nor swaps: the board would be left exactly as it is.
-  Colours are kept per player, in the mod's data folder. The board's edge stays the
+  Colours are kept per player, in the mod's data folder, and so are the board's
+  three switches: the wire style, **GRID** and **START EMPTY** stand between
+  sessions. RESET COLORS puts the colours back and leaves the switches alone. The board's edge stays the
   same thickness on screen at any zoom, and a comment is resized by the double
   arrow in its corner, which scales its writing up to three quarters of the board's
   width and keeps it on the board however big it is; that arrow stays one size on screen at any zoom.
@@ -214,6 +218,31 @@ gates and timers.
   than in a column off its edge, one grid cell right and down for each node
   already standing there, so a handful added in a row staggers instead of
   stacking.
+
+- **The mod speaks every language Besiege does** -- French, German, Spanish,
+  Italian, Portuguese, Polish, Russian, Turkish, Japanese, Korean and the three
+  Chinese variants -- and follows the language chosen in Besiege's own options.
+  Every word it shows is a key in `lang/example.txt`; a translation is that file
+  under the name Besiege uses for the language (`French.txt`, `ChineseSimplified.txt`
+  -- the same names as the game's own `Localisation Files`), beside the mod.
+  **Changing language takes effect where you stand**, with nothing to restart: the
+  mod listens for the game's own language change, reads its words again, and makes
+  the table and every open board over in them -- the table keeping its scroll, a
+  board its nodes, zoom and window position -- while the mapper's own controls are
+  renamed in place. The same name in the mod's data folder
+  overrides one that shipped, so a player can retranslate without touching the
+  install. A key left out stays English, so a part-finished translation still
+  works. Numbers in a message are `{0}` rather than glued on, so a translation can
+  put them where its own grammar wants them. The gate names are not in the file:
+  they come from Besiege's own translations already. Nor is anything written into a
+  save, or a machine saved in one language would not load in another.
+- **The words are drawn in a font that can draw them.** Besiege's interface font
+  carries Latin and Cyrillic but no CJK at all, so the mod asks the game which font
+  to use (`LocalisationManager.GetFont`) rather than deciding for itself, and
+  Japanese, Korean and Chinese come out in Besiege's own CJK lettering instead of
+  empty boxes. Every label in the mod takes its font from that one place, and a
+  language change re-runs it. The French for *nodes* is spelled `NOEUDS`, as
+  Besiege's own French spells it, rather than `NŒUDS`.
 
 **Known and deliberate**
 

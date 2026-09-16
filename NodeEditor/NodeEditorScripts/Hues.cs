@@ -6,11 +6,13 @@ using UnityEngine;
 namespace NodeEditorMod
 {
     /// <summary>
-    /// How the node editor colours nodes and wires, and the colours it uses. The
-    /// player's rather than the block's: kept in the mod's data folder through
-    /// `ModIO` and shared by every open board. Nodes and wires each go UNICOLOR
-    /// (one colour), COLOR (by kind; a wire shades between its ends' kinds) or
-    /// RANDOM (from the kind row, seeded by what is coloured, so it stays put).
+    /// What the node editor keeps for the player rather than for the block: how it
+    /// colours nodes and wires, the colours themselves, and the board's three
+    /// switches -- the wire style, the grid and START EMPTY. Kept in the mod's data
+    /// folder through `ModIO`, shared by every open board, and read back next
+    /// session. Nodes and wires each go UNICOLOR (one colour), COLOR (by kind; a
+    /// wire shades between its ends' kinds) or RANDOM (from the kind row, seeded by
+    /// what is coloured, so it stays put).
     /// </summary>
     public static class Hues
     {
@@ -21,7 +23,14 @@ namespace NodeEditorMod
         public const int Random = 2;
         private const int Modes = 3;
 
+        /// <summary>How a way of colouring is written into the file: English, and
+        /// never translated, or a saved choice would not be recognised in another
+        /// language.</summary>
         private static readonly string[] names = { "UNICOLOR", "COLOR", "RANDOM" };
+
+        /// <summary>And how it is shown, which is translated.</summary>
+        private static readonly string[] Keys =
+            { "mode.unicolor", "mode.color", "mode.random" };
 
         /// <summary>Every way, in the order the selectors step through them, for
         /// the list a right-click on one opens.</summary>
@@ -68,6 +77,38 @@ namespace NodeEditorMod
         private static bool loaded;
         private static bool dirty;
 
+        /// <summary>The board's switches, kept in the same file as the colours: one
+        /// file for everything a player sets, rather than one per kind of setting.
+        /// `Defaults` leaves them alone, so RESET COLORS resets colours only.
+        /// </summary>
+        private static bool grid = true;
+        private static bool empty;
+
+        /// <summary>The wire style, as the node editor numbers them: 0 a straight
+        /// line, 1 a curve, 2 right angles. Kept as the number, since the three are
+        /// the node editor's own constants and it owns their names.</summary>
+        private static int style = 1;
+
+        public static bool Grid
+        {
+            get { Load(); return grid; }
+            set { Load(); grid = value; dirty = true; }
+        }
+
+        /// <summary>Whether a newly placed block starts with nothing on its board.
+        /// </summary>
+        public static bool Empty
+        {
+            get { Load(); return empty; }
+            set { Load(); empty = value; dirty = true; }
+        }
+
+        public static int Style
+        {
+            get { Load(); return style; }
+            set { Load(); style = ((value % 3) + 3) % 3; dirty = true; }
+        }
+
         /// <summary>How the nodes are coloured.</summary>
         public static int NodeMode
         {
@@ -85,7 +126,9 @@ namespace NodeEditorMod
         /// <summary>What a selector set to that way says.</summary>
         public static string Named(int mode)
         {
-            return names[Wrapped(mode)];
+            // The words shown, not the ones written down: `names` is what the file
+            // holds, and a translated token would not load again.
+            return Words.Of(Keys[Wrapped(mode)]);
         }
 
         private static int Wrapped(int mode)
@@ -329,19 +372,28 @@ namespace NodeEditorMod
                 {
                     Parse(said, wire, out wire);
                 }
+                else if (key == "grid")
+                {
+                    grid = said == "on";
+                }
+                else if (key == "empty")
+                {
+                    empty = said == "on";
+                }
+                else if (key == "style")
+                {
+                    int which;
+                    if (int.TryParse(said, out which))
+                    {
+                        style = ((which % 3) + 3) % 3;
+                    }
+                }
                 else if (key == "kinds")
                 {
                     string[] each = said.Split(';');
-                    // Written before the timer had a slot: everything from its
-                    // place on is one along, and the timer keeps its default.
-                    bool older = each.Length == Slots - 1;
-                    for (int k = 0; k < each.Length; k++)
+                    for (int k = 0; k < each.Length && k < Slots; k++)
                     {
-                        int slot = older && k >= TimerSlot ? k + 1 : k;
-                        if (slot < Slots)
-                        {
-                            Parse(each[k], kinds[slot], out kinds[slot]);
-                        }
+                        Parse(each[k], kinds[k], out kinds[k]);
                     }
                 }
             }
@@ -361,7 +413,10 @@ namespace NodeEditorMod
                         + "wires=" + names[wireMode] + "\n"
                         + "node=" + Hex(node) + "\n"
                         + "wire=" + Hex(wire) + "\n"
-                        + "kinds=" + string.Join(";", each) + "\n";
+                        + "kinds=" + string.Join(";", each) + "\n"
+                        + "grid=" + (grid ? "on" : "off") + "\n"
+                        + "empty=" + (empty ? "on" : "off") + "\n"
+                        + "style=" + style.ToString() + "\n";
             try
             {
                 Modding.ModIO.WriteAllText(File, text, true);
@@ -371,7 +426,7 @@ namespace NodeEditorMod
                 if (!moaned)
                 {
                     moaned = true;
-                    Log.Warn("could not keep the board's colours: " + e.Message);
+                    Log.Warn("could not keep the board's settings: " + e.Message);
                 }
             }
         }
