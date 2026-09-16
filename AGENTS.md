@@ -191,8 +191,25 @@ What depends on what:
   wire out of an *input* end carries that end's own binding rather than a name of
   its own: nothing on a machine raises a variable except a block emulating a key,
   and an end is not a block. `Wiring` holds only what the table has
-  nowhere to put: where each row sits, and the input and output nodes, saved as
-  text in the block's `LayoutKey`. That text is the whole of the layout format, so
+  nowhere to put: where each row sits, the input and output nodes, and how big the
+  board they sit on is (`Cells`/`Lines`, the `b` line, set by CANVAS SIZE on the
+  row EDIT puts out), saved as
+  text in the block's `LayoutKey`. `Editor`'s `boardCells`/`boardLines` are static
+  because the helpers that snap and fence a node are, and they are re-read from the
+  layout whenever one is loaded -- one board is open at a time. CANVAS SIZE, the
+  wire style, GRID and RESET SIZE are not on the title bar: they are `shelf` items
+  on the third row EDIT puts out, so they are built into the window rather than the
+  bar and hidden with the colour rows. `Laned` gives each square wire the corridor
+  its middle leg runs down, a lane of `Lanes()` to the cell, and is why a square
+  board loses the per-wire retrace fast path in `Strings`: a corridor is a question
+  about every wire at once, so one node moving can move another wire's lane. It
+  hands lanes out longest wire first and skips any that `LaneClear` says runs behind
+  a node, falling back to a merely free lane rather than dropping the wire. `Grown`
+  is the board enlarged without moving anything, which is how `Laid` (TIDY, and
+  IMPORT through it) makes room for what it is about to place. `Merged` is a gate let go on a gate: the wires are read off
+  the old node (`Feeds` in, `Readers` out), the old node is `Kill`ed, and the
+  survivors are re-`Join`ed to the new one with every index past the dead one
+  closed up (`Shrunk`) -- A to A, B to B and only where the gate reads B. That text is the whole of the layout format, so
   the value of a line is everything to the end of it -- a name with a space in it
   read as one word bred a duplicate end on every load. An edit is applied with
   `MapperType.ApplyValue` and filed as **one** step of Besiege's undo with
@@ -314,7 +331,7 @@ What depends on what:
   is in a save or on the undo. Random colours are picked by a seed worked out from
   the node -- a gate's row, an end's key or name -- so they hold still between
   drawings; the way is saved by name, so adding one does not shift a saved choice.
-  **`Swatch`** is the colour control EDIT COLORS lays out: an `Input Field` with a
+  **`Swatch`** is the colour control EDIT lays out: an `Input Field` with a
   stroke and a `#`, dragged sideways through the hues by a `ValueField`, its
   lettering sized to the box by measuring `#DDDDDD` with the text generator. **`Asks`**
   is a right-click handler put beside a `Button` (which answers the left button

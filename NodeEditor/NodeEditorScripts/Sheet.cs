@@ -7,7 +7,8 @@ namespace NodeEditorMod
     /// <summary>The empty board behind the nodes: drag to box-select or pan, wheel
     /// to zoom, right-click for the palette.</summary>
     public class Sheet : MonoBehaviour, IBeginDragHandler, IDragHandler,
-                         IEndDragHandler, IScrollHandler, IPointerClickHandler
+                         IEndDragHandler, IScrollHandler, IPointerClickHandler,
+                         IPointerDownHandler, IPointerUpHandler
     {
         /// <summary>Panned by this much, in the board's own units.</summary>
         public Action<Vector2> Panned;
@@ -32,6 +33,27 @@ namespace NodeEditorMod
         private Vector2 last;
         private bool holding;
 
+        /// <summary>A middle press, before any drag begins: a click that never
+        /// moves sends no drag events, and the game's camera pans on the press
+        /// unless the menu count is already up. See <see cref="Pan"/>.</summary>
+        public void OnPointerDown(PointerEventData press)
+        {
+            if (press.button == PointerEventData.InputButton.Middle)
+            {
+                grip = ZoomGuard.Grip(true, grip);
+            }
+        }
+
+        /// <summary>Given back on the release, unless a drag is running: that gives
+        /// it back when it ends.</summary>
+        public void OnPointerUp(PointerEventData press)
+        {
+            if (!boxing && !holding)
+            {
+                grip = ZoomGuard.Grip(false, grip);
+            }
+        }
+
         public void OnBeginDrag(PointerEventData move)
         {
             // Left draws a selection box and middle pans, as in other editors.
@@ -43,8 +65,9 @@ namespace NodeEditorMod
                 Local(move, out last);
             }
             pressed = last;
-            // Held for the whole drag, even past the window's edge.
-            grip = ZoomGuard.Grip(boxing || holding, grip);
+            // Held for the whole drag, even past the window's edge -- and kept
+            // where the press already took it.
+            grip = ZoomGuard.Grip(boxing || holding || grip, grip);
         }
 
         /// <summary>Whether the game is being held off for this drag.</summary>

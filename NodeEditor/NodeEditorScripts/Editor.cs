@@ -25,7 +25,7 @@ namespace NodeEditorMod
         /// <summary>Wide enough for every button on the title bar and a prefix box
         /// of ninety beside them.</summary>
         private const float LeastWidth = 790f;
-        private const float LeastHeight = 300f;
+        private const float LeastHeight = 340f;
 
         /// <summary>Where it opens, from the screen's middle: right of and below
         /// the block mapper, so the table and the board are both in view.</summary>
@@ -94,14 +94,27 @@ namespace NodeEditorMod
         /// <summary>
         /// The board's size, in whole grid squares: a `RawImage` tiles from the
         /// bottom left, so a height that was not a whole number of squares put
-        /// every line off its nodes. About four views each way at the furthest
-        /// zoom; older boards sit in its top-left quarter, and `Middled` opens on
-        /// them.
+        /// every line off its nodes. The block's own, saved with its layout and set
+        /// by the two boxes under the board's bottom right corner; kept here as
+        /// well because the helpers that place and fence a node are static and one
+        /// board is open at a time. <see cref="Boarded"/> is what puts a size on.
         /// </summary>
-        private const int BoardCells = 274;
-        private const int BoardRows = 154;
-        private const float BoardWide = GridStep * BoardCells;
-        private const float BoardTall = GridStep * BoardRows;
+        private static int boardCells = Wiring.WideCells;
+        private static int boardLines = Wiring.TallCells;
+
+        private static float BoardWide { get { return GridStep * boardCells; } }
+        private static float BoardTall { get { return GridStep * boardLines; } }
+
+        /// <summary>The smallest board there is, whatever is on it: room for a node
+        /// and a little around it. Smaller than the nodes need is refused in <see
+        /// cref="Resized"/> rather than here.</summary>
+        private const int LeastCells = 8;
+        private const int LeastLines = 4;
+
+        /// <summary>The largest. A board is one `RawImage` and one wire mesh, so
+        /// the limit is what those are still drawn at rather than any count of
+        /// nodes.</summary>
+        private const int MostCells = 2048;
 
         /// <summary>The board's middle, where a board opens and TIDY lays out: room
         /// to grow every way.</summary>
@@ -1092,15 +1105,34 @@ namespace NodeEditorMod
         private readonly List<Swatch> swatches = new List<Swatch>();
         private Swatch uniNode;
         private Swatch uniWire;
-        private RectTransform uniNodeWords;
-        private RectTransform uniWireWords;
         private RectTransform resetRect;
+
+        /// <summary>The board back to its starting size, at the far end of the
+        /// third row.</summary>
+        private RectTransform sizeBackRect;
 
         /// <summary>What each palette button draws itself with -- its picture or
         /// its word -- to be coloured as the kind it offers.</summary>
         private readonly List<Graphic> inks = new List<Graphic>();
 
         private RawImage gridLines;
+
+        /// <summary>The three things drawn at the board's own size: the grid, the
+        /// line round its edge and the mesh every wire is drawn in. Kept so the
+        /// board can be resized while it is open.</summary>
+        private RectTransform paperRect;
+        private RectTransform fenceRect;
+        private RectTransform wiresRect;
+
+        /// <summary>How big the board is, on the row EDIT puts out: the words, the
+        /// two boxes -- squares across and squares down -- and the "x" between
+        /// them.</summary>
+        private InputField cellsBox;
+        private InputField linesBox;
+        private RectTransform cellsRect;
+        private RectTransform linesRect;
+        private RectTransform byRect;
+        private RectTransform sizeWords;
 
         /// <summary>The four lines round the edge of the board, and the zoom they
         /// were last made thick enough for.</summary>
@@ -1136,10 +1168,14 @@ namespace NodeEditorMod
 
             // Along the bar from the left, no title: wire style, grid, tidy, view,
             // import and export.
-            GameObject wireStyle = UIF.Spawn(UIF.ButtonPrefab, bar.transform);
+            // The wire style and the grid switch are not on the bar: they sit on
+            // the row EDIT puts out, with the board's size.
+            GameObject wireStyle = UIF.Spawn(UIF.ButtonPrefab, window.transform);
             if (wireStyle != null)
             {
                 styleRect = wireStyle.GetComponent<RectTransform>();
+                wireStyle.SetActive(false);
+                shelf.Add(styleRect);
                 UIF.NoSwell(wireStyle);
                 styleLabel = Caption(wireStyle, Styled(style), TextAnchor.MiddleCenter);
                 UIF.Grow(wireStyle, styleLabel.transform);
@@ -1153,12 +1189,14 @@ namespace NodeEditorMod
                 asks.Asked = Restyling;
             }
 
-            // A switch, drawn and lit the way PIN BLOCKS and EDIT COLORS are: it
+            // A switch, drawn and lit the way PIN BLOCKS and EDIT are: it
             // says whether it is on, and it is the same click either way.
-            GameObject squares = UIF.Spawn(UIF.TogglePrefab, bar.transform);
+            GameObject squares = UIF.Spawn(UIF.TogglePrefab, window.transform);
             if (squares != null)
             {
                 gridRect = squares.GetComponent<RectTransform>();
+                squares.SetActive(false);
+                shelf.Add(gridRect);
                 UIF.NoSwell(squares);
                 UIF.Grow(squares, Caption(squares, "GRID",
                                       TextAnchor.MiddleCenter).transform);
@@ -1253,7 +1291,7 @@ namespace NodeEditorMod
             {
                 editRect = edits.GetComponent<RectTransform>();
                 UIF.NoSwell(edits);
-                UIF.Grow(edits, Caption(edits, "EDIT COLORS",
+                UIF.Grow(edits, Caption(edits, "EDIT",
                                     TextAnchor.MiddleCenter).transform);
                 Tip.On(edits, "Pick the colors nodes and wires are drawn in");
                 editBox = edits.GetComponent<Toggle>();
@@ -1343,6 +1381,7 @@ namespace NodeEditorMod
             mesh.pivot = new Vector2(0f, 1f);
             mesh.anchoredPosition = Vector2.zero;
             mesh.sizeDelta = new Vector2(BoardWide, BoardTall);
+            paperRect = mesh;
             RawImage lines = paper.AddComponent<RawImage>();
             gridLines = lines;
             lines.texture = Glyphs.Grid;
@@ -1362,6 +1401,7 @@ namespace NodeEditorMod
             edge.pivot = new Vector2(0f, 1f);
             edge.anchoredPosition = Vector2.zero;
             edge.sizeDelta = new Vector2(BoardWide, BoardTall);
+            fenceRect = edge;
             for (int side = 0; side < 4; side++)
             {
                 GameObject rail = new GameObject("Rail");
@@ -1395,10 +1435,28 @@ namespace NodeEditorMod
             spread.pivot = new Vector2(0f, 1f);
             spread.anchoredPosition = Vector2.zero;
             spread.sizeDelta = new Vector2(BoardWide, BoardTall);
+            wiresRect = spread;
             skein = threads.AddComponent<WireMesh>();
             skein.Thickness = WireWidth;
             skein.raycastTarget = false;
             threads.transform.SetAsFirstSibling();
+
+            // How big the board is, in squares: on the row EDIT puts out, after the
+            // wire's unicolour and before RESET COLORS.
+            sizeWords = Words("CANVAS SIZE");
+            cellsBox = SizeBox(out cellsRect, true);
+            GameObject cross = UIF.Plate(window.transform, 0f, 0f, ByWide, UniTall,
+                                         new Color(0f, 0f, 0f, 0f));
+            byRect = cross.GetComponent<RectTransform>();
+            UIF.Label(cross, "x", UIF.QuietInk, TextAnchor.MiddleCenter, 0, true);
+            cross.SetActive(false);
+            linesBox = SizeBox(out linesRect, false);
+            Showing(true);
+            // Out and away with the rest of that row.
+            shelf.Add(sizeWords);
+            shelf.Add(cellsRect);
+            shelf.Add(byRect);
+            shelf.Add(linesRect);
 
             GameObject named = UIF.Spawn(UIF.InputPrefab, bar.transform);
             if (named != null)
@@ -1419,6 +1477,11 @@ namespace NodeEditorMod
                 }
                 Tip.On(named, "Variable prefix");
             }
+
+            // The middle button on the window itself -- its bar, its rows, the air
+            // round the board -- rather than only on the board and the nodes: with
+            // nothing listening there, a middle press went to the game underneath.
+            Waving(window);
 
             Handles();
             Arrange();
@@ -1486,9 +1549,7 @@ namespace NodeEditorMod
             }
             // Along the bar from the left, each after the last.
             float along = 3f;
-            along = Slot(styleRect, along, bit * 3.4f);
-            along = Slot(editRect, along, bit * 5.2f);
-            along = Slot(gridRect, along, bit * 2.4f);
+            along = Slot(editRect, along, bit * 2.4f);
             along = Slot(tidyRect, along, bit * 2.4f);
             along = Slot(fitRect, along, bit * 3.4f);
             along = Slot(importRect, along, bit * 3.0f);
@@ -1525,9 +1586,11 @@ namespace NodeEditorMod
                 UIF.Fit(nodeWords, at, below, SideWords, UniTall);
                 at += SideWords + 4f;
                 UIF.Fit(nodeModeRect, at, below, ModeWide, UniTall);
-                at += ModeWide + 8f;
-                UIF.Fit(uniNodeWords, at, below, UniWords, UniTall);
-                at += UniWords + 4f;
+                at += ModeWide + 6f;
+                // The one colour straight beside the mode that uses it, and no word
+                // between them: the mode says what the colour is for. Its room is
+                // kept whether or not it is out, so the wire half of the row does
+                // not shift about as the modes are clicked through.
                 if (uniNode != null)
                 {
                     uniNode.Fit(at, below, snug, UniTall);
@@ -1536,15 +1599,36 @@ namespace NodeEditorMod
                 UIF.Fit(wireWords, at, below, SideWords, UniTall);
                 at += SideWords + 4f;
                 UIF.Fit(wireModeRect, at, below, ModeWide, UniTall);
-                at += ModeWide + 8f;
-                UIF.Fit(uniWireWords, at, below, UniWords, UniTall);
-                at += UniWords + 4f;
+                at += ModeWide + 6f;
                 if (uniWire != null)
                 {
                     uniWire.Fit(at, below, snug, UniTall);
                 }
                 // And at the far end of that row, putting all of them back.
                 UIF.Fit(resetRect, size.x - Margin - ResetWide, below, ResetWide,
+                        UniTall);
+                // A row of its own under that one, from the left: how wires are
+                // drawn, whether the grid holds the nodes, and how big the board
+                // is. The board gives up the room for it, as it does for the two
+                // rows above (see `Editing`), so the window's own back is what
+                // shows behind all three.
+                below += UniTall + 4f;
+                float third = Margin + 6f;
+                UIF.Fit(sizeWords, third, below, SizeWords, UniTall);
+                third += SizeWords + 4f;
+                UIF.Fit(cellsRect, third, below, SizeWide, UniTall);
+                third += SizeWide + 2f;
+                UIF.Fit(byRect, third, below, ByWide, UniTall);
+                third += ByWide + 2f;
+                UIF.Fit(linesRect, third, below, SizeWide, UniTall);
+                // Clear air before the wire style: the numbers are one thing and
+                // the two switches beyond them another.
+                third += SizeWide + 30f;
+                third = Laid(styleRect, third, StyleWide, below);
+                third = Laid(gridRect, third, GridWide, below);
+                // And the board back to the size it started at, at the far end of
+                // its own row as RESET COLORS is of the row above.
+                UIF.Fit(sizeBackRect, size.x - Margin - ResetWide, below, ResetWide,
                         UniTall);
                 top = below + UniTall + Margin;
             }
@@ -1659,6 +1743,9 @@ namespace NodeEditorMod
             {
                 return;
             }
+            // A gate carried over a gate lands on it; an end or a comment does not,
+            // and neither does a gate over one of its own kind.
+            Lighting(gate >= 0 ? Landing(screen, -1, gate) : -1);
             if (ghost == null)
             {
                 Vector2 span = Sized(kind, gate);
@@ -1740,6 +1827,19 @@ namespace NodeEditorMod
                 // Outside the board is a drag that changed its mind.
                 return;
             }
+            int onto = gate >= 0 ? Landing(screen, -1, gate) : -1;
+            Lighting(-1);
+            if (onto >= 0)
+            {
+                // Let go on a gate: the new one is made where that one sits and
+                // picks up its wires.
+                int born = Born(kind, gate, Where(onto), true);
+                if (born >= 0)
+                {
+                    Merged(born, onto);
+                }
+                return;
+            }
             Vector2 local;
             if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
                     content, screen, null, out local))
@@ -1804,6 +1904,12 @@ namespace NodeEditorMod
                 {
                     board = Wiring.Load(served == null || served.LayoutControl == null
                                         ? "" : served.LayoutControl.Value);
+                    // This block's board is this big. The static pair is what the
+                    // placing and fencing helpers read, so it follows whichever
+                    // layout was loaded last.
+                    boardCells = board.Cells;
+                    boardLines = board.Lines;
+                    Boarded();
                 }
                 return board;
             }
@@ -2860,6 +2966,9 @@ namespace NodeEditorMod
         /// </summary>
         private void Redraw()
         {
+            // Nothing drawn is lit: the nodes are about to be made or moved, and a
+            // reused one would keep the colour.
+            Lighting(-1);
             // The row count drawn, so a row arriving from elsewhere is noticed (see
             // `Ticking`).
             counted = Rows;
@@ -3303,6 +3412,13 @@ namespace NodeEditorMod
             {
                 dragging = false;
                 hauler = null;
+                int onto = landing;
+                Lighting(-1);
+                if (onto >= 0 && me.Node < Rows && onto != me.Node)
+                {
+                    Merged(me.Node, onto);
+                    return;
+                }
                 Kept();
             };
 
@@ -3579,7 +3695,7 @@ namespace NodeEditorMod
         /// <summary>The widest a comment's corner can take it: three quarters of
         /// the board.
         /// </summary>
-        private const float NoteMostWide = BoardWide * 0.75f;
+        private static float NoteMostWide { get { return BoardWide * 0.75f; } }
 
         /// <summary>The largest font a comment is set at; past it the box is scaled
         /// instead. A dynamic font's texture cannot hold letters thousands of
@@ -5303,6 +5419,9 @@ namespace NodeEditorMod
             }
             loose.Clear();
             tracing = loose;
+            // A wire in hand runs from its port to the pointer, down no corridor of
+            // its own.
+            corridor = float.NaN;
             if (pulling && pullFrom != null)
             {
                 // The loose end hangs from the answer of a wire taken off an input,
@@ -5332,8 +5451,13 @@ namespace NodeEditorMod
             // as the last drawing had the same wires, the same armed one and
             // nothing in hand.
             int count = wired.Count / 3;
+            // Where the corridors are is a question about every wire at once, so a
+            // square board is worked out whole rather than wire by wire: one moved
+            // node can move the lane of a wire that did not move.
+            Laned();
             bool some = moved != null && !pulling && tracedWhole
-                && tracedFor == wiredAt && tracedPending == Armed();
+                && tracedFor == wiredAt && tracedPending == Armed()
+                && style != Square;
             while (traces.Count < count)
             {
                 traces.Add(new Trace());
@@ -5360,12 +5484,14 @@ namespace NodeEditorMod
                     continue;               // the same, off the other end of it
                 }
                 tracing = trace;
+                corridor = w < lanes.Count ? lanes[w] : float.NaN;
                 // The armed port's wires are lit: all out of an answer, or those
                 // into one input.
                 Draw(from * 3, node * 3 + 1 + port, pendingPort < 0 ? from == pending
                      : node == pending && port == pendingPort);
             }
             tracing = null;
+            corridor = float.NaN;
             tracedFor = wiredAt;
             tracedPending = Armed();
             tracedWhole = !pulling;
@@ -5404,6 +5530,31 @@ namespace NodeEditorMod
         private readonly Trace loose = new Trace();
         private Trace tracing;
 
+        /// <summary>The corridor each square wire's middle leg runs down, worked
+        /// out for every wire before any is traced (see <see cref="Laned"/>), and
+        /// the one being traced now. NaN is "no corridor": the midpoint between the
+        /// two ports, which is what a lone wire wants and all a curve or a straight
+        /// line ever uses.</summary>
+        private readonly List<float> lanes = new List<float>();
+        private float corridor = float.NaN;
+
+        /// <summary>The corridors already given out, with the stretch of board each
+        /// covers and the answer it leaves: two wires off one answer may share a
+        /// corridor, having a point in common already.</summary>
+        private readonly List<float> laneAt = new List<float>();
+        private readonly List<float> laneLow = new List<float>();
+        private readonly List<float> laneHigh = new List<float>();
+        private readonly List<int> laneFrom = new List<int>();
+
+        /// <summary>Each wire's two ends, asked once: a port's middle is four world
+        /// corners and a transform, which is not a question to ask twice a wire.
+        /// The order lanes are handed out in, longest wire first, and what each is
+        /// measured by.</summary>
+        private readonly List<Vector2> wireFrom = new List<Vector2>();
+        private readonly List<Vector2> wireTo = new List<Vector2>();
+        private readonly List<int> order = new List<int>();
+        private readonly List<float> spans = new List<float>();
+
         /// <summary>Bumped whenever the wire list is rebuilt, and the state the
         /// traces were last worked out in: that list, the armed wire, nothing in
         /// hand.</summary>
@@ -5418,6 +5569,171 @@ namespace NodeEditorMod
             {
                 skein.Add(trace.From[i], trace.To[i], trace.Inks[i]);
             }
+        }
+
+        /// <summary>How many wires run side by side between two grid lines: as many
+        /// as the wire's own width and a clear width of its own allow, which is
+        /// five at a cell of 32 and a wire two thick.</summary>
+        private static int Lanes()
+        {
+            return Mathf.Clamp(Mathf.FloorToInt(GridStep / (WireWidth * 3f)), 1, 12);
+        }
+
+        /// <summary>
+        /// Gives every square wire the corridor its middle leg runs down, so two
+        /// wires crossing the same cell are set a lane apart rather than drawn over
+        /// each other. The lane nearest the midpoint is wanted, and the first free
+        /// one either side of it is taken: a corridor is free where no wire already
+        /// given it covers the same stretch of board, and a wire off the same answer
+        /// never counts, since the two already share a point.
+        /// </summary>
+        private void Laned()
+        {
+            lanes.Clear();
+            laneAt.Clear();
+            laneLow.Clear();
+            laneHigh.Clear();
+            laneFrom.Clear();
+            wireFrom.Clear();
+            wireTo.Clear();
+            order.Clear();
+            spans.Clear();
+            int count = wired.Count / 3;
+            if (style != Square || content == null)
+            {
+                return;
+            }
+            float step = GridStep / Lanes();
+            for (int w = 0; w < count; w++)
+            {
+                lanes.Add(float.NaN);
+                int from = wired[w * 3];
+                int node = wired[w * 3 + 1];
+                int port = wired[w * 3 + 2];
+                RectTransform one = Held(from * 3);
+                RectTransform two = Held(node * 3 + 1 + port);
+                bool both = one != null && two != null;
+                Vector2 leaves = both ? Middle(one) : Vector2.zero;
+                Vector2 lands = both ? Middle(two) : Vector2.zero;
+                wireFrom.Add(leaves);
+                wireTo.Add(lands);
+                if (!both)
+                {
+                    continue;
+                }
+                order.Add(w);
+                spans.Add(Mathf.Abs(lands.y - leaves.y)
+                          + Mathf.Abs(lands.x - leaves.x));
+            }
+            // Longest first, by an insertion sort that keeps ties in the order the
+            // wires are listed in: a long wire left until last finds every near lane
+            // taken and has to cut across the board to reach a free one, which is
+            // the crossing that shows.
+            for (int i = 1; i < order.Count; i++)
+            {
+                int which = order[i];
+                float mine = spans[i];
+                int at = i;
+                while (at > 0 && spans[at - 1] < mine)
+                {
+                    order[at] = order[at - 1];
+                    spans[at] = spans[at - 1];
+                    at--;
+                }
+                order[at] = which;
+                spans[at] = mine;
+            }
+            for (int i = 0; i < order.Count; i++)
+            {
+                int w = order[i];
+                int from = wired[w * 3];
+                Vector2 leaves = wireFrom[w];
+                Vector2 lands = wireTo[w];
+                float want = (leaves.x + lands.x) * 0.5f;
+                float low = Mathf.Min(leaves.y, lands.y);
+                float high = Mathf.Max(leaves.y, lands.y);
+                float nearest = Mathf.Round(want / step) * step;
+                // Out from the lane it wants, the side it is heading first: a wire
+                // going right takes the lane beyond the middle before the one behind
+                // it, which is the side its far end is on.
+                float toward = lands.x >= leaves.x ? 1f : -1f;
+                float take = nearest;
+                bool found = false;
+                for (int pass = 0; pass < 2 && !found; pass++)
+                {
+                    for (int off = 0; off < 64; off++)
+                    {
+                        int side = (off + 1) / 2;
+                        float at = nearest
+                                 + (off % 2 == 0 ? side : -side) * step * toward;
+                        if (!LaneFree(at, low, high, from, step))
+                        {
+                            continue;
+                        }
+                        // The first pass keeps the wire out from behind the nodes;
+                        // the second takes the first free lane whatever stands in
+                        // it, so a crowded board still draws every wire somewhere.
+                        if (pass == 0 && !LaneClear(at, low, high))
+                        {
+                            continue;
+                        }
+                        take = at;
+                        found = true;
+                        break;
+                    }
+                }
+                lanes[w] = take;
+                laneAt.Add(take);
+                laneLow.Add(low);
+                laneHigh.Add(high);
+                laneFrom.Add(from);
+            }
+        }
+
+        /// <summary>Whether a corridor misses every node: a wire that runs behind a
+        /// gate cannot be followed across it.</summary>
+        private bool LaneClear(float at, float low, float high)
+        {
+            int many = Nodes;
+            for (int node = 0; node < many; node++)
+            {
+                Vector2 corner = Where(node);
+                Vector2 span = Span(node);
+                if (at < corner.x - WireWidth || at > corner.x + span.x + WireWidth)
+                {
+                    continue;
+                }
+                if (high > corner.y - WireWidth
+                    && corner.y + span.y + WireWidth > low)
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        /// <summary>Whether a corridor is clear over this stretch of the board.
+        /// </summary>
+        private bool LaneFree(float at, float low, float high, int from, float step)
+        {
+            for (int i = 0; i < laneAt.Count; i++)
+            {
+                if (laneFrom[i] == from)
+                {
+                    continue;               // the same answer: a point in common
+                }
+                if (Mathf.Abs(laneAt[i] - at) >= step * 0.5f)
+                {
+                    continue;               // a lane apart or more
+                }
+                // Touching end to end is not overlapping: a wire may start where
+                // another stops.
+                if (high > laneLow[i] + 0.01f && laneHigh[i] > low + 0.01f)
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         /// <summary>One wire between two ports, if both are there.</summary>
@@ -5526,7 +5842,10 @@ namespace NodeEditorMod
             }
             if (style == Square)
             {
-                float middle = (from.x + to.x) * 0.5f;
+                // Its own corridor where it has been given one, so wires crossing
+                // the same cell run a lane apart instead of over each other.
+                float middle = float.IsNaN(corridor) ? (from.x + to.x) * 0.5f
+                                                     : corridor;
                 Vector2 turn = new Vector2(middle, from.y);
                 Vector2 back = new Vector2(middle, to.y);
                 // How far along the whole wire each corner is, so the shade runs
@@ -6140,7 +6459,7 @@ namespace NodeEditorMod
         /// </summary>
         private readonly List<Place> noted = new List<Place>();
 
-        /// <summary>Everything on the two rows EDIT COLORS puts out.</summary>
+        /// <summary>Everything on the two rows EDIT puts out.</summary>
         private readonly List<RectTransform> shelf = new List<RectTransform>();
 
         /// <summary>Where the board's top edge was last laid, so showing or hiding
@@ -6272,6 +6591,14 @@ namespace NodeEditorMod
         /// one.</summary>
         private void Pointing()
         {
+            // A size drag is one undo step, filed when the hand lets go.
+            if (scaling && !Input.GetMouseButton(0))
+            {
+                scaling = false;
+                cellsDrift = 0f;
+                linesDrift = 0f;
+                Kept();
+            }
             bool armed = Picking();
             for (int i = 0; i < marks.Count; i++)
             {
@@ -6437,6 +6764,12 @@ namespace NodeEditorMod
             {
                 Put(moving[i], began[i] + gone);
             }
+            // One gate dragged over another lands on it; a set being moved does
+            // not, and neither does an end, a comment, or a gate over its own kind.
+            int alone = moving.Count == 1 ? moving[0] : -1;
+            LogicRow carried = alone >= 0 && alone < Rows ? Row(alone) : null;
+            Lighting(carried != null
+                     ? Landing(Input.mousePosition, alone, carried.Gate) : -1);
             Strings(moving);
         }
 
@@ -7337,9 +7670,25 @@ namespace NodeEditorMod
         /// the row of unicolours under the palette.</summary>
         private const float SwatchTall = 26f;
         private const float UniTall = 26f;
+
+        /// <summary>The wire style and the grid switch on the third row, which are
+        /// the only two buttons of the window not on its bar.</summary>
+        private const float StyleWide = 84f;
+        private const float GridWide = 64f;
+
+        /// <summary>One thing on the third row at `at`, and where the next one
+        /// goes: `Slot` for a row that is not the title bar.</summary>
+        private static float Laid(RectTransform rect, float at, float wide,
+                                  float below)
+        {
+            if (rect != null)
+            {
+                UIF.Fit(rect, at, below, wide, UniTall);
+            }
+            return at + wide + 6f;
+        }
         private const float SideWords = 40f;
         private const float ModeWide = 84f;
-        private const float UniWords = 66f;
         private const float UniWide = 96f;
         private const float ResetWide = 120f;
 
@@ -7395,7 +7744,7 @@ namespace NodeEditorMod
             Recoloured(null);
         }
 
-        /// <summary>EDIT COLORS: the colours out, or put away.</summary>
+        /// <summary>EDIT: the colours out, or put away.</summary>
         private void Editing(bool on)
         {
             if (hushed)
@@ -7407,6 +7756,7 @@ namespace NodeEditorMod
             {
                 Shown(shelf[i], on);
             }
+            Unified();
             Painted();
             // The board's top edge moves with the colour rows; the drawing moves
             // back by as much, so nodes stay put on screen and the rows cover the
@@ -7420,6 +7770,16 @@ namespace NodeEditorMod
             }
             Canvas.ForceUpdateCanvases();
             Strings();
+        }
+
+        /// <summary>The one colour a unicolour mode uses is out only while that mode
+        /// is chosen: COLOR and RANDOM make their own, so the box beside them would
+        /// be a setting that does nothing. Its room on the row is kept either
+        /// way.</summary>
+        private void Unified()
+        {
+            Shown(uniNode, editing && Hues.NodeMode == Hues.Unicolor);
+            Shown(uniWire, editing && Hues.WireMode == Hues.Unicolor);
         }
 
         private static void Shown(Swatch swatch, bool on)
@@ -7438,7 +7798,7 @@ namespace NodeEditorMod
             }
         }
 
-        /// <summary>The colours, made once and put away until EDIT COLORS asks for
+        /// <summary>The colours, made once and put away until EDIT asks for
         /// them: one over each palette button, and the two unicolours.</summary>
         private void Swatches()
         {
@@ -7457,7 +7817,6 @@ namespace NodeEditorMod
             }
             nodeWords = Words("NODE");
             nodeModeLabel = Selector(out nodeModeRect, true);
-            uniNodeWords = Words("UNICOLOR");
             uniNode = Swatch.Make(window.transform);
             uniNode.Value = Hues.Node;
             uniNode.Changed = delegate(Color picked)
@@ -7468,7 +7827,6 @@ namespace NodeEditorMod
             uniNode.Root.gameObject.SetActive(false);
             wireWords = Words("WIRE");
             wireModeLabel = Selector(out wireModeRect, false);
-            uniWireWords = Words("UNICOLOR");
             uniWire = Swatch.Make(window.transform);
             uniWire.Value = Hues.Wire;
             uniWire.Changed = delegate(Color picked)
@@ -7483,8 +7841,14 @@ namespace NodeEditorMod
             {
                 resetRect = reset.GetComponent<RectTransform>();
                 UIF.NoSwell(reset);
-                UIF.Grow(reset, Caption(reset, "RESET COLORS",
-                                    TextAnchor.MiddleCenter).transform);
+                // The one button on the board that undoes rather than makes, so it
+                // wears the game's red whatever it is doing.
+                Text says = Caption(reset, "RESET COLORS", TextAnchor.MiddleCenter);
+                if (says != null)
+                {
+                    says.color = UIF.Hot;
+                    UIF.Grow(reset, says.transform);
+                }
                 Tip.On(reset, "Every color back to how it started");
                 Button click = reset.GetComponent<Button>();
                 if (click != null)
@@ -7498,6 +7862,31 @@ namespace NodeEditorMod
                 reset.SetActive(false);
             }
 
+            GameObject sizeBack = UIF.Spawn(UIF.ButtonPrefab, window.transform);
+            if (sizeBack != null)
+            {
+                sizeBackRect = sizeBack.GetComponent<RectTransform>();
+                UIF.NoSwell(sizeBack);
+                // Red like RESET COLORS, and for the same reason: it undoes rather
+                // than makes.
+                Text tells = Caption(sizeBack, "RESET SIZE", TextAnchor.MiddleCenter);
+                if (tells != null)
+                {
+                    tells.color = UIF.Hot;
+                    UIF.Grow(sizeBack, tells.transform);
+                }
+                Tip.On(sizeBack, "The board back to the size it started at");
+                Button press = sizeBack.GetComponent<Button>();
+                if (press != null)
+                {
+                    press.onClick.AddListener(delegate
+                    {
+                        Resized(Wiring.WideCells, Wiring.TallCells);
+                    });
+                }
+                sizeBack.SetActive(false);
+            }
+
             // Everything the two rows hold, put out and away together.
             for (int i = 0; i < swatches.Count; i++)
             {
@@ -7505,13 +7894,12 @@ namespace NodeEditorMod
             }
             shelf.Add(nodeWords);
             shelf.Add(nodeModeRect);
-            shelf.Add(uniNodeWords);
-            shelf.Add(uniNode.Root);
             shelf.Add(wireWords);
             shelf.Add(wireModeRect);
-            shelf.Add(uniWireWords);
-            shelf.Add(uniWire.Root);
+            // The two unicolour boxes are not on the shelf: they come and go with
+            // the mode that uses them as well as with EDIT (see `Unified`).
             shelf.Add(resetRect);
+            shelf.Add(sizeBackRect);
         }
 
         private RectTransform Words(string said)
@@ -7563,6 +7951,7 @@ namespace NodeEditorMod
             {
                 wireModeLabel.text = Hues.Named(Hues.WireMode);
             }
+            Unified();
             Painted();
             tinted = false;
             if (window != null && window.activeSelf && served != null)
@@ -7729,6 +8118,426 @@ namespace NodeEditorMod
                 rails[i].sizeDelta = flat ? new Vector2(0f, thick)
                                           : new Vector2(thick, 0f);
             }
+        }
+
+        // ---- how big the board is --------------------------------------------
+
+        /// <summary>The two size boxes on the EDIT row, the "x" between them, and
+        /// the words before them -- which are the unicolours' words, one word
+        /// longer.</summary>
+        private const float SizeWide = 46f;
+        private const float ByWide = 12f;
+        private const float SizeWords = 92f;
+
+        /// <summary>One of the two: a whole number of squares, typed or dragged
+        /// sideways off the box as a timer's numbers are.</summary>
+        private InputField SizeBox(out RectTransform rect, bool wide)
+        {
+            rect = null;
+            GameObject go = UIF.Spawn(UIF.InputPrefab, window.transform);
+            if (go == null)
+            {
+                return null;
+            }
+            rect = go.GetComponent<RectTransform>();
+            InputField field = go.GetComponent<InputField>();
+            if (field == null)
+            {
+                return null;
+            }
+            UIF.Style(field.textComponent, UIF.Ink, TextAnchor.MiddleCenter);
+            Text ghostText = field.placeholder as Text;
+            UIF.Style(ghostText, UIF.QuietInk, TextAnchor.MiddleCenter);
+            if (ghostText != null)
+            {
+                ghostText.text = "";
+            }
+            field.contentType = InputField.ContentType.IntegerNumber;
+            Digits(field, SizeWide, UniTall);
+            field.onEndEdit.AddListener(Resizing);
+
+            // Dragged as well as typed, the way a timer's wait and duration are: a
+            // sheet over the box, so a drag that stays on it still selects text.
+            GameObject sheet = new GameObject("Drag");
+            sheet.transform.SetParent(go.transform, false);
+            RectTransform over = sheet.AddComponent<RectTransform>();
+            over.anchorMin = Vector2.zero;
+            over.anchorMax = Vector2.one;
+            over.offsetMin = Vector2.zero;
+            over.offsetMax = Vector2.zero;
+            Image catcher = sheet.AddComponent<Image>();
+            catcher.color = new Color(0f, 0f, 0f, 0f);
+            ValueField drag = sheet.AddComponent<ValueField>();
+            drag.field = field;
+            Waving(sheet);
+            bool across = wide;
+            drag.dragged = delegate(float pixels) { Scrubbing(across, pixels); };
+            // No tip: the words beside it say what the pair is, as they do for the
+            // unicolours on the same row.
+            go.SetActive(false);
+            return field;
+        }
+
+        /// <summary>Puts the board's size on everything drawn at that size, and on
+        /// the boxes that say what it is.</summary>
+        private void Boarded()
+        {
+            Vector2 span = new Vector2(BoardWide, BoardTall);
+            if (paperRect != null)
+            {
+                paperRect.sizeDelta = span;
+            }
+            if (gridLines != null)
+            {
+                // uvRect counts in texture widths: one square per GridStep.
+                gridLines.uvRect = new Rect(0f, 0f, boardCells, boardLines);
+            }
+            if (fenceRect != null)
+            {
+                fenceRect.sizeDelta = span;
+            }
+            if (wiresRect != null)
+            {
+                wiresRect.sizeDelta = span;
+            }
+            Showing(false);
+        }
+
+        /// <summary>The boxes say the size the board is. Not over a box being typed
+        /// in, unless the size has just changed under it -- a refused size is put
+        /// right in the box that asked for it.</summary>
+        private void Showing(bool force)
+        {
+            if (cellsBox != null && (force || !cellsBox.isFocused))
+            {
+                cellsBox.text = boardCells.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture);
+            }
+            if (linesBox != null && (force || !linesBox.isFocused))
+            {
+                linesBox.text = boardLines.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture);
+            }
+        }
+
+        /// <summary>Either box typed in. Both are read, so what lands is the pair
+        /// as it stands rather than the one that was touched.</summary>
+        private void Resizing(string typed)
+        {
+            if (served == null)
+            {
+                return;
+            }
+            Resized(Asked(cellsBox, boardCells), Asked(linesBox, boardLines));
+        }
+
+        /// <summary>What a box says, or the size it already had where it says
+        /// nothing a number can be read out of.</summary>
+        private static int Asked(InputField box, int now)
+        {
+            int said;
+            if (box == null || !int.TryParse(box.text,
+                    System.Globalization.NumberStyles.Integer,
+                    System.Globalization.CultureInfo.InvariantCulture, out said))
+            {
+                return now;
+            }
+            return said;
+        }
+
+        /// <summary>The board becomes this many squares. The nodes are centred in
+        /// it, so the smallest it goes is the box round them, whatever size that
+        /// box is standing at: a width or a height asked for under that is given
+        /// the least it can have rather than refused outright.</summary>
+        private void Resized(int cells, int lines)
+        {
+            Wiring layout = Board;
+            Vector2 low;
+            Vector2 high;
+            bool any = Spread(out low, out high);
+            int leastCells = LeastCells;
+            int leastLines = LeastLines;
+            if (any)
+            {
+                leastCells = Mathf.Max(leastCells,
+                    Mathf.CeilToInt((high.x - low.x) / GridStep));
+                leastLines = Mathf.Max(leastLines,
+                    Mathf.CeilToInt((high.y - low.y) / GridStep));
+            }
+            cells = Mathf.Clamp(cells, leastCells, MostCells);
+            lines = Mathf.Clamp(lines, leastLines, MostCells);
+            if (cells == boardCells && lines == boardLines)
+            {
+                // Refused, or the same size typed again: the boxes say what the
+                // board is rather than what was asked of it.
+                Showing(true);
+                return;
+            }
+            boardCells = cells;
+            boardLines = lines;
+            layout.Cells = cells;
+            layout.Lines = lines;
+            Boarded();
+            if (any)
+            {
+                // Everything moves together, so the circuit sits in the middle of
+                // whatever size the board is now and none of it is left outside.
+                Vector2 by = Snapped(Centre - (low + high) * 0.5f);
+                int many = Nodes;
+                for (int node = 0; node < many; node++)
+                {
+                    Put(node, Where(node) + by);
+                }
+            }
+            Kept();
+            Redraw();
+            // A smaller board may be further out than the wheel now goes, and the
+            // view may be off the end of it.
+            float least = Least();
+            if (content != null && content.localScale.x < least)
+            {
+                content.localScale = new Vector3(least, least, 1f);
+            }
+            // The view stays on the middle of what is drawn: a board made bigger
+            // grows every way at once, and the nodes would otherwise slide off to
+            // one side of the window.
+            Middled();
+            Showing(true);
+        }
+
+        /// <summary>Makes the board at least this big, in board units, and never
+        /// smaller: what TIDY asks for when what it lays out would not fit, and
+        /// through it what IMPORT asks for. The nodes are not moved -- whoever
+        /// asks is about to place them.</summary>
+        private void Grown(float wide, float tall)
+        {
+            int cells = Mathf.Clamp(Mathf.CeilToInt(wide / GridStep),
+                                    boardCells, MostCells);
+            int lines = Mathf.Clamp(Mathf.CeilToInt(tall / GridStep),
+                                    boardLines, MostCells);
+            if (cells == boardCells && lines == boardLines)
+            {
+                return;
+            }
+            boardCells = cells;
+            boardLines = lines;
+            Wiring layout = Board;
+            layout.Cells = cells;
+            layout.Lines = lines;
+            Boarded();
+        }
+
+        /// <summary>How many squares a pixel of drag is worth, and what is left
+        /// over between frames: a slow drag would otherwise round to nothing.
+        /// </summary>
+        private const float CellsPerPixel = 0.5f;
+        private float cellsDrift;
+        private float linesDrift;
+
+        /// <summary>Whether a size is being dragged, so the whole drag is filed as
+        /// one undo step when the hand lets go rather than one per square.
+        /// </summary>
+        private bool scaling;
+
+        /// <summary>A size box dragged sideways. The least it goes is the least it
+        /// may be, as <see cref="Resized"/> works it out.</summary>
+        private void Scrubbing(bool wide, float pixels)
+        {
+            if (served == null)
+            {
+                return;
+            }
+            float drift = (wide ? cellsDrift : linesDrift) + pixels * CellsPerPixel;
+            int step = (int)drift;
+            if (wide)
+            {
+                cellsDrift = drift - step;
+            }
+            else
+            {
+                linesDrift = drift - step;
+            }
+            if (step == 0)
+            {
+                return;
+            }
+            scaling = true;
+            Resized(wide ? boardCells + step : boardCells,
+                    wide ? boardLines : boardLines + step);
+        }
+
+        // ---- a node let go on another -----------------------------------------
+
+        /// <summary>The node whose back is lit because a drag is over it, and the
+        /// colour it wears while it is: a lighter <see cref="Ink"/>.</summary>
+        private int landing = -1;
+        private static readonly Color LandInk =
+            new Color(0.20f, 0.26f, 0.34f, 0.96f);
+
+        /// <summary>The row under this screen point, which a node let go here would
+        /// land on. Rows only: an end or a comment is dropped beside, not onto.
+        /// </summary>
+        private int Landing(Vector2 screen, int except, int gate)
+        {
+            if (served == null || content == null)
+            {
+                return -1;
+            }
+            Vector2 local;
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                    content, screen, null, out local))
+            {
+                return -1;
+            }
+            // The content's corner is its top left and a node's y counts down from
+            // it, so the y is turned over here.
+            Vector2 at = new Vector2(local.x, -local.y);
+            // Backwards: the last drawn is the one on top.
+            for (int node = Rows - 1; node >= 0; node--)
+            {
+                if (node == except)
+                {
+                    continue;
+                }
+                LogicRow sitting = Row(node);
+                if (sitting != null && gate >= 0 && sitting.Gate == gate)
+                {
+                    // A gate on one of its own kind would swap a gate for the same
+                    // gate: nothing to show and nothing to do.
+                    continue;
+                }
+                Vector2 corner = Where(node);
+                Vector2 span = Span(node);
+                if (at.x >= corner.x && at.x <= corner.x + span.x
+                    && at.y >= corner.y && at.y <= corner.y + span.y)
+                {
+                    return node;
+                }
+            }
+            return -1;
+        }
+
+        /// <summary>Lights the node a drag is over, and puts the last one back.
+        /// </summary>
+        private void Lighting(int node)
+        {
+            if (landing == node)
+            {
+                return;
+            }
+            Lit(landing, false);
+            landing = node;
+            Lit(landing, true);
+        }
+
+        private void Lit(int node, bool on)
+        {
+            if (node < 0 || node >= parts.Count || parts[node] == null)
+            {
+                return;
+            }
+            Image plate = parts[node].GetComponent<Image>();
+            if (plate != null)
+            {
+                plate.color = on ? LandInk : Ink;
+            }
+        }
+
+        /// <summary>Everything reading a node's answer: the port of each gate wired
+        /// to it, and each output end it presses.</summary>
+        private void Readers(int node, List<int> nodes, List<int> ports)
+        {
+            nodes.Clear();
+            ports.Clear();
+            for (int i = 0; i < Nodes; i++)
+            {
+                if (i == node)
+                {
+                    continue;
+                }
+                Place place = Placed(i);
+                if (place != null)
+                {
+                    if (place.Kind == Place.Output && node < Rows
+                        && Presses(node, place))
+                    {
+                        nodes.Add(i);
+                        ports.Add(0);
+                    }
+                    continue;
+                }
+                for (int port = 0; port < 2; port++)
+                {
+                    if (Wired(node, i, port))
+                    {
+                        nodes.Add(i);
+                        ports.Add(port);
+                    }
+                }
+            }
+        }
+
+        /// <summary>A node's number once the one at <paramref name="gone"/> has been
+        /// taken out: the numbers above it close up.</summary>
+        private static int Shrunk(int node, int gone)
+        {
+            return node > gone ? node - 1 : node;
+        }
+
+        /// <summary>
+        /// A row let go on another row: the one let go picks up the other's wires
+        /// and takes its place, and the other goes. Input A comes from input A and
+        /// input B from input B, so a gate that reads one input takes only A and a
+        /// gate that reads two, landing on one that reads one, fills only A.
+        /// Everything that read the other now reads this.
+        /// </summary>
+        private void Merged(int moved, int target)
+        {
+            if (served == null || moved == target || moved < 0 || target < 0)
+            {
+                return;
+            }
+            LogicRow mine = Row(moved);
+            LogicRow theirs = Row(target);
+            if (mine == null || !mine.Ready || theirs == null)
+            {
+                return;
+            }
+            if (mine.Gate == theirs.Gate)
+            {
+                // The same kind of gate: swapping one for the other would leave the
+                // board exactly as it is, so the drop is a move like any other.
+                return;
+            }
+            List<int> fromA = new List<int>();
+            List<int> fromB = new List<int>();
+            Feeds(target, 0, fromA);
+            Feeds(target, 1, fromB);
+            List<int> readers = new List<int>();
+            List<int> ports = new List<int>();
+            Readers(target, readers, ports);
+            bool takesB = Gates.UsesB(mine.Gate);
+            Vector2 at = Where(target);
+
+            // The other goes first: its name comes off every input that read it,
+            // and this one's name goes on in its place.
+            Kill(target);
+            moved = Shrunk(moved, target);
+            for (int i = 0; i < fromA.Count; i++)
+            {
+                Join(Shrunk(fromA[i], target), moved, 0);
+            }
+            for (int i = 0; takesB && i < fromB.Count; i++)
+            {
+                Join(Shrunk(fromB[i], target), moved, 1);
+            }
+            for (int i = 0; i < readers.Count; i++)
+            {
+                Join(moved, Shrunk(readers[i], target), ports[i]);
+            }
+            Put(moved, at);
+            Kept();
+            Rebuilt();
         }
 
         /// <summary>A selector's whole list at the right-click, to go straight to a
@@ -8023,6 +8832,21 @@ namespace NodeEditorMod
                 across += span + (column > 0
                     ? (grid ? Mathf.Ceil(90f / GridStep) * GridStep : 90f) : 0f);
             }
+            // The board grows to hold what is being laid out, so a tidy never has
+            // to squeeze a wide circuit into a board too small for it -- which is
+            // also how IMPORT sizes the board, since it tidies what it brings in.
+            int tallest = 0;
+            for (int column = 0; column < columns.Count; column++)
+            {
+                if (columns[column].Count > tallest)
+                {
+                    tallest = columns[column].Count;
+                }
+            }
+            Grown(across + GridStep * 4f,
+                  (tallest - 1) * pitch + NodeHeight + GridStep * 4f);
+            // Measured again: the middle has moved if the board just grew.
+            centre = Centre.y;
             // A gap between columns rather than a pitch, so narrow gate columns
             // space evenly with wide end columns, and wires pass between them.
             float gap = grid ? Mathf.Ceil(90f / GridStep) * GridStep : 90f;

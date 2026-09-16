@@ -80,6 +80,18 @@ namespace NodeEditorMod
         /// with the row: a removal above it does not change its colour.</summary>
         public readonly List<int> Seeds = new List<int>();
 
+        /// <summary>How big the board is, in whole grid squares. A board that was
+        /// never sized is this big, which is about four views each way at the
+        /// furthest zoom.</summary>
+        public const int WideCells = 274;
+        public const int TallCells = 154;
+
+        /// <summary>This board's size, which the two boxes under its bottom right
+        /// corner set. Kept with the places because it is what the places are
+        /// placed in: a smaller board is one the nodes may not fit on.</summary>
+        public int Cells = WideCells;
+        public int Lines = TallCells;
+
         public Vector2 Spot(int row)
         {
             while (Spots.Count <= row)
@@ -130,6 +142,11 @@ namespace NodeEditorMod
         {
             System.Text.StringBuilder text = new System.Text.StringBuilder();
             Seeded();
+            // The board's own size first: a layout from before it was settable has
+            // no such line and loads at the size every board used to be.
+            text.Append("b ").Append(Cells.ToString(CultureInfo.InvariantCulture))
+                .Append(' ').Append(Lines.ToString(CultureInfo.InvariantCulture))
+                .Append('\n');
             for (int i = 0; i < Spots.Count; i++)
             {
                 // The seed last: a layout from before seeds has four fields.
@@ -183,6 +200,16 @@ namespace NodeEditorMod
             for (int i = 0; i < lines.Length; i++)
             {
                 string[] parts = lines[i].Trim().Split(' ');
+                if (parts.Length < 3)
+                {
+                    continue;
+                }
+                if (parts[0] == "b")
+                {
+                    made.Cells = Mathf.Max(1, Number(parts[1], WideCells));
+                    made.Lines = Mathf.Max(1, Number(parts[2], TallCells));
+                    continue;
+                }
                 if (parts.Length < 4)
                 {
                     continue;

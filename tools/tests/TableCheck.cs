@@ -284,6 +284,21 @@ static class TableCheck
 
         // A row nobody has placed still has somewhere to be drawn.
         Same("an unplaced row is placed", true, back.Spot(7).y > 0f);
+
+        // How big the board is, which the two boxes under it set, is a line of the
+        // layout like any other.
+        Wiring sized = new Wiring();
+        sized.Cells = 40;
+        sized.Lines = 12;
+        Wiring resized = Wiring.Load(sized.Save());
+        Same("a board keeps its size", "40x12",
+             resized.Cells + "x" + resized.Lines);
+        // A layout written before the size was settable has no such line, and is
+        // the size every board used to be.
+        Wiring old = Wiring.Load("g 0 40 60 7\n");
+        Same("a layout without one is the old size",
+             Wiring.WideCells + "x" + Wiring.TallCells,
+             old.Cells + "x" + old.Lines);
     }
 
     static Place End(int kind, string variable, KeyCode key)

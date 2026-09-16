@@ -97,15 +97,46 @@ gates and timers.
   key or variable into one, and **GRID** -- on by default -- sits every node on the
   grid's intersections. The nodes are whole numbers of squares for it: an end is
   five cells across and two down, as is a timer, a gate three by two, and TIDY lays out in cells
-  as well, so a board on the grid fills them rather than straddling them. The board is four zoomed-out views across and four down, the wheel pulls back
-  far enough to see all of it, and nodes and the view both stop at its edge.
-  **EDIT COLORS** lays rows over the top of the board, which stays put: a colour
-  under each palette button and, under those, a row of how nodes are coloured and
+  as well, so a board on the grid fills them rather than straddling them. The board starts four zoomed-out views across and four down, the wheel pulls back
+  far enough to see all of it, and nodes and the view both stop at its edge. How
+  big it is, in grid squares, is **CANVAS SIZE** on the row **EDIT** puts out,
+  saved with the layout: the nodes are centred in the size asked for, so the least
+  a side goes is the box round them and a smaller one asked for is given that
+  instead. Either number is typed or dragged sideways off its box as a timer's
+  numbers are, a whole drag being one step of undo.
+  **EDIT** lays three rows over the top of the board, which stays put: a colour
+  under each palette button; under those, a row of how nodes are coloured and
   how wires are -- UNICOLOR, COLOR or
   RANDOM each, clicked for the next or right-clicked for the list, as the wire style
   is too -- with the unicolour node and wire colours beside them and **RESET
-  COLORS** at the far end. Each colour is a hex box like the Special Effects spot
-  light's.
+  COLORS**, always in the game's red, at the far end; and under that, from the left,
+  **CANVAS SIZE** and its numbers, the wire style and **GRID**, with **RESET SIZE**
+  -- red, and the board back to the size it started at -- at that row's far end:
+  the things that are about the board rather than about one node, together on a row
+  of their own. A board made bigger keeps the view on the middle of what is drawn,
+  so the nodes do not slide off to one side as it grows. Each unicolour box sits
+  beside the mode that uses it, unlabelled, and is out only while that mode is
+  UNICOLOR; its room is kept either way. **TIDY** grows the board to hold what it
+  lays out, up to the limit, and **IMPORT** with it, since it tidies what it
+  brings in.
+- **Square wires run in lanes.** No two are drawn down the same line: the cell a
+  wire's middle leg falls in is divided into as many lanes as the wire's width
+  leaves room for -- five at two thick -- and each wire takes the lane nearest its
+  two ports' middle, or the first free one either side. Two wires off one answer
+  never count against each other, having a point in common already, so a bundle
+  crossing the same cells reads as parallel lines rather than as one thick one. A
+  lane that would run behind a node is passed over, and lanes go out longest wire
+  first, each trying the side its far end is on -- which cuts crossings rather than
+  promising none. A board crowded enough to block every lane still draws the wire.
+  Each colour is a hex box like the Special Effects spot light's.
+- **A gate let go on another gate takes its place**, wires and all: what fed the old
+  one feeds the new one, everything that read the old one reads the new one, and the
+  old one goes, in one step of undo. The gate under the pointer lights a shade while
+  a gate is over it. Off the palette or already on the board, either way; inputs map
+  A to A and B to B, so a gate reading one input takes only A and a gate reading two,
+  landing on one that reads one, fills only A. Ends and comments neither land on a
+  node nor are landed on, a node is never dropped on itself, and a gate over one of
+  its own kind neither lights nor swaps: the board would be left exactly as it is.
   Colours are kept per player, in the mod's data folder. The board's edge stays the
   same thickness on screen at any zoom, and a comment is resized by the double
   arrow in its corner, which scales its writing up to three quarters of the board's
@@ -136,7 +167,17 @@ gates and timers.
   game itself owns the Control versions.
 - **The board's window moves by its thin border** as well as its title bar.
   **EXPORT** closes the board. A board left up by **IMPORT** closes when another
-  block's menu opens, unless pinned. The default AND and counter answer `var_1` and
+  block's menu opens, unless pinned. **Besiege's own wheel zoom no longer sticks
+  off.** A window holds the camera's zoom while the pointer is over it, and gives
+  it back on the pointer leaving or the object going off; but hiding the game's
+  interface switches the *canvas* off, which leaves the objects active -- so no
+  such event ever arrives, and the hold outlived every route that returns it.
+  `ZoomGuard` now gives it back the moment it cannot be given back by hand.
+  **The middle button no longer passes through the board.** A middle click that
+  never moves sends no drag events at all, so nothing raised the menu count and
+  Besiege panned its camera under the window; the press itself now takes the hold,
+  and the window's own bar, rows and margins listen for it as the board already
+  did. The default AND and counter answer `var_1` and
   `var_2` for real: their names were never applied and fell back to `C`, so the two
   shared a key and a wire out of either was refused. A row added with `+` no longer
   copies the output of the row above. Every wire gesture follows one rule -- the port

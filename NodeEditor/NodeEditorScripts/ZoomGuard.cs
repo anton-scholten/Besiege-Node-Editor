@@ -64,8 +64,39 @@ namespace NodeEditorMod
 
         private void OnDisable() { Hold(false); }
 
+        /// <summary>Destroyed while hovered: `OnDisable` covers an object switched
+        /// off, but not every route here ends that way.</summary>
+        private void OnDestroy() { Hold(false); }
+
+        /// <summary>The canvas this hangs under, asked once.</summary>
+        private Canvas roof;
+        private bool looked;
+
+        /// <summary>Whether the pointer could still be told to leave. A disabled
+        /// `Canvas` leaves its objects active -- so no `OnDisable` -- and stops uGUI
+        /// sending the exit that gives the hold back: Tab hides the game's interface
+        /// that way, and a hold taken over the board outlived every route that
+        /// returns it, leaving the camera's wheel dead until something else
+        /// balanced the count.</summary>
+        private bool Live()
+        {
+            if (!looked)
+            {
+                looked = true;
+                roof = GetComponentInParent<Canvas>();
+            }
+            return isActiveAndEnabled && gameObject.activeInHierarchy
+                && (roof == null || roof.isActiveAndEnabled);
+        }
+
         private void Update()
         {
+            // Given back the moment it cannot be given back by hand.
+            if (held && !Live())
+            {
+                Hold(false);
+                return;
+            }
             if (waiting <= 0)
             {
                 return;

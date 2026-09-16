@@ -8,7 +8,7 @@ namespace NodeEditorMod
     /// left-button handlers. Measured in <see cref="against"/>, which stands still.
     /// </summary>
     public class Pan : MonoBehaviour, IBeginDragHandler, IDragHandler,
-                       IEndDragHandler
+                       IEndDragHandler, IPointerDownHandler, IPointerUpHandler
     {
         public Action<Vector2> Panned;
 
@@ -21,11 +21,36 @@ namespace NodeEditorMod
         /// <see cref="ZoomGuard.Grip"/>.</summary>
         private bool grip;
 
+        /// <summary>The press, not the drag. A middle click that never moves sends
+        /// no drag events at all, and the frames between a press and the drag
+        /// threshold send none either -- so the game saw a middle press over the
+        /// window and panned its camera with it. `MouseOrbit` skips its whole
+        /// pan-and-orbit block only while the menu count is up, so the count has to
+        /// be up from the press itself.</summary>
+        public void OnPointerDown(PointerEventData press)
+        {
+            if (press.button == PointerEventData.InputButton.Middle)
+            {
+                grip = ZoomGuard.Grip(true, grip);
+            }
+        }
+
+        /// <summary>Given back on the release, unless a drag of its own is running:
+        /// that gives it back when it ends. Either order uGUI sends these in is
+        /// safe, as a hold is idempotent.</summary>
+        public void OnPointerUp(PointerEventData press)
+        {
+            if (!waving)
+            {
+                grip = ZoomGuard.Grip(false, grip);
+            }
+        }
+
         public void OnBeginDrag(PointerEventData move)
         {
             waving = move.button == PointerEventData.InputButton.Middle
                   && Panned != null && Where(move, out last);
-            grip = ZoomGuard.Grip(waving, grip);
+            grip = ZoomGuard.Grip(waving || grip, grip);
         }
 
         public void OnDrag(PointerEventData move)
