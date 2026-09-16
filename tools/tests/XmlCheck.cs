@@ -25,6 +25,8 @@ static class XmlCheck
         string modId = ModId(args);
         Dictionary<string, string> resources = Resources(args);
         bad += Present(resources, args);
+        bool preview = false;
+        bad += Previewable(resources, args, ref preview);
         Schema schema = Schema.Read(args);
         Dictionary<string, float[]> poses = IconPoses(args);
         int files = 0;
@@ -85,6 +87,7 @@ static class XmlCheck
         Console.WriteLine("XML check: " + files + " file(s) parse, block complete"
                           + schema.Summary()
                           + (icons > 0 ? ", icon posed as the mesh tool draws it" : "")
+                          + (preview ? ", Workshop preview under Steam's 1 MiB" : "")
                           + ".");
         return 0;
     }
@@ -286,6 +289,85 @@ static class XmlCheck
             }
         }
         return bad;
+    }
+
+    /// <summary>What Steam will not take: a Workshop preview over 1 MiB, refused
+    /// as "limit exceeded" with nothing said about which file.
+    /// `SteamWorkshopManager.UploadItem` passes whatever
+    /// `ModListUI.GetThumbnailPath` returns, which is `<WorkshopThumbnail>` where
+    /// there is one and `<Icon>` otherwise -- so leaving the thumbnail out does not
+    /// spare the icon, and an icon that grew past the cap breaks every upload of the
+    /// mod while the game itself loads it perfectly well.</summary>
+    const int PreviewCap = 1048576;
+
+    static int Previewable(Dictionary<string, string> resources, string[] args,
+                           ref bool checked_)
+    {
+        string mod = null;
+        for (int i = 0; i < args.Length && mod == null; i++)
+        {
+            if (args[i].EndsWith("Mod.xml"))
+            {
+                mod = args[i];
+            }
+        }
+        if (mod == null)
+        {
+            return 0;
+        }
+
+        string name = null;
+        try
+        {
+            XmlDocument doc = new XmlDocument();
+            doc.Load(mod);
+            XmlElement shown =
+                doc.DocumentElement.SelectSingleNode("WorkshopThumbnail") as XmlElement;
+            if (shown == null)
+            {
+                shown = doc.DocumentElement.SelectSingleNode("Icon") as XmlElement;
+            }
+            if (shown != null)
+            {
+                name = shown.GetAttribute("name");
+            }
+        }
+        catch (Exception)
+        {
+            return 0;                           // the parse check above reports it
+        }
+        if (string.IsNullOrEmpty(name))
+        {
+            return 0;
+        }
+
+        string path;
+        if (!resources.TryGetValue("Texture:" + name, out path))
+        {
+            Console.Error.WriteLine("  Mod.xml shows \"" + name
+                                    + "\" on the Workshop, but declares no such texture");
+            return 1;
+        }
+
+        string file = Path.Combine(
+            Path.Combine(Path.GetDirectoryName(Path.GetFullPath(mod)), "Resources"),
+            path.Replace('\\', Path.DirectorySeparatorChar));
+        if (!File.Exists(file))
+        {
+            return 0;                           // Present reports a missing file
+        }
+
+        long size = new FileInfo(file).Length;
+        if (size > PreviewCap)
+        {
+            Console.Error.WriteLine("  " + path + " is " + (size / 1024)
+                                    + " KiB, over Steam's 1024 KiB Workshop preview"
+                                    + " limit: every upload fails as \"limit"
+                                    + " exceeded\". Shrink it.");
+            return 1;
+        }
+        checked_ = true;
+        return 0;
     }
 
     /// <summary>Every mesh and texture Mod.xml declares, as kind:name -&gt; path.</summary>
