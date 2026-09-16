@@ -85,17 +85,10 @@ namespace NodeEditorMod
 
             Vector3 origin = Origin(machine, block.BlockBehaviour, rows.Count);
             List<BlockInfo> made = new List<BlockInfo>();
-            int columns = Mathf.Max(1, Mathf.CeilToInt(Mathf.Sqrt(rows.Count)));
-            int lines = Mathf.Max(1, Mathf.CeilToInt(rows.Count / (float)columns));
 
             for (int i = 0; i < rows.Count; i++)
             {
-                // Left to right along x; each later line at a smaller z, lower on
-                // screen.
-                Vector3 at = origin + new Vector3(
-                    ((i % columns) - (columns - 1) * 0.5f) * Across,
-                    0f,
-                    ((lines - 1) * 0.5f - (i / columns)) * Along);
+                Vector3 at = Spot(origin, i, rows.Count);
                 made.Add(One(rows[i], key, variable, automatic, at));
                 if (block.Pins)
                 {
@@ -105,6 +98,20 @@ namespace NodeEditorMod
 
             // Rows, not blocks: with pins on, every row is two blocks.
             return Drop.Into(made, machine) > 0 ? rows.Count : 0;
+        }
+
+        /// <summary>Where the <paramref name="i"/>th of <paramref name="count"/>
+        /// blocks goes: a square-ish field on one horizontal plane, left to right
+        /// along x, each later line at a smaller z and so lower on screen. Timers
+        /// and logic gates are laid out alike, so they are laid out here.</summary>
+        private static Vector3 Spot(Vector3 origin, int i, int count)
+        {
+            int columns = Mathf.Max(1, Mathf.CeilToInt(Mathf.Sqrt(count)));
+            int lines = Mathf.Max(1, Mathf.CeilToInt(count / (float)columns));
+            return origin + new Vector3(
+                ((i % columns) - (columns - 1) * 0.5f) * Across,
+                0f,
+                ((lines - 1) * 0.5f - (i / columns)) * Along);
         }
 
         /// <summary>The rows by wait, ties in table order: the order the table
@@ -168,17 +175,10 @@ namespace NodeEditorMod
 
             Vector3 origin = Origin(machine, block.BlockBehaviour, rows.Count);
             List<BlockInfo> made = new List<BlockInfo>();
-            int columns = Mathf.Max(1, Mathf.CeilToInt(Mathf.Sqrt(rows.Count)));
-            int lines = Mathf.Max(1, Mathf.CeilToInt(rows.Count / (float)columns));
 
             for (int i = 0; i < rows.Count; i++)
             {
-                // Left to right along x, and each line after the first nearer the
-                // camera, exactly as the timers are laid out.
-                Vector3 at = origin + new Vector3(
-                    ((i % columns) - (columns - 1) * 0.5f) * Across,
-                    0f,
-                    ((lines - 1) * 0.5f - (i / columns)) * Along);
+                Vector3 at = Spot(origin, i, rows.Count);
                 made.Add(One(rows[i], at));
                 if (block.Pins)
                 {
@@ -629,14 +629,7 @@ namespace NodeEditorMod
             Binding(data, KeyInputB, row.BVariable, row.BKeys, KeyCode.I);
             Binding(data, KeyEmulate, row.EmulateVariable, row.EmulateKeys, KeyCode.C);
 
-            BlockInfo info = new BlockInfo();
-            info.Guid = Guid.NewGuid();
-            info.ID = (BlockType)LogicGateBlock;
-            info.Position = at;
-            info.Rotation = Upright;
-            info.Scale = Vector3.one;
-            info.BlockData = data;
-            return info;
+            return Built((BlockType)LogicGateBlock, at, data);
         }
 
         /// <summary>A timer row as Besiege's timer block: started by what input A
@@ -666,14 +659,7 @@ namespace NodeEditorMod
             }
             Binding(data, KeyEmulate, row.EmulateVariable, row.EmulateKeys, KeyCode.C);
 
-            BlockInfo info = new BlockInfo();
-            info.Guid = Guid.NewGuid();
-            info.ID = (BlockType)TimerBlock;
-            info.Position = at;
-            info.Rotation = Upright;
-            info.Scale = Vector3.one;
-            info.BlockData = data;
-            return info;
+            return Built((BlockType)TimerBlock, at, data);
         }
 
         /// <summary>One row as the game's own description of a timer
@@ -705,14 +691,7 @@ namespace NodeEditorMod
 
             Binding(data, KeyEmulate, row.EmulateVariable, row.EmulateKeys, KeyCode.C);
 
-            BlockInfo info = new BlockInfo();
-            info.Guid = Guid.NewGuid();
-            info.ID = (BlockType)TimerBlock;
-            info.Position = at;
-            info.Rotation = Upright;
-            info.Scale = Vector3.one;
-            info.BlockData = data;
-            return info;
+            return Built((BlockType)TimerBlock, at, data);
         }
 
         /// <summary>A hidden pin with nothing on unpin, at the block's own
@@ -727,9 +706,17 @@ namespace NodeEditorMod
             // is how a save spells a key nobody has bound.
             data.Write(new XStringArray(KeyUnpin, Spell(null, KeyCode.None, KeyCode.None)));
 
+            return Built(BlockType.Pin, at, data);
+        }
+
+        /// <summary>The game's own description of one generated block. Every block
+        /// this makes differs only in its type and its data: the rest -- a fresh
+        /// guid, upright, unscaled -- is the same every time.</summary>
+        private static BlockInfo Built(BlockType kind, Vector3 at, XDataHolder data)
+        {
             BlockInfo info = new BlockInfo();
             info.Guid = Guid.NewGuid();
-            info.ID = BlockType.Pin;
+            info.ID = kind;
             info.Position = at;
             info.Rotation = Upright;
             info.Scale = Vector3.one;

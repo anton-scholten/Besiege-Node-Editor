@@ -21,7 +21,8 @@ NodeEditor/NodeEditorScripts/*.cs    mod source; not read by the game
 tools/build.sh                       compiles with Besiege's own compiler, and checks
 tools/verify-build.sh                the check to run after editing any .cs
 tools/install.sh                     builds and installs into the game
-tools/make-block-mesh.py             fetches and converts the block model
+tools/make-block-mesh.py             fetches and converts the block model (not the
+                                     thumbnail: that is artwork, kept by hand)
 tools/make-ui-icons.py               trims and scales the table's switch icons
 tools/icons/                         the artwork it reads (not loaded by the game)
 tools/tests/                         the checks the build runs (XML, blacklist, timer + table)
@@ -88,7 +89,9 @@ What depends on what:
   `EmulateKeys`. It reconciles `row.Wants` against `row.Held` rather than letting
   the clock press anything.
 - **`ValueField`** is the transparent sheet over a number box that makes it
-  draggable, taken from the sibling SpecialEffects mod. It has to be a sheet and it
+  draggable, taken from the sibling SpecialEffects mod. `ValueField.Over` builds
+  that sheet, and is what every number on every window goes through -- the table's,
+  the node editor's, the canvas size, the colour boxes. It has to be a sheet and it
   has to handle the pointer-down as well -- both reasons are written out at the top
   of the file, and both cost a day somewhere else. Which edge the drag leaves by
   settles what it is: the sides are a value, the top and bottom are a reach down

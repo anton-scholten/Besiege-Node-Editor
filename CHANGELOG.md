@@ -118,7 +118,16 @@ gates and timers.
   beside the mode that uses it, unlabelled, and is out only while that mode is
   UNICOLOR; its room is kept either way. **TIDY** grows the board to hold what it
   lays out, up to the limit, and **IMPORT** with it, since it tidies what it
-  brings in.
+  brings in. **TIDY lays the logic out to run left to right.** A loop -- a latch,
+  a counter fed by its own answer -- has to have one wire running back, and which
+  one is now chosen by a walk forward from the ends that start things, rather than
+  left for the levels to stumble into; every wire that is not closing a loop runs
+  forwards. The order within a column is swept down and then up, so a node settles
+  level with the middle of what feeds it and of what it feeds, which takes out
+  crossings a single direction leaves in. One layout whatever the wires are drawn
+  like: a board that rearranged itself when the wire style changed would be two
+  boards to learn. Asking which nodes are wired together is now
+  asked once rather than for every pair of nodes on every pass.
 - **Square wires run in lanes.** No two are drawn down the same line: the cell a
   wire's middle leg falls in is divided into as many lanes as the wire's width
   leaves room for -- five at two thick -- and each wire takes the lane nearest its

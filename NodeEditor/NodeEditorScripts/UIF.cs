@@ -27,10 +27,6 @@ namespace NodeEditorMod
         /// game's hotkeys firing at whatever is being typed into it.</summary>
         public const string InputPrefab = "Input Field";
 
-        /// <summary>A slider. The node editor's colour bands are drawn over one.
-        /// </summary>
-        public const string SliderPrefab = "Slider";
-
         /// <summary>The tooltip panel alone, with no behaviour (see <see
         /// cref="Tip"/>). Registered as "Vis Only", though the asset is named
         /// "(Visual)".</summary>

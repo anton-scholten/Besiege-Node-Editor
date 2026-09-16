@@ -120,18 +120,7 @@ namespace NodeEditorMod
 
             // A sheet over the box that tells a click from a sideways drag: a click
             // types, a drag leaving by a side runs through the hues.
-            GameObject sheet = new GameObject("Drag");
-            sheet.transform.SetParent(go.transform, false);
-            RectTransform over = sheet.AddComponent<RectTransform>();
-            over.anchorMin = Vector2.zero;
-            over.anchorMax = Vector2.one;
-            over.offsetMin = Vector2.zero;
-            over.offsetMax = Vector2.zero;
-            Image catcher = sheet.AddComponent<Image>();
-            catcher.color = new Color(0f, 0f, 0f, 0f);
-            ValueField drag = sheet.AddComponent<ValueField>();
-            drag.field = box;
-            drag.dragged = Nudged;
+            ValueField.Over(go, box).dragged = Nudged;
         }
 
         private static void Lettered(Text label, Color ink)

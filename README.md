@@ -246,30 +246,24 @@ variable into the table and the wire appears on the board.
 | a comment | A note on the board, wired to nothing. Click the writing and the caret goes in it; drag the writing and the note moves. It grows as you type to fit what you write — the same small margin on all four sides — newlines included. Point at it and a double arrow shows in its bottom-right corner, beside the red cross: drag that to make the writing bigger or smaller, and the note grows or shrinks with it — as far as three quarters of the board's width. However big it gets, a note stays on the board: grown past an edge, it is moved back inside |
 
 Along the top is a row of icons: an input, an output, a comment, and the twelve
-gates in Besiege's own order, each drawn as the shape it is and named on hover. Click one to
-place it, drag one onto the board to put it where you let go, or right-click the
-board and pick from the same list — the node lands where you clicked. A node
-nobody dropped — a palette button clicked rather than dragged, or a row added with
-the table's **+** — lands in the middle of the view, one grid cell right and down
-for each node already standing there, so several added one after another stagger
-rather than stack. A gate is a
-row of the block, and a block holds up to 1024: past that the board says **REACHED
-1024 GATES LIMIT** rather than quietly doing nothing. The last gate can go like any other: a
-block with no gates is a block whose circuit has been taken off it, and keeping one
-back would be a gate somebody has to find and delete somewhere else.
+gates in Besiege's own order, each drawn as the shape it is and named on hover.
+Click one to place it, drag one onto the board to drop it where you let go, or
+right-click the board and pick from the same list. A node nobody dropped — a
+palette click, or a row added with the table's **+** — lands in the middle of the
+view, one grid cell right and down per node already standing there, so several
+stagger rather than stack. A gate is a row of the block, and a block holds 1024:
+past that the board says **REACHED 1024 GATES LIMIT** rather than quietly doing
+nothing. The last gate goes like any other — a block with no gates is one whose
+circuit has been taken off it.
 
 **Let a gate go on top of another gate and it takes that gate's place**, wires and
 all: what fed the old one feeds the new one, everything that read the old one reads
-the new one, and the old one goes. The gate under the pointer lights up a shade
-while a gate is over it, so what is about to happen is visible before the hand lets
-go. It works for a gate dragged off the palette and for one already on the board,
-and the whole swap is one step of undo. A gate over **its own kind** neither
-lights nor swaps — putting an AND where an AND already is would leave the board
-exactly as it stands — and a node is never dropped on itself. Inputs map A to A and B to B: land a gate
-that reads one input on a gate that reads two and only input A carries over; land
-one that reads two on a gate that reads one and only A is filled. Ends and comments
-neither land on anything nor are landed on — they are dropped beside a node, as
-before.
+the new one, and the old one goes — one step of undo, off the palette or off the
+board. The gate under the pointer lights a shade first, so the swap is visible
+before the hand lets go. Inputs map A to A and B to B, so a gate that reads one
+input takes only A. A gate over **its own kind** neither lights nor swaps, since
+that would leave the board as it stands; a node is never dropped on itself; and
+ends and comments neither land on anything nor are landed on.
 
 The board is big — about four views across and four down at the old furthest zoom —
 and the wheel pulls back far enough to show all of it at once, the grid fading out as
@@ -280,14 +274,11 @@ line draws that edge, the same thickness on screen however far out you zoom, and
 what is drawn, where an older layout put the circuit somewhere else.
 
 How big it is, in grid squares, is **CANVAS SIZE** on the row **EDIT** puts out —
-squares across, then squares down. Either number is typed or dragged sideways off
-its box, the way a timer's wait and duration are, and a whole drag is one step of
-undo rather than one per square. The
-nodes are centred in whatever size it becomes, so the smallest it goes is the box
-round them: ask for less and that side takes the least it can hold rather than
-leaving a node outside the fence, and the box says the size you got. A board's
-size belongs to the block and is saved with its layout; a board from before it
-could be set is the size every board used to be.
+squares across, then squares down, each typed or dragged sideways off its box the
+way a timer's numbers are, a whole drag being one step of undo. The nodes are
+centred in whatever size it becomes, so the smallest it goes is the box round
+them: ask for less and that side takes the least it can hold, and the box says the
+size you got. The size belongs to the block and is saved with its layout.
 
 The board pans by
 dragging its empty parts — or with the middle button anywhere,
@@ -302,22 +293,17 @@ the board up while the removal closes the block's menu; it closes when another
 block's menu opens, unless pinned. Starting a simulation closes every board, pinned or
 not, along with any message still showing: the machine it draws is hidden for the run.
 
-**EDIT** lays three rows over the top of the board — the board itself stays
-where it is, and the rows hide what is under them while they are out. Under every
-palette button is that kind's colour. Under those, left to right: **NODE**, how nodes
-are coloured, and the one colour it uses; **WIRE**, how wires are coloured, and the
-one colour it uses; and **RESET COLORS** at the far end, in the game's red
-whatever it is doing, which puts every colour
-back as it started. A colour box sits straight beside the mode it belongs to, with
-no word between them, and is there only while that mode is **UNICOLOR** — COLOR
-and RANDOM make their own colours, so a box beside them would be a setting that
-does nothing. Its room on the row is kept either way, so the wire half does not
-shift about as the modes are clicked through. The row under that one starts at the left with **CANVAS SIZE** and its
-two numbers, then the wire-style button (line, curve, square), then **GRID**, and
-ends at the right with **RESET SIZE** — red like RESET COLORS, and it puts the
-board back to the size it started at. So the things that are about the board
-rather than about any one node sit together on a row of their own, and the board
-gives up the room for all three rows. Nodes and wires
+**EDIT** lays three rows over the top of the board — the board stays where it is,
+and the rows hide what is under them. Under every palette button is that kind's
+colour. Under those, left to right: **NODE**, how nodes are coloured, and the one
+colour it uses; **WIRE**, the same for wires; and **RESET COLORS** at the far end,
+in the game's red. A colour box sits beside the mode it belongs to, with no word
+between, and only while that mode is **UNICOLOR** — COLOR and RANDOM make their
+own — though its room is kept either way, so the wire half does not shift as the
+modes are clicked through. The third row runs **CANVAS SIZE** and its numbers, the
+wire-style button (line, curve, square), **GRID**, and **RESET SIZE** at the right,
+red, which puts the board back to the size it started at: what is about the board
+rather than about any one node, together on a row of its own. Nodes and wires
 are coloured each their own way:
 
 | | Nodes | Wires |
@@ -359,6 +345,14 @@ way, since it tidies what it brings in. It
 moves things and removes nothing: an end with no wires on it is one you are about
 to wire, and the red cross is how a node goes. A board opened for the first time
 arrives laid out the same way.
+
+It lays the logic out **left to right**. A loop — a latch, or a counter fed by its
+own answer — must have one wire running back, and which one that is gets chosen
+deliberately: a walk forward from the ends that start things marks the wire that
+closes each loop, and only those are left out when the columns are worked out, so
+every other wire on the board runs forwards. Within a column the order is swept
+down and then up, each node settling level with the middle of what feeds it and
+what it feeds, which takes out crossings that sweeping one way leaves behind.
 
 **IMPORT** is CONVERT run backwards: it takes every one of Besiege's own logic
 gates and timers off the machine and reads them into this block as rows — a timer as
@@ -444,15 +438,13 @@ five to a cell at a wire two thick — and a wire takes the lane nearest the mid
 of its two ports, or the first free one either side of that. Free means no other
 wire covering the same stretch of board is already in it; two wires off the *one*
 answer never count against each other, since they leave from the same point
-anyway. So a bundle crossing the same cells reads as a bundle of parallel lines
-rather than one thick line, and wires still meet where they genuinely share an
-end. A lane that would run behind a node is passed over, so a wire is not lost
-behind a gate; where a board is crowded enough that every lane is blocked, the
-wire takes the first free one anyway rather than not being drawn at all. Lanes go
-out longest wire first, and each wire tries the side its far end is on before the
-other — which cuts crossings rather than promising none of them. Where the
-corridors fall is a question about every wire at once, so a square
-board is worked out whole on each redraw rather than wire by wire.
+anyway. So a bundle crossing the same cells reads as parallel lines rather than
+one thick line, and wires still meet where they genuinely share an end. A lane
+that would run behind a node is passed over; where every lane is blocked, the wire
+takes the first free one rather than not being drawn. Lanes go out longest wire
+first, each trying the side its far end is on — which cuts crossings rather than
+promising none. Where the corridors fall is a question about every wire at once,
+so a square board is worked out whole on each redraw rather than wire by wire.
 
 Wires run from an answer into an input, and only there. A wire from an input end
 straight into an output end says **CANNOT DIRECTLY CONNECT TO OUTPUT** — there is

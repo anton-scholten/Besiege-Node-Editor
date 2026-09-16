@@ -1,4 +1,3 @@
-using UnityEngine;
 
 namespace NodeEditorMod
 {
@@ -25,8 +24,6 @@ namespace NodeEditorMod
         {
             this.key = key;
         }
-
-        public MKey Mapper { get { return key; } }
 
         /// <summary>Keyboard and emulated edges kept apart. <see cref="Poll"/>
         /// merges them for a timer; a logic gate reads them separately, as

@@ -1585,7 +1585,7 @@ namespace NodeEditorMod
                 }
                 below += SwatchTall + 4f;
                 // Then nodes and wires: how each is coloured, and the one colour
-                // UNICOLOR gives it -- in a box only as wide as what it says.
+                // that mode uses, in a box only as wide as the hex it holds.
                 float snug = uniNode != null ? uniNode.Snug(UniTall) : UniWide;
                 float at = Margin + 6f;
                 UIF.Fit(nodeWords, at, below, SideWords, UniTall);
@@ -4552,20 +4552,10 @@ namespace NodeEditorMod
             guard.box = field;
             Waving(go);
 
-            GameObject sheet = new GameObject("Drag");
-            sheet.transform.SetParent(go.transform, false);
-            RectTransform over = sheet.AddComponent<RectTransform>();
-            over.anchorMin = Vector2.zero;
-            over.anchorMax = Vector2.one;
-            over.offsetMin = Vector2.zero;
-            over.offsetMax = Vector2.zero;
-            Image catcher = sheet.AddComponent<Image>();
-            catcher.color = new Color(0f, 0f, 0f, 0f);
-            ValueField drag = sheet.AddComponent<ValueField>();
-            drag.field = field;
+            ValueField drag = ValueField.Over(go, field);
             // The middle button pans from the number too. On the sheet, which takes
             // the press: a `Pan` under it never heard the drag.
-            Waving(sheet);
+            Waving(drag.gameObject);
             Marquee.On(field);
             drag.dragged = delegate(float pixels)
             {
@@ -5492,8 +5482,18 @@ namespace NodeEditorMod
                 corridor = w < lanes.Count ? lanes[w] : float.NaN;
                 // The armed port's wires are lit: all out of an answer, or those
                 // into one input.
-                Draw(from * 3, node * 3 + 1 + port, pendingPort < 0 ? from == pending
-                     : node == pending && port == pendingPort);
+                bool lit = pendingPort < 0 ? from == pending
+                                           : node == pending && port == pendingPort;
+                if (float.IsNaN(corridor))
+                {
+                    Draw(from * 3, node * 3 + 1 + port, lit);
+                }
+                else
+                {
+                    // A corridor means `Laned` has already asked both ports where
+                    // they are: a square board would otherwise ask twice a frame.
+                    Drawn(from * 3, node * 3 + 1 + port, lit, wireFrom[w], wireTo[w]);
+                }
             }
             tracing = null;
             corridor = float.NaN;
@@ -5750,9 +5750,17 @@ namespace NodeEditorMod
             {
                 return;
             }
+            Drawn(from, to, armed, Middle(start), Middle(end));
+        }
+
+        /// <summary>The same wire, with both ends already worked out. Asking a port
+        /// where it is costs four world corners and a transform, and a square board
+        /// has asked once already in <see cref="Laned"/>.</summary>
+        private void Drawn(int from, int to, bool armed, Vector2 a, Vector2 b)
+        {
             if (armed)
             {
-                String(Middle(start), Middle(end), LiveInk);
+                String(a, b, LiveInk);
                 return;
             }
             // Three ports to a node, so the node is the port's number over three.
@@ -5762,16 +5770,14 @@ namespace NodeEditorMod
             {
                 // Between the two ends' kind colours: what the nodes wear in
                 // COLORED, and what they would wear in UNI-COLOR.
-                String(Middle(start), Middle(end),
-                       Hues.Wired(Hues.Kind(Slotted(source))),
+                String(a, b, Hues.Wired(Hues.Kind(Slotted(source))),
                        Hues.Wired(Hues.Kind(Slotted(sink))));
                 return;
             }
             // Known by both its ends and the port it lands on, so two wires
             // between the same two nodes are free to differ.
-            String(Middle(start), Middle(end),
-                   Hues.WireOf(Hues.Mix(Hues.Mix(Seeded(source), Seeded(sink)),
-                                        to % 3)));
+            String(a, b, Hues.WireOf(Hues.Mix(Hues.Mix(Seeded(source), Seeded(sink)),
+                                              to % 3)));
         }
 
         /// <summary>Whether a row's answer goes out under this end's name.</summary>
@@ -6148,17 +6154,6 @@ namespace NodeEditorMod
         }
 
         /// <summary>Dragging the empty board moves what is on it.</summary>
-        /// <summary>Whether one node feeds the other.</summary>
-        private bool Between(int from, int to)
-        {
-            Place place = Placed(to);
-            if (place != null && place.Kind == Place.Output)
-            {
-                return from < Rows && Presses(from, place);
-            }
-            return Wired(from, to, 0) || Wired(from, to, 1);
-        }
-
         private void Panning(Vector2 by)
         {
             Panned(by);
@@ -8127,9 +8122,8 @@ namespace NodeEditorMod
 
         // ---- how big the board is --------------------------------------------
 
-        /// <summary>The two size boxes on the EDIT row, the "x" between them, and
-        /// the words before them -- which are the unicolours' words, one word
-        /// longer.</summary>
+        /// <summary>The two size boxes on the third EDIT row, the "x" between them,
+        /// and the words before them.</summary>
         private const float SizeWide = 46f;
         private const float ByWide = 12f;
         private const float SizeWords = 92f;
@@ -8163,18 +8157,8 @@ namespace NodeEditorMod
 
             // Dragged as well as typed, the way a timer's wait and duration are: a
             // sheet over the box, so a drag that stays on it still selects text.
-            GameObject sheet = new GameObject("Drag");
-            sheet.transform.SetParent(go.transform, false);
-            RectTransform over = sheet.AddComponent<RectTransform>();
-            over.anchorMin = Vector2.zero;
-            over.anchorMax = Vector2.one;
-            over.offsetMin = Vector2.zero;
-            over.offsetMax = Vector2.zero;
-            Image catcher = sheet.AddComponent<Image>();
-            catcher.color = new Color(0f, 0f, 0f, 0f);
-            ValueField drag = sheet.AddComponent<ValueField>();
-            drag.field = field;
-            Waving(sheet);
+            ValueField drag = ValueField.Over(go, field);
+            Waving(drag.gameObject);
             bool across = wide;
             drag.dragged = delegate(float pixels) { Scrubbing(across, pixels); };
             // No tip: the words beside it say what the pair is, as they do for the
@@ -8677,30 +8661,114 @@ namespace NodeEditorMod
         private void Laid(bool quiet)
         {
             int many = Nodes;
+            if (many == 0)
+            {
+                return;
+            }
+            // Who feeds whom, asked once rather than for every pair of nodes on
+            // every pass: a wire is an input reading a name, and `Feeds` knows.
+            List<List<int>> ins = new List<List<int>>();
+            List<List<int>> outs = new List<List<int>>();
+            List<List<bool>> loops = new List<List<bool>>();
+            for (int node = 0; node < many; node++)
+            {
+                ins.Add(new List<int>());
+                outs.Add(new List<int>());
+                loops.Add(new List<bool>());
+            }
+            for (int node = 0; node < many; node++)
+            {
+                for (int port = 0; port < 2; port++)
+                {
+                    Feeds(node, port, strands);
+                    for (int i = 0; i < strands.Count; i++)
+                    {
+                        int from = strands[i];
+                        if (from == node || ins[node].Contains(from))
+                        {
+                            continue;
+                        }
+                        ins[node].Add(from);
+                        outs[from].Add(node);
+                        loops[from].Add(false);
+                    }
+                }
+            }
+
+            // A circuit with a latch in it has a loop, and a loop cannot be laid out
+            // left to right: one wire of it has to run back. Which one is chosen
+            // here rather than left for the levels to stumble into. A walk forward
+            // from the ends that start things marks the wire that closes each loop,
+            // and only those are kept out of the levels below -- so every other wire
+            // on the board runs forwards.
+            int[] colour = new int[many];
+            List<int> stack = new List<int>();
+            List<int> step = new List<int>();
+            for (int round = 0; round < 2; round++)
+            {
+                for (int root = 0; root < many; root++)
+                {
+                    // What nothing feeds first, whatever is left over second: a walk
+                    // that starts where the signal starts calls the same wires
+                    // backwards that a reader would.
+                    bool starts = ins[root].Count == 0;
+                    if (colour[root] != 0 || (round == 0) != starts)
+                    {
+                        continue;
+                    }
+                    colour[root] = 1;
+                    stack.Add(root);
+                    step.Add(0);
+                    while (stack.Count > 0)
+                    {
+                        int node = stack[stack.Count - 1];
+                        int i = step[step.Count - 1];
+                        if (i >= outs[node].Count)
+                        {
+                            colour[node] = 2;
+                            stack.RemoveAt(stack.Count - 1);
+                            step.RemoveAt(step.Count - 1);
+                            continue;
+                        }
+                        step[step.Count - 1] = i + 1;
+                        int next = outs[node][i];
+                        if (colour[next] == 1)
+                        {
+                            // Into something this walk is still inside: the wire
+                            // that closes the loop.
+                            loops[node][i] = true;
+                            continue;
+                        }
+                        if (colour[next] == 0)
+                        {
+                            colour[next] = 1;
+                            stack.Add(next);
+                            step.Add(0);
+                        }
+                    }
+                }
+            }
+
+            // The levels: every wire but a loop-closing one puts its far end at
+            // least one column to the right of where it leaves.
             int[] depth = new int[many];
             for (int pass = 0; pass < many; pass++)
             {
-                // Settled by repetition, capped so a loop stops.
                 bool moved = false;
                 for (int node = 0; node < many; node++)
                 {
-                    int deep = 0;
-                    for (int port = 0; port < 2; port++)
+                    for (int i = 0; i < outs[node].Count; i++)
                     {
-                        Feeds(node, port, strands);
-                        for (int i = 0; i < strands.Count; i++)
+                        if (loops[node][i])
                         {
-                            int from = strands[i];
-                            if (depth[from] + 1 > deep)
-                            {
-                                deep = depth[from] + 1;
-                            }
+                            continue;
                         }
-                    }
-                    if (deep > depth[node] && deep < many)
-                    {
-                        depth[node] = deep;
-                        moved = true;
+                        int next = outs[node][i];
+                        if (depth[node] + 1 > depth[next])
+                        {
+                            depth[next] = depth[node] + 1;
+                            moved = true;
+                        }
                     }
                 }
                 if (!moved)
@@ -8756,6 +8824,24 @@ namespace NodeEditorMod
                     columns.RemoveAt(column);
                 }
             }
+            if (columns.Count == 0)
+            {
+                return;
+            }
+            // Which column each node ended in: the gaps below are measured by it,
+            // and a comment is in none.
+            int[] where = new int[many];
+            for (int node = 0; node < many; node++)
+            {
+                where[node] = -1;
+            }
+            for (int column = 0; column < columns.Count; column++)
+            {
+                for (int i = 0; i < columns[column].Count; i++)
+                {
+                    where[columns[column][i]] = column;
+                }
+            }
 
             float[] rank = new float[many];
             for (int column = 0; column < columns.Count; column++)
@@ -8765,27 +8851,35 @@ namespace NodeEditorMod
                     rank[columns[column][i]] = i;
                 }
             }
-            for (int pass = 0; pass < 4; pass++)
+            // Swept down and then up, rather than four times the one way: going
+            // down a node settles level with the middle of what feeds it, going up
+            // with the middle of what it feeds, and a few of each takes the
+            // crossings out of a board that one direction alone leaves in.
+            for (int pass = 0; pass < 6; pass++)
             {
-                for (int column = 0; column < columns.Count; column++)
+                bool down = pass % 2 == 0;
+                for (int c = 0; c < columns.Count; c++)
                 {
+                    int column = down ? c : columns.Count - 1 - c;
                     List<int> here = columns[column];
                     float[] middle = new float[here.Count];
                     for (int i = 0; i < here.Count; i++)
                     {
+                        List<int> near = down ? ins[here[i]] : outs[here[i]];
                         float total = 0f;
                         int seen = 0;
-                        for (int other = 0; other < many; other++)
+                        for (int j = 0; j < near.Count; j++)
                         {
-                            if (!Between(other, here[i]) && !Between(here[i], other))
+                            if (where[near[j]] < 0)
                             {
                                 continue;
                             }
-                            total += rank[other];
+                            total += rank[near[j]];
                             seen++;
                         }
-                        // Nothing wired keeps the place it had, so the untouched
-                        // parts of a board do not shuffle every time this is asked.
+                        // Nothing wired that way keeps the place it had, so the
+                        // untouched parts of a board do not shuffle every time this
+                        // is asked.
                         middle[i] = seen == 0 ? rank[here[i]] : total / seen;
                     }
                     // An insertion sort on the averages, which is stable, so two
@@ -8819,9 +8913,15 @@ namespace NodeEditorMod
             {
                 pitch = Mathf.Ceil(pitch / GridStep) * GridStep;
             }
+            // A gap between columns rather than a pitch, so narrow gate columns
+            // space evenly with wide end columns, and wires pass between them. One
+            // layout whatever the wires are drawn like: a board that rearranged
+            // itself when the wire style changed was two boards to learn.
+            float gap = grid ? Mathf.Ceil(90f / GridStep) * GridStep : 90f;
             // Centred on the board's middle (`Centre`), so the columns are measured
             // first.
             float centre = Centre.y;
+            float[] widths = new float[columns.Count];
             float across = 0f;
             for (int column = 0; column < columns.Count; column++)
             {
@@ -8834,8 +8934,8 @@ namespace NodeEditorMod
                         span = mine;
                     }
                 }
-                across += span + (column > 0
-                    ? (grid ? Mathf.Ceil(90f / GridStep) * GridStep : 90f) : 0f);
+                widths[column] = span;
+                across += span + (column > 0 ? gap : 0f);
             }
             // The board grows to hold what is being laid out, so a tidy never has
             // to squeeze a wide circuit into a board too small for it -- which is
@@ -8852,9 +8952,6 @@ namespace NodeEditorMod
                   (tallest - 1) * pitch + NodeHeight + GridStep * 4f);
             // Measured again: the middle has moved if the board just grew.
             centre = Centre.y;
-            // A gap between columns rather than a pitch, so narrow gate columns
-            // space evenly with wide end columns, and wires pass between them.
-            float gap = grid ? Mathf.Ceil(90f / GridStep) * GridStep : 90f;
             float left = Centre.x - across * 0.5f;
             if (grid)
             {
@@ -8862,15 +8959,6 @@ namespace NodeEditorMod
             }
             for (int column = 0; column < columns.Count; column++)
             {
-                float span = 0f;
-                for (int i = 0; i < columns[column].Count; i++)
-                {
-                    float mine = Wide(columns[column][i]);
-                    if (mine > span)
-                    {
-                        span = mine;
-                    }
-                }
                 float top = centre - (columns[column].Count - 1) * pitch * 0.5f;
                 if (grid)
                 {
@@ -8881,11 +8969,11 @@ namespace NodeEditorMod
                     // Centred in a mixed column; left-aligned on the grid, where
                     // half a node is half a square.
                     float mine = Wide(columns[column][i]);
-                    float aside = grid ? 0f : (span - mine) * 0.5f;
+                    float aside = grid ? 0f : (widths[column] - mine) * 0.5f;
                     Move(columns[column][i],
                          new Vector2(left + aside, top + i * pitch));
                 }
-                left += span + gap;
+                left += widths[column] + gap;
             }
             if (quiet)
             {

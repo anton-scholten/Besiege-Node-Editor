@@ -17,6 +17,26 @@ namespace NodeEditorMod
     {
         public UnityEngine.UI.InputField field;
 
+        /// <summary>The sheet itself: a transparent child filling the box, with one
+        /// of these on it. Every number on a window is dragged this way, so the five
+        /// steps live here rather than four times over.</summary>
+        public static ValueField Over(GameObject host, UnityEngine.UI.InputField box)
+        {
+            GameObject sheet = new GameObject("Drag");
+            sheet.transform.SetParent(host.transform, false);
+            RectTransform over = sheet.AddComponent<RectTransform>();
+            over.anchorMin = Vector2.zero;
+            over.anchorMax = Vector2.one;
+            over.offsetMin = Vector2.zero;
+            over.offsetMax = Vector2.zero;
+            // Takes the press; nothing is drawn.
+            UnityEngine.UI.Image catcher = sheet.AddComponent<UnityEngine.UI.Image>();
+            catcher.color = new Color(0f, 0f, 0f, 0f);
+            ValueField drag = sheet.AddComponent<ValueField>();
+            drag.field = box;
+            return drag;
+        }
+
         /// <summary>Pixels dragged sideways, once the drag has left by a
         /// side.</summary>
         public Action<float> dragged;

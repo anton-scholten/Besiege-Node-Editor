@@ -328,8 +328,6 @@ namespace NodeEditorMod
             }
         }
 
-        public bool Listening { get { return listening; } }
-
         /// <summary>How many things the key answers to, when more than one; Besiege
         /// ORs them.</summary>
         private int several;

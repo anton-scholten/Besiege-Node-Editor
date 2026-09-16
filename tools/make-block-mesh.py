@@ -609,12 +609,9 @@ def build(name, want_preview):
     print("%s: %d verts, %d faces, %d colour(s), %.2f x %.2f x %.2f"
           % (name, verts, faces, len(colours), extent[0], extent[1], extent[2]))
 
-    # The mod's own thumbnail, which Mod.xml names as its <Icon>: one picture for
-    # the whole mod, and it is the Timer's. Drawn from the
-    # same geometry as everything else, so it cannot show a block the mod does
-    # not have -- and drawn every run, so it cannot go stale either.
-    if name == "TimerPlus":
-        preview(os.path.join(OUT, "Thumbnail.png"), tris, size=512, icon=True)
+    # The mod's own thumbnail, which Mod.xml names as its <Icon>, is artwork kept
+    # in Resources by hand. This tool used to draw it from the Timer's geometry on
+    # every run; doing that now would overwrite the artwork, so it does not.
 
     if want_preview:
         out = os.path.join(CACHE, "preview")

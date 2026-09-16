@@ -1474,18 +1474,7 @@ namespace NodeEditorMod
 
                 // A sheet over the box, so the number can be dragged too (see
                 // ValueField).
-                GameObject drag = new GameObject("Drag");
-                drag.transform.SetParent(field.transform, false);
-                RectTransform sheet = drag.AddComponent<RectTransform>();
-                sheet.anchorMin = Vector2.zero;
-                sheet.anchorMax = Vector2.one;
-                sheet.offsetMin = Vector2.zero;
-                sheet.offsetMax = Vector2.zero;
-                Image catcher = drag.AddComponent<Image>();
-                catcher.color = new Color(0f, 0f, 0f, 0f);
-
-                ValueField value = drag.AddComponent<ValueField>();
-                value.field = field;
+                ValueField value = ValueField.Over(field.gameObject, field);
                 value.dragged = delegate(float pixels) { Scrub(cells.Index, which, pixels); };
                 value.picking = delegate(Vector2 screen) { Pick(cells.Index, which, screen); };
                 value.picked = delegate { Picked(); };
