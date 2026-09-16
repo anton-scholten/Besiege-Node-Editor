@@ -871,6 +871,11 @@ namespace NodeEditorMod
 
         public void Close()
         {
+            // Before the window goes: a cell still listening for a key holds a menu
+            // count, and a board closed out from under it -- an export, a run
+            // starting -- would leave that count standing and the game's own wheel
+            // zoom dead.
+            KeyCell.Dropped();
             if (window != null)
             {
                 window.SetActive(false);

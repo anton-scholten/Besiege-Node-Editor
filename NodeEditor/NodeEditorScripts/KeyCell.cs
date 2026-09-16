@@ -443,7 +443,7 @@ namespace NodeEditorMod
 
         private void Listen()
         {
-            if (variable || Aside() || several > 1)
+            if (!live || variable || Aside() || several > 1)
             {
                 return;
             }
@@ -460,6 +460,71 @@ namespace NodeEditorMod
             waiting = listening ? this : null;
             Hold(listening);
             Paint();
+        }
+
+        /// <summary>Gives back whatever cell is listening, wherever it is. Called
+        /// before a window closes: a cell still listening holds a menu count, and a
+        /// window that goes without `OnDisable` reaching the cell -- its canvas
+        /// switched off rather than the object -- would stand that count up for
+        /// good, which stops the game's own wheel zooming.</summary>
+        public static void Dropped()
+        {
+            if (waiting != null)
+            {
+                waiting.Give();
+            }
+        }
+
+        /// <summary>Whether this cell can be bound at all. False for an input its
+        /// gate does not read -- the one the table bars with diagonal lines -- which
+        /// is drawn over rather than hidden, and used to take a click through the
+        /// bars.</summary>
+        public bool Live
+        {
+            get { return live; }
+            set
+            {
+                if (live == value)
+                {
+                    return;
+                }
+                live = value;
+                if (!live)
+                {
+                    // A gate can change under the pointer, so a cell may be barred
+                    // while it is listening or being typed in.
+                    Let();
+                }
+                Deadened();
+            }
+        }
+
+        private bool live = true;
+
+        /// <summary>The three things a cell is clicked on -- the bubble, the plate
+        /// and the name box -- switched off together.</summary>
+        private void Deadened()
+        {
+            if (plate != null)
+            {
+                Button click = plate.GetComponent<Button>();
+                if (click != null)
+                {
+                    click.interactable = live;
+                }
+            }
+            if (mode != null)
+            {
+                Button swap = mode.GetComponent<Button>();
+                if (swap != null)
+                {
+                    swap.interactable = live;
+                }
+            }
+            if (box != null)
+            {
+                box.interactable = live;
+            }
         }
 
         /// <summary>Stops listening without changing what is bound.</summary>
@@ -483,7 +548,7 @@ namespace NodeEditorMod
         /// </summary>
         private void Offer()
         {
-            if (!variable)
+            if (!live || !variable)
             {
                 return;
             }
@@ -548,6 +613,24 @@ namespace NodeEditorMod
 
         private void Update()
         {
+            // The hold given back the moment it can no longer be given back by
+            // hand. Switching a `Canvas` off leaves its objects active, so
+            // `OnDisable` never runs and no click can ever end the listening --
+            // and the menu count this holds would stay up, which stops the game's
+            // own wheel zooming.
+            if (held)
+            {
+                if (!looked)
+                {
+                    looked = true;
+                    roof = GetComponentInParent<Canvas>();
+                }
+                if (!gameObject.activeInHierarchy
+                    || (roof != null && !roof.isActiveAndEnabled))
+                {
+                    Give();
+                }
+            }
             // The artwork exists only once the mapper has built a key selector;
             // keep asking.
             if (modeIcon == null && MapperArt.Ready)
@@ -642,6 +725,9 @@ namespace NodeEditorMod
             }
             Hold(false);
         }
+
+        private Canvas roof;
+        private bool looked;
 
         private void OnDestroy()
         {

@@ -555,6 +555,9 @@ namespace NodeEditorMod
         {
             // The board is part of the block's menu unless it has been pinned up.
             Editor.Dropped();
+            // A cell still listening holds a menu count; closing out from under it
+            // would leave that count up and the game's wheel zoom dead.
+            KeyCell.Dropped();
             if (window != null)
             {
                 window.SetActive(false);
@@ -2015,6 +2018,11 @@ namespace NodeEditorMod
             {
                 cells.Barred.gameObject.SetActive(!Gates.UsesB(gate));
             }
+            // Barred and dead, not merely barred: an input this gate never reads is
+            // one no key or name should be put on, as the switch beside it is one no
+            // click should move. What it already holds stays held, and comes back
+            // when a gate that reads it is chosen.
+            cells.InB.Live = Gates.UsesB(gate);
             if (cells.ModeName != null)
             {
                 cells.ModeName.text = Gates.ModeLetter(gate);

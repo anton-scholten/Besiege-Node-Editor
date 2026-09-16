@@ -177,7 +177,15 @@ gates and timers.
   never moves sends no drag events at all, so nothing raised the menu count and
   Besiege panned its camera under the window; the press itself now takes the hold,
   and the window's own bar, rows and margins listen for it as the board already
-  did. The default AND and counter answer `var_1` and
+  did. **A board closed while a cell was listening for a key** left that cell's
+  menu count standing -- and the game reads the wheel below its own in-menu
+  check, so the camera stopped zooming; closing now gives the cell back first,
+  and a cell whose canvas goes out from under it gives itself back.
+- **A barred input takes no key and no name.** The input a gate does not read is
+  drawn over with diagonal lines, and the cell underneath went on taking clicks
+  through them: its bubble, its plate and its name box are all dead now, as the
+  barred switch beside them already was. What it holds is still held, and comes
+  back when a gate that reads it is chosen. The default AND and counter answer `var_1` and
   `var_2` for real: their names were never applied and fell back to `C`, so the two
   shared a key and a wire out of either was refused. A row added with `+` no longer
   copies the output of the row above. Every wire gesture follows one rule -- the port
